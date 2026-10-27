@@ -14,6 +14,7 @@ use anyhow::{Context as _, Result, anyhow};
 use async_trait::async_trait;
 use rodio::Source as _;
 
+use super::hls::Hls;
 use super::{tags, wire};
 use crate::aac::Aac;
 use crate::engine::{self, Fetch, Loudness};
@@ -21,6 +22,7 @@ use crate::{Encoding, PlaybackConfig, PlaybackEvents, PlaybackFactory, Player, r
 
 /// How long a station may take to answer before its load fails.
 const CONNECT: Duration = Duration::from_secs(10);
+const AGENT: &str = concat!("encore/", env!("CARGO_PKG_VERSION"));
 
 /// A file that opened and decodes, how long the decoder says it is, and the ReplayGain its tags
 /// carry. For a radio station, the connection a load opened, which the first decoder takes.
@@ -29,7 +31,7 @@ pub struct Loaded {
     length: Option<Duration>,
     loudness: Option<Loudness>,
     encoding: Option<Encoding>,
-    stream: Option<Arc<Mutex<Option<reqwest::blocking::Response>>>>,
+    stream: Option<Arc<Mutex<Option<Live>>>>,
 }
 
 #[derive(Default)]
@@ -124,27 +126,58 @@ impl Fetch for Local {
     }
 }
 
+/// A station's audio as it arrives: one endless HTTP response, or the segments of an HLS
+/// playlist joined end to end.
+enum Live {
+    Http(reqwest::blocking::Response),
+    Hls(Box<Hls>),
+}
+
+impl Live {
+    /// The type of audio the station sends, when it says.
+    fn mime(&self) -> Option<String> {
+        match self {
+            Self::Http(response) => response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .map(|value| {
+                    value
+                        .split(';')
+                        .next()
+                        .unwrap_or_default()
+                        .trim()
+                        .to_owned()
+                }),
+            Self::Hls(hls) => Some(hls.mime().to_owned()),
+        }
+    }
+}
+
+impl Read for Live {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            Self::Http(response) => response.read(buf),
+            Self::Hls(hls) => hls.read(buf),
+        }
+    }
+}
+
 /// What a decoder reads. A file is read from `skip` on, with every position counted from there,
 /// so the decoder never sees the ID3v2 tag in front of the audio: a seek back to the first frame
 /// then lands on that frame, not inside the tag, where a cover picture can pass for a frame
 /// header. A live stream only goes forward, and `read` counts how far it has.
 enum Audio {
-    File {
-        file: File,
-        skip: u64,
-    },
-    Stream {
-        response: reqwest::blocking::Response,
-        read: u64,
-    },
+    File { file: File, skip: u64 },
+    Stream { live: Live, read: u64 },
 }
 
 impl Read for Audio {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             Self::File { file, .. } => file.read(buf),
-            Self::Stream { response, read } => {
-                let count = response.read(buf)?;
+            Self::Stream { live, read } => {
+                let count = live.read(buf)?;
                 *read += count as u64;
                 Ok(count)
             }
@@ -188,32 +221,26 @@ fn client() -> &'static reqwest::blocking::Client {
     })
 }
 
-/// Connects to a station's stream. It blocks, so it runs off the async runtime.
-fn connect(stream: &str) -> Result<reqwest::blocking::Response> {
+/// Connects to a station's stream, or to its HLS playlist and first segment. It blocks, so it
+/// runs off the async runtime.
+fn connect(stream: &str) -> Result<Live> {
+    if radio::is_hls(stream) {
+        return Hls::open(client(), AGENT, stream).map(|hls| Live::Hls(Box::new(hls)));
+    }
     client()
         .get(stream)
-        .header("User-Agent", concat!("encore/", env!("CARGO_PKG_VERSION")))
+        .header("User-Agent", AGENT)
         .send()
         .context("cannot reach the station")?
         .error_for_status()
         .context("the station refused the stream")
+        .map(Live::Http)
 }
 
 /// Builds a decoder over a station's stream, guided by the type the station says it sends.
-fn listen(response: reqwest::blocking::Response) -> Result<rodio::Decoder<BufReader<Audio>>> {
-    let mime = response
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .map(|value| {
-            value
-                .split(';')
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_owned()
-        });
-    let reader = BufReader::new(Audio::Stream { response, read: 0 });
+fn listen(live: Live) -> Result<rodio::Decoder<BufReader<Audio>>> {
+    let mime = live.mime();
+    let reader = BufReader::new(Audio::Stream { live, read: 0 });
     let mut builder = rodio::Decoder::builder()
         .with_symphonia_decoder::<Aac>()
         .with_data(reader)

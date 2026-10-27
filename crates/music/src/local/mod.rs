@@ -1,4 +1,5 @@
 mod client;
+mod hls;
 mod id3;
 mod index;
 mod lyrics;

@@ -4,7 +4,7 @@
 //! A station's track id carries its stream address after [`RADIO_PREFIX`], so a queue or a
 //! history row that names a station needs nothing else to play it again.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
@@ -18,13 +18,69 @@ pub const RADIO_PREFIX: &str = "radio:";
 /// first.
 const STATIONS: &str = "https://all.api.radio-browser.info/json/stations/search\
                         ?countrycode=MA&hidebroken=true&order=clickcount&reverse=true&limit=300";
+/// Stations heard in Morocco that Radio Browser files under another country: Monte Carlo
+/// Doualiya, Urban Hit Maroc and 4U Classic Rock.
+const ABROAD: &str = "https://all.api.radio-browser.info/json/stations/byuuid?uuids=\
+                      c5c08ef9-5559-4073-87a8-80bff2b4860b,\
+                      422c303d-2e17-11ea-aa0c-52543be04c81,\
+                      71066c31-3c0f-47bf-ac4e-2ec0e417fba5";
+/// The prefixes some Radio Browser entries put before a station's name.
+const PREFIXES: [&str; 2] = ["MA:-", "MRC:-"];
+/// Station logos from the stations' own sites, for the ones whose Radio Browser entry has none
+/// or one that no longer loads. A station takes the logo of the first fragment its lowercase
+/// name contains.
+const LOGOS: [(&str, &str); 11] = [
+    (
+        "radio mars",
+        "https://radiomars.ma/wp-content/uploads/2026/03/cropped-radio_mars-192x192.png",
+    ),
+    (
+        "med radio",
+        "https://medradio.ma/wp-content/uploads/2023/08/cropped-med-fav-jpg-192x192.jpg",
+    ),
+    (
+        "medi1",
+        "https://www.medi1.com/assets/favicon/apple-touch-icon.png",
+    ),
+    (
+        "medi 1",
+        "https://www.medi1.com/assets/favicon/apple-touch-icon.png",
+    ),
+    (
+        "hit radio",
+        "https://www.hitradio.ma/small-logo-hitradio.png",
+    ),
+    (
+        "ness radio",
+        "https://nessradio.com/wp-content/uploads/2026/09/cropped-ness-radio-favicon-192x192.png",
+    ),
+    (
+        "cap radio",
+        "https://capradiotv.com/wp-content/uploads/2023/11/cropped-LOGO-PNG-CAP-RADIO-192x192.png",
+    ),
+    (
+        "aswat",
+        "https://radioaswat.ma/wp-content/themes/aswata108/img/icons/touch.png",
+    ),
+    (
+        "adwaa",
+        "https://adwaafm.com/wp-content/uploads/2023/11/cropped-fgfg-1-180x180.png",
+    ),
+    (
+        "sawt al",
+        "https://radiolive.ma/logos/radio-sawt-alamal.png",
+    ),
+    ("skyrock", "https://skyrock.fm/apple-touch-icon.png"),
+];
 const AGENT: &str = concat!(
     "encore/",
     env!("CARGO_PKG_VERSION"),
     " (https://github.com/scorpionTaj/encore)"
 );
-/// The stream formats the decoder plays. HLS playlists and anything else are left out.
+/// The stream formats the decoder plays. An HLS station plays only when its playlist carries
+/// AAC or MP3 segments.
 const PLAYABLE: [&str; 4] = ["MP3", "AAC", "AAC+", "OGG"];
+const HLS_PLAYABLE: [&str; 3] = ["MP3", "AAC", "AAC+"];
 /// How many tags a station's card names.
 const TAGS: usize = 3;
 
@@ -66,7 +122,7 @@ impl Station {
     pub fn track(&self) -> Track {
         Track {
             id: Some(format!("{RADIO_PREFIX}{}", self.stream)),
-            name: self.name.trim().to_owned(),
+            name: self.name.clone(),
             playable: true,
             artists: self.genres(),
             artist_refs: Vec::new(),
@@ -90,9 +146,43 @@ impl Station {
     }
 
     fn playable(&self) -> bool {
-        self.hls == 0
-            && !self.stream.is_empty()
-            && PLAYABLE.contains(&self.codec.to_ascii_uppercase().as_str())
+        let codec = self.codec.to_ascii_uppercase();
+        let formats: &[&str] = match self.hls {
+            0 => &PLAYABLE,
+            _ if is_hls(&self.stream) => &HLS_PLAYABLE,
+            _ => &[],
+        };
+        !self.stream.is_empty() && formats.contains(&codec.as_str())
+    }
+
+    /// Drops the prefix some entries carry and the stray spaces around and inside the name, and
+    /// puts a station's own logo in place of a missing or broken one.
+    fn tidy(mut self) -> Self {
+        let name = PREFIXES.iter().fold(self.name.trim(), |name, prefix| {
+            name.strip_prefix(prefix).unwrap_or(name)
+        });
+        self.name = name.split_whitespace().collect::<Vec<_>>().join(" ");
+        let lower = self.name.to_lowercase();
+        if let Some((_, logo)) = LOGOS.iter().find(|(fragment, _)| lower.contains(fragment)) {
+            self.favicon = (*logo).to_owned();
+        }
+        self
+    }
+
+    /// The stream address without the scheme, query and trailing marks that make one stream look
+    /// like two.
+    fn stream_key(&self) -> String {
+        let stream = self.stream.trim();
+        let stream = ["https://", "http://"]
+            .iter()
+            .find_map(|scheme| stream.strip_prefix(scheme))
+            .unwrap_or(stream);
+        stream
+            .split('?')
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches(['/', ';', '.'])
+            .to_lowercase()
     }
 }
 
@@ -101,15 +191,34 @@ pub fn is_radio_id(id: &str) -> bool {
     id.starts_with(RADIO_PREFIX)
 }
 
+/// Whether a stream address names an HLS playlist rather than the audio itself.
+pub fn is_hls(stream: &str) -> bool {
+    stream
+        .split('?')
+        .next()
+        .is_some_and(|path| path.to_ascii_lowercase().ends_with(".m3u8"))
+}
+
 /// The stream address a station's track id carries.
 pub fn stream_of(id: &str) -> Option<&str> {
     id.strip_prefix(RADIO_PREFIX)
 }
 
-/// The Moroccan stations that play, most listened to first, each name listed once.
+/// The Moroccan stations that play, most listened to first and the ones filed abroad last, each
+/// listed once. Only the Moroccan list is required: the stations abroad are left out when they
+/// cannot be read.
 pub async fn stations(http: &reqwest::Client) -> Result<Vec<Station>> {
-    let listed: Vec<Station> = http
-        .get(STATIONS)
+    let (listed, abroad) = tokio::join!(fetch(http, STATIONS), fetch(http, ABROAD));
+    let mut listed = listed?;
+    match abroad {
+        Ok(abroad) => listed.extend(abroad),
+        Err(error) => log::warn!("radio: cannot read the stations abroad: {error:#}"),
+    }
+    Ok(playable(listed))
+}
+
+async fn fetch(http: &reqwest::Client, url: &str) -> Result<Vec<Station>> {
+    http.get(url)
         .header("User-Agent", AGENT)
         .send()
         .await
@@ -118,21 +227,33 @@ pub async fn stations(http: &reqwest::Client) -> Result<Vec<Station>> {
         .context("radio browser refused the station list")?
         .json()
         .await
-        .context("cannot read the station list")?;
-    Ok(playable(listed))
+        .context("cannot read the station list")
 }
 
 /// Keeps the stations the decoder can play, and the first of any that share a name or a stream.
+/// A duplicate still lends its logo to the station kept when that one has none.
 fn playable(listed: Vec<Station>) -> Vec<Station> {
-    let mut names = HashSet::new();
-    let mut streams = HashSet::new();
-    listed
+    let mut kept: Vec<Station> = Vec::new();
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    for station in listed
         .into_iter()
         .filter(Station::playable)
-        .filter(|station| {
-            let named = names.insert(station.name.trim().to_lowercase());
-            let streamed = streams.insert(station.stream.trim_end_matches('.').to_owned());
-            named && streamed
-        })
-        .collect()
+        .map(Station::tidy)
+    {
+        let keys = [station.name.to_lowercase(), station.stream_key()];
+        match keys.iter().find_map(|key| seen.get(key).copied()) {
+            Some(index) => {
+                if kept[index].favicon.trim().is_empty() {
+                    kept[index].favicon = station.favicon;
+                }
+            }
+            None => {
+                for key in keys {
+                    seen.insert(key, kept.len());
+                }
+                kept.push(station);
+            }
+        }
+    }
+    kept
 }
