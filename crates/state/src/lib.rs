@@ -16,6 +16,7 @@ mod overload;
 mod pins;
 mod playback;
 mod queue;
+mod radio;
 mod remote;
 mod requirements;
 mod scan;
@@ -50,6 +51,7 @@ pub use overload::OutputLevel;
 pub use pins::{PinSort, Pins};
 pub use playback::{Origin, Playback, PlaybackState, Repeat, Sleep, Whence};
 pub use queue::{Named, Queue, Resume, Stub};
+pub use radio::{Radio, RadioState};
 pub use remote::{Remote, attach as attach_remote};
 pub use requirements::{Requirement, Requirements};
 pub use scan::Scan;
@@ -179,6 +181,7 @@ pub struct Encore {
     pub pins: Entity<Pins>,
     pub playback: Entity<Playback>,
     pub queue: Entity<Queue>,
+    pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
     pub scan: Entity<Scan>,
     pub scrobbling: Entity<Scrobbling>,
@@ -268,6 +271,7 @@ pub fn init(
     let signal = cx.new(|cx| Signal::new(playback.clone(), outputs.clone(), equalizer.clone(), cx));
     let wake = cx.new(|cx| Wake::new(settings.clone(), playback.clone(), io.clone(), cx));
     let updates = cx.new(|cx| Updates::new(settings.clone(), io.clone(), cx));
+    let radio = cx.new(|_| Radio::new(io.clone()));
     discord::attach(
         playback.clone(),
         settings.clone(),
@@ -289,6 +293,7 @@ pub fn init(
         pins,
         playback,
         queue,
+        radio,
         requirements,
         scan,
         scrobbling,

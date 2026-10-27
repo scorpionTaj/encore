@@ -14,6 +14,7 @@ use screens::equalizer::EqualizerView;
 use screens::history::HistoryView;
 use screens::home::HomeView;
 pub use screens::library::LibraryView;
+use screens::radio::RadioView;
 pub use screens::settings::SettingsView;
 use screens::song::SongView;
 use shared::adaptive::Adaptive;

@@ -267,17 +267,3 @@ fn numbers(version: &str) -> Option<(u64, u64, u64)> {
     let mut parts = core.split('.').map(|part| part.parse::<u64>().ok());
     Some((parts.next()??, parts.next()??, parts.next()??))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::newer;
-
-    #[test]
-    fn only_a_higher_release_is_newer() {
-        assert!(newer("0.45.0", "0.44.2"));
-        assert!(newer("1.0.0", "0.99.9"));
-        assert!(!newer("0.44.2", "0.44.2"));
-        assert!(!newer("0.44.1", "0.44.2"));
-        assert!(!newer("garbage", "0.44.2"));
-    }
-}

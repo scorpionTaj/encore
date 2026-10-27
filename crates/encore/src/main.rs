@@ -282,6 +282,7 @@ fn open_window(cx: &mut App) {
         pins: _,
         playback,
         queue,
+        radio: _,
         requirements: _,
         scan: _,
         scrobbling: _,

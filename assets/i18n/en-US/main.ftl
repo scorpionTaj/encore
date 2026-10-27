@@ -29,6 +29,17 @@ nav-albums = Albums
 nav-playlists = Playlists
 nav-artists = Artists
 nav-local = Your Library
+nav-radio = Radio
+radio-country = Morocco
+radio-reload = Reload
+radio-not-loaded = The stations could not be loaded. Check your connection and reload.
+radio-empty = No stations right now.
+filter-radio = Search stations
+count-stations =
+    { $count ->
+        [one] { $count } station
+       *[other] { $count } stations
+    }
 nav-back = Back
 nav-forward = Forward
 nav-sidebar = Toggle sidebar

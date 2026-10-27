@@ -13,6 +13,7 @@ pub mod musixmatch;
 pub mod netease;
 pub mod output;
 pub mod progress;
+pub mod radio;
 pub mod scrobble;
 mod sink;
 mod spectrum;

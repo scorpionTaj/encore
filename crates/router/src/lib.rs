@@ -20,13 +20,15 @@ pub enum NavEntry {
     Search,
     History,
     Local,
+    Radio,
     Pins,
 }
 
 impl NavEntry {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Home,
         Self::Search,
+        Self::Radio,
         Self::History,
         Self::Local,
         Self::Pins,
@@ -38,6 +40,7 @@ impl NavEntry {
             Self::Search => "search",
             Self::History => "history",
             Self::Local => "local",
+            Self::Radio => "radio",
             Self::Pins => "sidebar-pins",
         }
     }
@@ -48,6 +51,7 @@ impl NavEntry {
             Self::Search => "nav-search",
             Self::History => "nav-history",
             Self::Local => "nav-local",
+            Self::Radio => "nav-radio",
             Self::Pins => "nav-pinned",
         }
     }
@@ -62,16 +66,18 @@ pub enum Screen {
     Albums,
     Playlists,
     Artists,
+    Radio,
 }
 
 impl Screen {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Home,
         Self::Search,
         Self::Songs,
         Self::Albums,
         Self::Artists,
         Self::Playlists,
+        Self::Radio,
         Self::History,
     ];
 
@@ -84,6 +90,7 @@ impl Screen {
             Self::Albums => "albums",
             Self::Playlists => "playlists",
             Self::Artists => "artists",
+            Self::Radio => "radio",
         }
     }
 
@@ -96,6 +103,7 @@ impl Screen {
             Self::Albums => "nav-albums",
             Self::Playlists => "nav-playlists",
             Self::Artists => "nav-artists",
+            Self::Radio => "nav-radio",
         }
     }
 
@@ -112,6 +120,7 @@ impl Screen {
             Self::Albums => Destination::Local(LibraryTab::Albums),
             Self::Playlists => Destination::Local(LibraryTab::Playlists),
             Self::Artists => Destination::Local(LibraryTab::Artists),
+            Self::Radio => Destination::Radio,
         }
     }
 }
@@ -309,6 +318,8 @@ pub enum Destination {
     Song(SharedString),
     Playlist(SharedString),
     Artist(SharedString),
+    /// The Moroccan radio stations.
+    Radio,
     Search,
     Settings(SettingsPage),
     /// The equalizer's own settings page, opened from Sound.

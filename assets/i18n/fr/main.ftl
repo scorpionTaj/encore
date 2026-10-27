@@ -29,6 +29,17 @@ nav-albums = Albums
 nav-playlists = Playlists
 nav-artists = Artistes
 nav-local = Musique locale
+nav-radio = Radio
+radio-country = Maroc
+radio-reload = Recharger
+radio-not-loaded = Les stations n'ont pas pu être chargées. Vérifiez votre connexion et rechargez.
+radio-empty = Aucune station pour le moment.
+filter-radio = Rechercher des stations
+count-stations =
+    { $count ->
+        [one] { $count } station
+       *[other] { $count } stations
+    }
 nav-back = Retour
 nav-forward = Suivant
 nav-sidebar = Afficher ou masquer la barre latérale

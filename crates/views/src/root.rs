@@ -24,7 +24,7 @@ use crate::shells::Shell;
 use crate::shells::workspace::Workspace;
 use crate::{
     Adaptive, ArtistView, DetailView, EqualizerView, FullscreenView, HistoryView, HomeView,
-    LibraryView, SettingsView, SongView,
+    LibraryView, RadioView, SettingsView, SongView,
 };
 
 struct Screens {
@@ -40,6 +40,7 @@ struct Screens {
     playlist: Option<Entity<DetailView>>,
     playlist_detail: Option<Entity<Detail>>,
     search: Entity<SearchView>,
+    radio: Entity<RadioView>,
     /// The settings pages' view, whose search the settings header draws.
     settings: Entity<SettingsView>,
     /// The search field and page tabs floating over every settings page.
@@ -149,6 +150,9 @@ impl Root {
 
         let queries = cx.new(|cx| Search::new(session.clone(), search_library, io.clone(), cx));
         let search = cx.new(|cx| SearchView::new(queries, playback.clone(), cx));
+
+        let radio = Encore::global(cx).radio.clone();
+        let radio = cx.new(|cx| RadioView::new(radio, playback.clone(), cx));
 
         let settings = cx.new(|cx| SettingsView::new(session.clone(), playback.clone(), cx));
         let equalizer = Encore::global(cx).equalizer.clone();
@@ -261,6 +265,7 @@ impl Root {
                 playlist: None,
                 playlist_detail: None,
                 search,
+                radio,
                 settings,
                 settings_header,
                 equalizer,
@@ -524,6 +529,10 @@ impl Root {
                 let detail = self.screens.song_detail.clone();
                 Box::new(move |cx| detail.read(cx).is_loading())
             }
+            Destination::Radio => {
+                let radio = Encore::global(cx).radio.clone();
+                Box::new(move |cx| matches!(radio.read(cx).state(), state::RadioState::Loading))
+            }
             Destination::Search
             | Destination::Settings(_)
             | Destination::Equalizer
@@ -564,6 +573,10 @@ impl Root {
                 .screens
                 .song_detail
                 .update(cx, |detail, cx| detail.refresh(cx)),
+            Destination::Radio => {
+                let radio = Encore::global(cx).radio.clone();
+                radio.update(cx, |radio, cx| radio.reload(cx));
+            }
             Destination::Search
             | Destination::Settings(_)
             | Destination::Equalizer
@@ -764,6 +777,12 @@ impl Root {
                 artist.into()
             }
             Destination::Search => self.screens.search.clone().into(),
+            Destination::Radio => {
+                let radio = self.screens.radio.clone();
+                radio.update(cx, |radio, cx| radio.open(cx));
+                toolbar = Some(radio.read(cx).toolbar());
+                radio.into()
+            }
             Destination::Equalizer => {
                 header = Some(self.screens.settings_header.clone().into());
                 self.screens.equalizer.clone().into()
