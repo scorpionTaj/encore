@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0]
+
+### Added
+
+- A Radio page that plays Moroccan radio stations from Radio Browser.
+- A Format column showing each song's codec and quality, and a filter for lossless files.
+- Crossfade between songs, set from 2 to 8 seconds in the playback settings.
+- A floating mini player that stays on top of other windows.
+- Arabic translation.
+
+### Fixed
+
+- The credits list on the About page builds again.
+
 ## [1.0.0]
 
 ### Added
