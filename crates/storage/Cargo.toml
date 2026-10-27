@@ -10,5 +10,4 @@ bundled-sqlite = ["rusqlite/bundled"]
 [dependencies]
 anyhow.workspace = true
 dirs.workspace = true
-log.workspace = true
 rusqlite.workspace = true

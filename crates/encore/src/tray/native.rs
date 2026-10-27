@@ -135,8 +135,7 @@ impl Icon {
     /// Builds the status item, which puts it in the tray.
     fn build(&self) -> Result<TrayIcon> {
         let icon = TrayIconBuilder::new()
-            .with_icon(self.logo.clone())
-            .with_icon_as_template(true)
+            .with_icon_templated(self.logo.clone())
             .with_tooltip(&self.tooltip)
             .with_menu(Box::new(self.menu.clone()))
             .with_menu_on_left_click(MENU_ON_CLICK)

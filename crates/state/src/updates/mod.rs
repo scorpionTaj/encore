@@ -272,7 +272,7 @@ async fn download(
     }
     drop(file);
 
-    if format!("{:x}", hasher.finalize()) != expected {
+    if hex(&hasher.finalize()) != expected {
         std::fs::remove_file(&path).ok();
         anyhow::bail!("the update does not match its checksum");
     }
@@ -294,6 +294,10 @@ fn numbers(version: &str) -> Option<(u64, u64, u64)> {
     Some((parts.next()??, parts.next()??, parts.next()??))
 }
 
+/// A digest as lowercase hexadecimal, the way `SHA256SUMS` lists it.
+fn hex(digest: &[u8]) -> String {
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
 /// The entries of a release's notes: its `- ` list items, without the markers. Headings such as
 /// `### Added` and blank lines are left out.
 fn notes(body: &str) -> Vec<String> {

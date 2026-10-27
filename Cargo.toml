@@ -24,12 +24,12 @@ alsa = "0.11"
 anyhow = "1.0"
 ardftsrc = "0.4.4"
 async-trait = "0.1"
-base64 = "0.22"
+base64 = "0.23"
 bytes = "1"
 clap = { version = "4", default-features = false, features = ["std", "help", "usage", "error-context", "derive"] }
 flate2 = "1"
 cpal = "0.18"
-dirs = "6.0"
+dirs = "7.0"
 discord-rich-presence = "1.1"
 deunicode = "1.6"
 env_logger = "0.11"
@@ -126,7 +126,7 @@ resvg = { version = "0.46", default-features = false }
 ring = "0.17"
 rodio = { version = "0.22", default-features = false, features = ["playback"] }
 rtrb = "0.3"
-rusqlite = { version = "0.32" }
+rusqlite = { version = "0.41" }
 # Pinned exactly: a young crate, and the decoder every HE-AAC stream goes through.
 rusty_aac = { version = "=1.1.1", default-features = false }
 rustfft = "6.4"
@@ -134,12 +134,12 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 serde_norway = "0.9"
-sha2 = "0.10"
+sha2 = "0.11"
 souvlaki = "0.8"
 sys-locale = "0.3"
 symphonia = { version = "0.5.5", default-features = false, features = ["aac", "mkv", "ogg", "isomp4"] }
 tempfile = "3.27"
-tray-icon = { version = "0.24", default-features = false }
+tray-icon = { version = "0.26", default-features = false }
 unic-langid = { version = "0.9", features = ["macros"] }
 unicode-bidi = "0.3"
 unicode-segmentation = "1.12"
