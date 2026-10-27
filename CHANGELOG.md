@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1]
+
+### Fixed
+
+- The Radio page shows every station instead of only the first row.
+- Live radio no longer shows a 0:00 length or a seek bar.
+
 ## [1.1.0]
 
 ### Added
