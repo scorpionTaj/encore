@@ -14,6 +14,8 @@ use ui::{ActiveTheme as _, Button, SMALL_INSET, Text, corners};
 
 const ICON: Pixels = px(18.);
 const REACH: Pixels = px(400.);
+/// How many of a release's changes the update card lists before leaving the rest to the notes.
+const NOTES_SHOWN: usize = 5;
 /// Where Encore's README says what to install alongside it on Linux, which Encore shares.
 const INSTALL: &str = "https://github.com/scorpionTaj/encore#readme";
 
@@ -104,10 +106,14 @@ impl AppNotice {
         let updates = self.updates.read(cx);
         let state = updates.state().clone();
         let installable = updates.installable();
-        let (version, page) = match &state {
+        let (version, page, changes) = match &state {
             UpdateState::Quiet => return None,
-            UpdateState::Offered(release) => (release.version.clone(), release.page.clone()),
-            _ => (String::new(), String::new()),
+            UpdateState::Offered(release) => (
+                release.version.clone(),
+                release.page.clone(),
+                release.notes.clone(),
+            ),
+            _ => (String::new(), String::new(), Vec::new()),
         };
         let working = matches!(state, UpdateState::Fetching);
         let failed = matches!(state, UpdateState::Failed);
@@ -116,9 +122,18 @@ impl AppNotice {
             true => t!("update-failed"),
             false => t!("update-available", version = version.as_str()),
         };
-        let detail = (!failed).then(|| match installable {
-            true => t!("update-detail", running = state::VERSION),
-            false => t!("update-detail-notes", running = state::VERSION),
+        let detail = (!failed).then(|| {
+            let lead = match installable {
+                true => t!("update-detail", running = state::VERSION),
+                false => t!("update-detail-notes", running = state::VERSION),
+            };
+            changes
+                .iter()
+                .take(NOTES_SHOWN)
+                .fold(lead.to_string(), |text, change| {
+                    format!("{text}\n• {change}")
+                })
+                .into()
         });
 
         let close = self.updates.clone();

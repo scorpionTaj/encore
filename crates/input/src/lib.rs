@@ -22,6 +22,7 @@ actions!(
         OpenFilter,
         OpenSearch,
         OpenSettings,
+        CheckForUpdates,
         ToggleFullscreen,
         ToggleMiniPlayer,
         ToggleQueue,

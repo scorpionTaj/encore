@@ -1,9 +1,9 @@
 use gpui::{App, Context, Menu, MenuItem, OsAction};
 use i18n::t;
 use input::{
-    CloseWindow, DecreaseFontSize, Hide, HideOthers, IncreaseFontSize, MinimizeWindow,
-    OpenSettings, Quit, Redo, Refresh, ResetFontSize, ShowAll, SongNext, SongPrevious,
-    ToggleMiniPlayer, TogglePlayback, ToggleRepeat, ToggleShuffle, Undo, ZoomWindow,
+    CheckForUpdates, CloseWindow, DecreaseFontSize, Hide, HideOthers, IncreaseFontSize,
+    MinimizeWindow, OpenSettings, Quit, Redo, Refresh, ResetFontSize, ShowAll, SongNext,
+    SongPrevious, ToggleMiniPlayer, TogglePlayback, ToggleRepeat, ToggleShuffle, Undo, ZoomWindow,
 };
 use router::Destination;
 use state::{AppSettings, Encore, Equalizer, Shelf};
@@ -17,6 +17,10 @@ pub fn register(lingers: bool, cx: &mut App) {
 
     cx.on_action(|_: &Quit, cx: &mut App| cx.quit());
     cx.on_action(|_: &ToggleMiniPlayer, cx: &mut App| crate::mini::toggle(cx));
+    cx.on_action(|_: &CheckForUpdates, cx: &mut App| {
+        let updates = Encore::global(cx).updates.clone();
+        updates.update(cx, |updates, cx| updates.check(cx));
+    });
     cx.on_action(|_: &Hide, cx: &mut App| cx.hide());
     cx.on_action(|_: &HideOthers, cx: &mut App| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx: &mut App| cx.unhide_other_apps());
@@ -100,6 +104,8 @@ pub fn register(lingers: bool, cx: &mut App) {
 fn menus() -> Vec<Menu> {
     let app = match cfg!(target_os = "macos") {
         true => vec![
+            MenuItem::action(t!("app-check-updates"), CheckForUpdates),
+            MenuItem::separator(),
             MenuItem::action(t!("app-settings"), OpenSettings),
             MenuItem::separator(),
             MenuItem::action(t!("app-refresh"), Refresh),
@@ -114,6 +120,7 @@ fn menus() -> Vec<Menu> {
         false => vec![
             MenuItem::action(t!("app-refresh"), Refresh),
             MenuItem::action(t!("app-mini-player"), ToggleMiniPlayer),
+            MenuItem::action(t!("app-check-updates"), CheckForUpdates),
             MenuItem::separator(),
             MenuItem::action(t!("app-quit"), Quit),
         ],

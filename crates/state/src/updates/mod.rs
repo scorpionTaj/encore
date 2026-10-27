@@ -8,6 +8,7 @@ use gpui::{Context, Entity, Task};
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
 
+use crate::toast::{Outcome, Toasts};
 use crate::{AppSettings, Io, VERSION, join};
 use install::Install;
 
@@ -30,6 +31,8 @@ pub fn updates_itself() -> bool {
 pub struct Release {
     pub version: String,
     pub page: String,
+    /// The release's changes, one line per entry of its CHANGELOG.md section.
+    pub notes: Vec<String>,
     /// The disk image this install updates from, when the release carries one.
     package: Option<Asset>,
     sums: Option<String>,
@@ -49,6 +52,8 @@ pub struct Updates {
     http: reqwest::Client,
     io: Io,
     task: Option<Task<()>>,
+    /// Whether the person asked for this check, so it answers even when there is nothing new.
+    asked: bool,
 }
 
 impl Updates {
@@ -58,6 +63,7 @@ impl Updates {
             http: reqwest::Client::new(),
             io,
             task: None,
+            asked: false,
         };
         if settings.read(cx).check_updates() {
             updates.look(cx);
@@ -128,6 +134,16 @@ impl Updates {
         }));
     }
 
+    /// Looks for a newer release because the person asked, and says so when there is none or
+    /// GitHub cannot be reached. An install already under way is left alone.
+    pub fn check(&mut self, cx: &mut Context<Self>) {
+        if self.state == UpdateState::Fetching {
+            return;
+        }
+        self.asked = true;
+        self.look(cx);
+    }
+
     /// Asks GitHub for the newest release, and offers it when it is newer than this build.
     fn look(&mut self, cx: &mut Context<Self>) {
         let http = self.http.clone();
@@ -136,13 +152,20 @@ impl Updates {
             let found = join(io.spawn(async move { latest(&http).await })).await;
             this.update(cx, |this, cx| {
                 this.task = None;
+                let asked = std::mem::take(&mut this.asked);
                 match found {
                     Ok(Some(release)) => {
                         this.state = UpdateState::Offered(release);
                         cx.notify();
                     }
+                    Ok(None) if asked => Toasts::show(Outcome::Done, "update-current", cx),
                     Ok(None) => {}
-                    Err(error) => log::warn!("updates: cannot ask github: {error:#}"),
+                    Err(error) => {
+                        log::warn!("updates: cannot ask github: {error:#}");
+                        if asked {
+                            Toasts::show(Outcome::Failed, "update-check-failed", cx);
+                        }
+                    }
                 }
             })
             .ok();
@@ -154,6 +177,8 @@ impl Updates {
 struct Published {
     tag_name: String,
     html_url: String,
+    #[serde(default)]
+    body: Option<String>,
     #[serde(default)]
     assets: Vec<Asset>,
 }
@@ -197,6 +222,7 @@ async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
     Ok(Some(Release {
         version,
         page: published.html_url,
+        notes: notes(published.body.as_deref().unwrap_or_default()),
         package,
         sums,
     }))
@@ -266,4 +292,14 @@ fn numbers(version: &str) -> Option<(u64, u64, u64)> {
     let core = version.trim().split(['-', '+']).next()?;
     let mut parts = core.split('.').map(|part| part.parse::<u64>().ok());
     Some((parts.next()??, parts.next()??, parts.next()??))
+}
+
+/// The entries of a release's notes: its `- ` list items, without the markers. Headings such as
+/// `### Added` and blank lines are left out.
+fn notes(body: &str) -> Vec<String> {
+    body.lines()
+        .filter_map(|line| line.trim().strip_prefix("- "))
+        .map(|entry| entry.trim().to_owned())
+        .filter(|entry| !entry.is_empty())
+        .collect()
 }
