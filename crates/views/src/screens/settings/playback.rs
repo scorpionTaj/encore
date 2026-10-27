@@ -7,6 +7,7 @@ use i18n::t;
 use state::Sleep;
 use ui::{ActiveTheme as _, Scrubber, Switch};
 
+use super::rows::segmented;
 use super::{Group, SettingsView, Slot};
 
 /// How wide the sleep slider and the time beside it stand, in covers.
@@ -29,6 +30,7 @@ impl SettingsView {
             Group::new("settings-group-playing", "icons/play.svg").rows([
                 Slot::Normalisation,
                 Slot::Gapless,
+                Slot::Crossfade,
                 Slot::Sleep,
                 Slot::StayAwake,
             ]),
@@ -61,6 +63,29 @@ impl SettingsView {
                 }))
                 .into_any_element(),
         )
+    }
+
+    /// How long one track fades into the next, picked from a few lengths with Off first.
+    pub(super) fn crossfade_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let current = self.playback.read(cx).crossfade();
+        let choices = segmented(
+            "crossfade",
+            (0..=state::CROSSFADE_MAX).step_by(2).map(|seconds| {
+                let label = match seconds {
+                    0 => t!("settings-crossfade-off"),
+                    seconds => t!("settings-crossfade-seconds", count = seconds),
+                };
+                (seconds, label)
+            }),
+            current,
+            cx.listener(|this, seconds: &u32, _, cx| {
+                let seconds = *seconds;
+                this.playback
+                    .update(cx, |playback, cx| playback.set_crossfade(seconds, cx));
+            }),
+        );
+
+        self.row(t!("settings-crossfade"), choices.into_any_element())
     }
 
     pub(super) fn stay_awake_row(&self, cx: &mut Context<Self>) -> AnyElement {

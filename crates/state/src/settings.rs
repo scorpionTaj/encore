@@ -262,6 +262,8 @@ const DEFAULT_SIDEBAR_WIDTH: f32 = 195.;
 const DEFAULT_SIDEBAR_RIGHT_WIDTH: f32 = 254.;
 const DEFAULT_FONT_SIZE: f32 = 14.;
 const DEFAULT_LYRICS_SCALE: f32 = 1.;
+/// The longest crossfade, which has to fit inside the time the next track is lined up in.
+pub const CROSSFADE_MAX: u32 = 8;
 const DEFAULT_STARTUP: &str = "home";
 /// "Whatever the platform uses".
 pub const SYSTEM_FONT: &str = "auto";
@@ -285,6 +287,8 @@ struct Held {
 struct Values {
     normalisation: bool,
     gapless: bool,
+    /// How many seconds one track fades into the next, 0 for none.
+    crossfade: u32,
     /// Whether the listener put Encore offline, so it shows and plays only what was downloaded
     /// until they go online again.
     offline_mode: bool,
@@ -499,6 +503,7 @@ impl Default for Values {
         Self {
             normalisation: false,
             gapless: true,
+            crossfade: 0,
             offline_mode: false,
             equalizer: false,
             equalizer_bands: Vec::new(),
@@ -841,6 +846,11 @@ impl AppSettings {
 
     pub fn normalisation(&self) -> bool {
         self.values.normalisation
+    }
+
+    /// How long one track fades into the next, held to what the setting offers.
+    pub fn crossfade(&self) -> u32 {
+        self.values.crossfade.min(CROSSFADE_MAX)
     }
 
     pub fn gapless(&self) -> bool {
@@ -1285,6 +1295,11 @@ impl AppSettings {
 
     pub fn set_normalisation(&mut self, normalisation: bool, cx: &mut Context<Self>) {
         self.values.normalisation = normalisation;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_crossfade(&mut self, seconds: u32, cx: &mut Context<Self>) {
+        self.values.crossfade = seconds.min(CROSSFADE_MAX);
         self.schedule_save(cx);
     }
 

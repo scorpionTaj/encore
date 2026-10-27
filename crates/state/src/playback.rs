@@ -374,6 +374,7 @@ pub struct Playback {
     level: f32,
     normalisation: bool,
     gapless: bool,
+    crossfade: u32,
     /// The `state::Equalizer`'s reader, shared with every engine started here, so a change
     /// reaches the output without a restart.
     equalizer: music::Equalizer,
@@ -470,6 +471,7 @@ impl Playback {
         let level = settings.read(cx).volume();
         let normalisation = settings.read(cx).normalisation();
         let gapless = settings.read(cx).gapless();
+        let crossfade = settings.read(cx).crossfade();
         let (equalizer, meter) = (equalizer.read(cx).reader(), equalizer.read(cx).meter());
         let repeat = settings.read(cx).repeat();
         let radio = settings.read(cx).radio();
@@ -486,6 +488,7 @@ impl Playback {
             level,
             normalisation,
             gapless,
+            crossfade,
             equalizer,
             meter,
             analyzer: Analyzer::default(),
@@ -2097,6 +2100,22 @@ impl Playback {
         self.gapless
     }
 
+    pub fn crossfade(&self) -> u32 {
+        self.crossfade
+    }
+
+    /// Changes how many seconds one track fades into the next. The engine restarts, so the
+    /// current track reloads where it was.
+    pub fn set_crossfade(&mut self, seconds: u32, cx: &mut Context<Self>) {
+        if self.crossfade == seconds {
+            return;
+        }
+        self.crossfade = seconds;
+        self.settings
+            .update(cx, |settings, cx| settings.set_crossfade(seconds, cx));
+        self.restart_engine(cx);
+    }
+
     pub fn set_gapless(&mut self, on: bool, cx: &mut Context<Self>) {
         if self.gapless == on {
             return;
@@ -2162,6 +2181,7 @@ impl Playback {
         let config = PlaybackConfig {
             normalisation: self.normalisation,
             gapless: self.gapless,
+            crossfade: Duration::from_secs(u64::from(self.crossfade)),
             position_interval: POSITION_INTERVAL,
             gain: gain(self.level),
             equalizer: self.equalizer.clone(),

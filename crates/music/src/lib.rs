@@ -325,6 +325,8 @@ pub struct PlaybackConfig {
     pub gapless: bool,
     pub position_interval: Duration,
     pub gain: f32,
+    /// How long one track fades into the next. Zero joins them gaplessly instead.
+    pub crossfade: Duration,
     pub equalizer: Equalizer,
     /// Shared like `equalizer`: every output the engine opens reports its loudest sample here.
     pub meter: Meter,

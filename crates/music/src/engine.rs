@@ -330,6 +330,7 @@ async fn engine_loop<F: Fetch>(
     let audio_fetch = fetch.clone();
     let interval = config.position_interval;
     let normalisation = config.normalisation;
+    let crossfade = config.crossfade;
     let spawned = std::thread::Builder::new()
         .name(format!("{}-audio", fetch.name()))
         .spawn(move || {
@@ -343,6 +344,7 @@ async fn engine_loop<F: Fetch>(
                 audio_events,
                 interval,
                 normalisation,
+                crossfade,
             )
         });
     if let Err(error) = spawned {
@@ -737,6 +739,9 @@ struct Playing<F: Fetch> {
     /// The track's normalisation gain, applied to every sample as it is decoded. Each track
     /// carries its own, so a gapless join changes it on the first sample of the next one.
     gain: f32,
+
+    /// Frames decoded since `base`, which says how much of the track is still to come.
+    decoded: u64,
 }
 
 impl<F: Fetch> Playing<F> {
@@ -778,7 +783,16 @@ impl<F: Fetch> Playing<F> {
             base,
             offset,
             gain,
+            decoded: 0,
         })
+    }
+
+    /// How much of the track is left to decode, when the decoder knows its length.
+    fn remaining(&self) -> Option<Duration> {
+        let total = self.source.total_duration()?;
+        let done = self.base
+            + Duration::from_secs_f64(self.decoded as f64 / f64::from(self.rate).max(1.0));
+        Some(total.saturating_sub(done))
     }
 
     /// Where this track's sound is read from, given `rate`, the device's, which is what the queue
@@ -805,6 +819,7 @@ impl<F: Fetch> Playing<F> {
         for sample in self.source.by_ref().take(wanted) {
             samples.push(sample * self.gain);
         }
+        self.decoded += (samples.len() / usize::from(self.channels).max(1)) as u64;
         (!samples.is_empty()).then_some(samples)
     }
 }
@@ -825,6 +840,40 @@ impl Mark {
         let mine = cue.played().saturating_sub(self.offset);
         let frames = mine / u64::from(self.channels).max(1);
         self.base + Duration::from_secs_f64(frames as f64 / f64::from(self.rate).max(1.0))
+    }
+}
+
+/// The end of a track still sounding under the start of the next during a crossfade.
+struct Tail<F: Fetch> {
+    playing: Playing<F>,
+    /// Frames of the fade already written, and how many it lasts in all.
+    faded: u64,
+    frames: u64,
+}
+
+impl<F: Fetch> Tail<F> {
+    /// Mixes the next chunk of the ending track under `samples`, the start of the next one, on an
+    /// equal-power curve. Returns false once the ending track has nothing left to give.
+    fn mix(&mut self, samples: &mut [f32], channels: usize) -> bool {
+        let frames = samples.len() / channels.max(1);
+        let Some(under) = self.playing.take(frames, Vec::with_capacity(samples.len())) else {
+            return false;
+        };
+        for (frame, chunk) in samples.chunks_mut(channels.max(1)).enumerate() {
+            let progress =
+                ((self.faded + frame as u64) as f32 / self.frames.max(1) as f32).min(1.0);
+            let angle = progress * std::f32::consts::FRAC_PI_2;
+            let (rise, fall) = (angle.sin(), angle.cos());
+            for (channel, sample) in chunk.iter_mut().enumerate() {
+                let old = under
+                    .get(frame * channels + channel)
+                    .copied()
+                    .unwrap_or(0.0);
+                *sample = *sample * rise + old * fall;
+            }
+        }
+        self.faded += frames as u64;
+        self.faded < self.frames && under.len() >= samples.len()
     }
 }
 
@@ -851,6 +900,7 @@ fn audio_loop<F: Fetch>(
     events: UnboundedSender<PlaybackEvent>,
     interval: Duration,
     normalise: bool,
+    crossfade: Duration,
 ) {
     let mut paced = match Paced::open(cue.clone(), chain, changed.clone()) {
         Ok(paced) => paced,
@@ -871,6 +921,7 @@ fn audio_loop<F: Fetch>(
     let mut joining: Option<Join<F>> = None;
     let mut heard: Option<Mark> = None;
     let mut queued: Option<(String, F::Loaded)> = None;
+    let mut tail: Option<Tail<F>> = None;
     let mut playing = false;
     let mut reported_at = Instant::now();
 
@@ -934,6 +985,9 @@ fn audio_loop<F: Fetch>(
         }
 
         if let Some(job) = job {
+            if matches!(job, Job::Play { .. } | Job::Stop | Job::Seek(_)) {
+                tail = None;
+            }
             match job {
                 Job::Play {
                     id,
@@ -1080,6 +1134,52 @@ fn audio_loop<F: Fetch>(
             continue;
         }
 
+        // Near the end of a track with the next one lined up, the next one starts now and the
+        // ending one fades out under it. Tracks the mix cannot line up sample for sample, or
+        // a decoder that does not know its length, join gaplessly as before.
+        if !crossfade.is_zero()
+            && tail.is_none()
+            && joining.is_none()
+            && queued.is_some()
+            && let Some(left) = held.remaining().filter(|left| *left <= crossfade)
+        {
+            let (id, loaded) = queued.take().unwrap_or_else(|| unreachable!());
+            let duration = fetch.length(&loaded);
+            let kept = loaded.clone();
+            match Playing::open(
+                fetch.as_ref(),
+                &id,
+                loaded,
+                Duration::ZERO,
+                0,
+                normalise,
+                &events,
+            ) {
+                Some(mut next) if next.channels == held.channels && next.rate == held.rate => {
+                    let Some(ending) = current.take() else {
+                        continue;
+                    };
+                    next.offset = written + paced.held_back() as u64;
+                    joining = Some(Join {
+                        ended: ending.id.clone(),
+                        loaded: ending.loaded.clone(),
+                        next: Some((id, duration)),
+                        at: next.offset,
+                    });
+                    let frames = (left.as_secs_f64() * f64::from(ending.rate)) as u64;
+                    tail = Some(Tail {
+                        playing: ending,
+                        faded: 0,
+                        frames,
+                    });
+                    current = Some(next);
+                    continue;
+                }
+                _ => queued = Some((id, kept)),
+            }
+        }
+
+        let Some(held) = &mut current else { continue };
         let buffer = paced.buffer(held.samples(CHUNK));
         let Some(samples) = held.take(CHUNK, buffer) else {
             // the decoder is done, but its last samples are still queued
@@ -1126,6 +1226,12 @@ fn audio_loop<F: Fetch>(
             continue;
         };
 
+        let mut samples = samples;
+        if let Some(fading) = &mut tail
+            && !fading.mix(&mut samples, usize::from(held.channels))
+        {
+            tail = None;
+        }
         let Some(chunk) = packet(samples, held.channels, held.rate) else {
             continue;
         };
