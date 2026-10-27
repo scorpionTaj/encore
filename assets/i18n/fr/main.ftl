@@ -1,6 +1,4 @@
 # common
-common-on = Activé
-common-off = Désactivé
 common-left = Gauche
 common-right = Droite
 common-search = Rechercher
@@ -22,7 +20,6 @@ number-group = { " " }
 nav-history = Historique
 nav-home = Accueil
 nav-search = Recherche
-nav-library = Ma bibliothèque
 nav-settings = Paramètres
 nav-songs = Titres
 nav-albums = Albums
@@ -49,28 +46,19 @@ nav-unpin = Détacher
 nav-pin-hint = Déposer ici pour épingler
 library-liked-songs = Favoris
 library-play-liked-songs = Lire
-library-no-songs = Aucun favori pour l’instant
-library-no-albums = Aucun album enregistré pour l'instant
-library-no-playlists = Aucune playlist pour l'instant
-library-no-artists = Aucun artiste favori pour l'instant
 library-no-local-songs = Aucun titre importé trouvé
 library-no-local-albums = Aucun album importé trouvé
 library-no-local-artists = Aucun artiste importé
 library-no-local-playlists = Aucune playlist locale
-library-no-catalog-songs = Aucun titre trouvé
-library-no-catalog-albums = Aucun album trouvé
-library-no-catalog-artists = Aucun artiste trouvé
 library-no-matches = Aucun résultat
 library-not-loaded = Votre bibliothèque ne s’est pas chargée
 library-scanning = Analyse de vos dossiers…
-library-scanning-found = Analyse de vos dossiers… { $found } trouvés jusqu'ici
 library-scanning-progress = Lecture de votre musique… { $read } sur { $found }
 library-part-not-loaded = Cette partie de votre bibliothèque ne s’est pas chargée
 library-local-unconfigured = Configurez votre bibliothèque locale
 
 # app menu
 app-refresh = Actualiser
-app-sign-out = Se déconnecter
 app-quit = Quitter
 app-settings = Réglages…
 app-hide = Masquer Encore
@@ -146,17 +134,6 @@ menu-delete-track-files = { $count ->
     [one] Supprimer le fichier de { $count } titre
    *[other] Supprimer les fichiers de { $count } titres
 }
-menu-download = Télécharger
-menu-download-tracks = { $count ->
-    [one] Télécharger { $count } titre
-   *[other] Télécharger { $count } titres
-}
-menu-remove-download = Supprimer le téléchargement
-menu-remove-downloads = { $count ->
-    [one] Supprimer { $count } téléchargement
-   *[other] Supprimer { $count } téléchargements
-}
-menu-downloading = Téléchargement en cours. Cliquer pour arrêter
 menu-play-next = Lire juste après
 menu-play-tracks-next = { $count ->
     [one] Lire { $count } titre juste après
@@ -274,39 +251,7 @@ mini-player = Mini lecteur
 mini-player-progress = Progression du morceau
 app-mini-player = Mini lecteur
 player-fullscreen-leave = Quitter le plein écran
-player-devices = Appareils
-devices-this-computer = Cet ordinateur
-devices-pause = Pause
-devices-resume = Reprendre
-devices-jam-join = Rejoindre une Jam…
-devices-jam-join-title = Rejoindre une Jam
-devices-jam-join-detail = Collez le lien qu'un ami vous a envoyé
-devices-jam-paste = Coller
-devices-jam-link-hint = Lien de la Jam
-devices-jam-start = Lancer une Jam
-devices-jam-copy = Copier le lien de la Jam
-devices-jam-code = Code QR
 devices-jam-code-menu = Afficher le code QR
-devices-jam-code-title = Scannez pour rejoindre la Jam de { $host }
-devices-jam-code-title-anonymous = Scannez pour rejoindre la Jam
-devices-jam-code-close = Fermer
-devices-jam-leave = Quitter la Jam
-devices-jam-end = Terminer la Jam
-devices-jam-banner = Dans la Jam de { $host }
-devices-jam-banner-anonymous = Dans une Jam
-devices-jam-more = +{ $count }
-devices-jam-host = Hôte
-devices-jam-you = Vous
-devices-jam-remove = Retirer
-devices-jam-invite-title = Rejoindre la Jam de { $host } ?
-devices-jam-invite-title-anonymous = Rejoindre cette Jam ?
-devices-jam-invite-detail = { $count ->
-    [one] { $count } personne est déjà dans cette Jam.
-   *[other] { $count } personnes sont déjà dans cette Jam.
-}
-devices-jam-invite-join = Rejoindre
-devices-elsewhere-banner = Lecture sur { $device }
-devices-elsewhere-here = Lire ici
 fullscreen-artwork = Pochette
 
 # filters
@@ -324,7 +269,6 @@ filter-year = Année
 filter-hide-explicit = Masquer les explicites
 filter-playable = Lisibles uniquement
 filter-favorites = Favoris uniquement
-filter-downloaded = Téléchargés
 filter-owned = Par vous
 
 # view
@@ -337,54 +281,6 @@ tool-sort = Trier
 tool-filters = Filtres
 
 # login
-login-signed-out = Connectez-vous pour charger votre bibliothèque musicale
-login-restoring = Vérification de votre session enregistrée…
-login-authorizing = En attente de l'autorisation dans votre navigateur…
-login-signed-in = Connecté en tant que { $name }
-login-failed-title = Échec de la connexion
-login-problem-region = Spotify n'ouvre pas de session depuis le pays où vous êtes. Connectez-vous depuis votre pays d'origine, ou changez le pays de votre compte Spotify.
-login-problem-credentials = Votre session Spotify enregistrée n'est plus valide. Reconnectez-vous pour continuer.
-login-problem-network = Encore n'a pas pu joindre le service de musique. Vérifiez votre connexion internet et réessayez.
-login-problem-cancelled = Vous avez fermé la page du navigateur avant d'approuver la connexion. Recommencez pour aller au bout.
-login-problem-refused = Spotify a refusé la connexion. Patientez un instant et réessayez.
-login-problem-premium = Encore diffuse via Spotify Premium, et ce compte ne l'a pas. Connectez-vous avec un compte Premium pour continuer.
-login-sign-in = Se connecter avec { $provider }
-login-connect-cookies = Coller les cookies manuellement
-login-cookie-open = Ouvrir { $provider }
-login-cookie-submit = Continuer
-login-cookie-hint = Collez ici l'en-tête de requête Cookie
-login-cookie-step-1 = Ouvrez music.youtube.com et vérifiez que vous êtes connecté. Une fenêtre de navigation privée fonctionne le mieux.
-login-cookie-step-2 = Appuyez sur F12, ouvrez l'onglet Réseau et rechargez la page.
-login-cookie-step-3 = Sélectionnez une requête nommée « browse » ou « next ».
-login-cookie-step-4 = Dans les en-têtes, trouvez Cookie sous les en-têtes de requête, faites un clic droit dessus et copiez sa valeur.
-login-cookie-step-note = Collez la valeur entière ci-dessous : le panneau Cookies de la requête ne suffit pas, car la valeur doit contenir SAPISID et __Secure-3PAPISID.
-login-cookie-header-title = Collez vos cookies { $provider } pour terminer la connexion
-login-cookie-apple-step-3 = Sélectionnez n'importe quelle requête vers { $site }.
-login-cookie-apple-note = Veillez à coller la valeur entière, y compris { $cookie }.
-login-cookie-named-title = Collez votre cookie { $provider } pour terminer la connexion
-login-cookie-named-hint = Collez ici la valeur du cookie
-login-cookie-named-step-1 = Ouvrez { $site } et vérifiez que vous êtes connecté.
-login-cookie-named-step-2 = Appuyez sur F12 et ouvrez l'onglet Stockage dans Firefox, ou l'onglet Application dans Chrome.
-login-cookie-named-step-3 = Dépliez Cookies, sélectionnez { $site } et trouvez le cookie nommé { $cookie }.
-login-cookie-named-step-4 = Double-cliquez sur sa valeur et copiez-la.
-login-cookie-named-note = La valeur de { $cookie } seule suffit. Un en-tête Cookie entier copié depuis l'onglet Réseau fonctionne aussi.
-login-window-title = Connexion à { $provider }
-login-use = Utiliser { $provider }
-login-guest-title = Mode invité
-login-guest-use = Utiliser le mode invité
-login-guest-detail = Parcourez et écoutez sans compte. Votre bibliothèque, vos likes et vos playlists restent hors de portée.
-login-usage-consent = Aidez-nous à estimer combien de personnes utilisent Encore.
-login-device-code = Saisissez ce code sur { $url }
-login-server-title = Connectez-vous à votre serveur Subsonic
-login-server-detail = Saisissez l'adresse d'un serveur Subsonic ou OpenSubsonic (Navidrome, Airsonic, Gonic, …), puis connectez-vous avec votre nom d'utilisateur et votre mot de passe du serveur. La session reste sur cet appareil.
-login-server-hint = https://music.example.com
-login-username-hint = Nom d'utilisateur
-login-password-hint = Mot de passe
-login-server-submit = Se connecter
-login-account-title = Choisir un compte
-login-account-detail = Cette session est connectée à plusieurs comptes Google. Choisissez celui que Encore doit utiliser.
-login-choose-title = Se connecter à { $provider }
-login-choose-detail = Choisissez comment vous connecter à { $provider }.
 
 # album and playlist pages
 detail-playlist = Playlist
@@ -422,16 +318,6 @@ album-tab-artists = Artistes
 album-label = ℗ { $label }
 
 # user profile page
-user-eyebrow = Profil
-user-followers = { $count ->
-    [one] { $value } abonné
-   *[other] { $value } abonnés
-}
-user-following = { $count ->
-    [one] { $value } abonnement
-   *[other] { $value } abonnements
-}
-user-playlists = Playlists publiques
 user-playlists-empty = Aucune playlist publique pour le moment
 
 # release kinds
@@ -441,7 +327,6 @@ release-compilation = Compilation
 release-ep = EP
 release-audiobook = Livre audio
 release-podcast = Podcast
-release-meta = { $year } • { $kind }
 
 # home page
 home-quick-picks = Sélection rapide
@@ -454,7 +339,6 @@ home-collection-albums = Albums de votre collection
 
 # search page
 search-placeholder = Que voulez-vous écouter ?
-search-browse = Tout parcourir
 genre-empty = Rien à afficher ici pour l'instant
 search-best-match = Meilleur résultat
 search-no-matches = Aucun résultat
@@ -477,7 +361,6 @@ kind-playlist = Playlist
 song-eyebrow = Titre
 song-play = Lire le titre
 song-view-album = Voir l'album
-song-loading = Chargement des informations du titre…
 song-about = À propos de ce titre
 song-album = Album
 song-released = Sortie
@@ -825,20 +708,6 @@ settings-widevine-missing = Non installé
 settings-widevine-configured = Défini par l'environnement
 settings-widevine-fetch = Télécharger
 settings-widevine-uninstall = Désinstaller
-confirm-uninstall-widevine-title = Désinstaller le module Widevine ?
-confirm-uninstall-widevine = Encore supprime la copie téléchargée depuis Google. Les titres Apple Music ne pourront plus être lus tant que Encore ne l'aura pas téléchargée à nouveau.
-confirm-remove-downloads-title = Supprimer tous les téléchargements ?
-confirm-remove-downloads = Tous les titres téléchargés sont supprimés de cet ordinateur, pour tous les services. Ils seront de nouveau lus en streaming jusqu'à ce que vous les téléchargiez à nouveau.
-widevine-prompt-title = Module Widevine
-widevine-prompt-wanted = Les titres Apple Music sont chiffrés et nécessitent le module Widevine de Google. Aucun navigateur de cet ordinateur ne le fournit. Encore peut le télécharger depuis les serveurs de Google, le même fichier que celui installé par Chrome, et le garder dans son propre dossier.
-widevine-prompt-replace = Les titres Apple Music sont chiffrés et nécessitent le module Widevine de Google. Un navigateur de cet ordinateur le fournit déjà, mais Encore peut télécharger la copie officielle de Google pour l'utiliser à la place : le même fichier que celui installé par Chrome, gardé dans son propre dossier.
-widevine-prompt-downloading = Téléchargement…
-widevine-prompt-terms = La version { $version } est téléchargée. L'installer implique d'accepter les conditions de Google pour ce module :
-widevine-prompt-installing = Installation…
-widevine-prompt-download = Télécharger
-widevine-prompt-later = Plus tard
-widevine-prompt-accept = Accepter et installer
-widevine-prompt-decline = Refuser
 settings-equalizer = Égaliseur
 settings-equalizer-detail = Façonne le son avec un préréglage ou une courbe personnalisée
 settings-equalizer-preset-detail = Un son prêt à l'emploi, ou l'un de vos profils
@@ -941,8 +810,6 @@ equalizer-rule-choose-sound = Choisir un son
 equalizer-rule-add = Ajouter une règle
 equalizer-rule-remove = Retirer la règle
 equalizer-output-port = { $device } · { $port }
-signal-path-codec-alac = ALAC
-signal-path-codec-pcm = PCM
 signal-path-codec-other = Autre codec
 equalizer-invalid-frequency = La fréquence doit être comprise entre { $low } et { $high } Hz
 equalizer-invalid-gain = Le gain doit être compris entre { $low } et { $high } dB
@@ -1122,7 +989,6 @@ toast-queued-artist = Artiste ajouté à la file d'attente
 toast-next-artist = L'artiste sera lu juste après
 toast-last-artist = L'artiste sera lu en dernier
 toast-queue-failed = Impossible d'ajouter cela à la file d'attente
-toast-queue-local-elsewhere = Les fichiers locaux ne peuvent pas être ajoutés à la file d'un autre appareil
 toast-queued-tracks = { $count } titres ajoutés à la file d'attente
 toast-next-tracks = { $count } titres seront lus juste après
 toast-last-tracks = { $count } titres seront lus en dernier
@@ -1136,22 +1002,11 @@ toast-open-failed = Impossible d'ouvrir { $name }
 toast-open-unsupported = { $name } n'est pas un fichier audio que Encore peut lire
 toast-open-all-failed = { $count } fichiers n'ont pas pu être ouverts
 toast-open-some-failed = Certains fichiers n'ont pas pu être ouverts
-toast-keys-error = Erreur de clé de lecture
-toast-keys-refused = Spotify peut échouer
-toast-why = Pourquoi ?
-toast-sign-in-to-play = { $name } ne diffuse qu'aux auditeurs connectés
-toast-restore-failed = { $name } n'a pas pu se reconnecter, Encore a donc continué sans
 toast-track-unplayable = { $name } n'a pas pu être lu
 toast-playback-stopped = Lecture arrêtée : plusieurs titres d'affilée n'ont pas pu être lus
-toast-widevine-failed = Échec de la lecture
-toast-widevine-borrowed = Essayez de mettre à jour Widevine
-toast-open-settings = Paramètres
-toast-throttled = { $name } limite la lecture pour l'instant. Nouvel essai dans un moment
-toast-still-throttled = { $name } limite toujours la lecture. Appuyez sur Lecture pour réessayer
 toast-library-add-failed = { $name } n'a pas pu être ajouté à votre bibliothèque
 toast-library-remove-failed = { $name } n'a pas pu être retiré de votre bibliothèque
 toast-library-added = Ajouté à votre bibliothèque
-toast-library-removed = Retiré de votre bibliothèque
 toast-library-removed-one = { $name } retiré de votre bibliothèque
 toast-library-songs-removed = { $count ->
         [one] Un titre retiré
@@ -1216,8 +1071,6 @@ requirement-audio-bridge = { $server ->
 }
 requirement-audio-output-title = Aucune sortie audio
 requirement-audio-output = Encore n'a pas pu ouvrir votre périphérique audio, donc rien de ce que vous écoutez n'est audible. Vérifiez qu'un périphérique est connecté et qu'aucune autre appli ne l'occupe.
-requirement-web-engine-title = La connexion par navigateur est indisponible
-requirement-web-engine = Installez webkit2gtk-4.1 pour vous connecter à YouTube Music, Deezer ou Apple Music dans une fenêtre de navigateur. D'ici là, collez plutôt vos cookies.
 requirement-help = Que faut-il installer
 settings-check-updates = Rechercher des mises à jour
 settings-check-updates-detail = Demander une fois à GitHub au démarrage si une version plus récente existe. Encore installe la mise à jour elle-même uniquement sous Windows ; ailleurs, elle vous montre ce qui a changé
@@ -1253,13 +1106,6 @@ toast-output-select-failed = Impossible de sélectionner { $name }
 toast-output-default-failed = Impossible de sélectionner le périphérique par défaut du système
 
 nav-pin = Épingler
-toast-library-pin-failed = Impossible de mettre à jour l'épingle dans Spotify.
-toast-jam-unreadable = Ce lien ne mène à aucune Jam que vous pouvez rejoindre.
-toast-jam-needs-connect = Activez « Afficher comme appareil Spotify » dans les paramètres pour rejoindre une Jam
-toast-jam-failed = La Jam n'a pas pu être lancée ou rejointe.
-toast-jam-ended = Jam terminée
-toast-jam-left = Vous avez quitté la Jam
-toast-jam-leave-failed = La Jam n'a pas pu être terminée ou quittée.
 nav-nothing-pinned = Rien ici
 nav-pins-alphabetical = Alphabétique
 nav-pins-kind = Par type
@@ -1271,45 +1117,18 @@ trouble-offline = Pas de connexion
 trouble-offline-detail = Vérifiez votre connexion internet et réessayez.
 trouble-not-loaded = Chargement impossible
 trouble-retry = Réessayer
-toast-offline = Pas de connexion. Aucune lecture en streaming tant qu'elle n'est pas rétablie.
-toast-offline-unsupported = { $name } ne lit les téléchargements qu'en ligne.
-toast-offline-mode = Vous êtes hors ligne. Passez en ligne pour écouter ce titre en streaming.
 offline-title = Vous êtes hors ligne.
 offline-go-online = Passer en ligne
-toast-download-failed = Impossible de lister les titres à télécharger.
-toast-downloading = Téléchargement de { $name }
-toast-downloading-songs = { $count ->
-    [one] Téléchargement de { $count } titre
-   *[other] Téléchargement de { $count } titres
-}
-toast-downloaded = { $name } téléchargé
-toast-downloaded-songs = { $count ->
-    [one] { $count } titre téléchargé
-   *[other] { $count } titres téléchargés
-}
-toast-download-set-failed = Certains titres de { $name } n'ont pas pu être téléchargés
-toast-download-song-failed = { $name } n'a pas pu être téléchargé
-toast-download-songs-failed = Certains titres n'ont pas pu être téléchargés
 toast-percent = { $percent } %
-toast-download-cancelled = Téléchargement de { $name } annulé
-toast-downloads-cancelled = { $count ->
-    [one] Téléchargement de { $count } titre annulé
-   *[other] Téléchargement de { $count } titres annulé
-}
 toast-settings-broken = Corrigez la ligne { $name } de settings.json pour enregistrer les modifications
 toast-tray-unavailable = Il n'y a pas de zone de notification où placer l'icône
 toast-undo = Annuler
 toast-link-copied = Lien copié
-toast-link-sign-in = Connectez-vous à { $name } pour ouvrir ce lien
 toast-link-unreadable = Ce lien ne mène à rien que Encore puisse ouvrir
-toast-code-copied = Code copié
 menu-copy-link-none = Aucun lien à partager
 menu-copy-link-local = Les artistes et playlists locaux n'ont pas de lien
 toast-settings-save-failed = Les paramètres n'ont pas pu être enregistrés
 toast-settings-overwritten = settings.json a changé sur le disque, votre dernière modification n'a donc pas été enregistrée
-toast-widevine-download-failed = Widevine n'a pas pu être téléchargé
-toast-widevine-install-failed = Widevine n'a pas pu être installé
-toast-widevine-remove-failed = Widevine n'a pas pu être supprimé
 toast-library-scanned = { $count ->
     [one] Bibliothèque analysée, un titre trouvé
    *[other] Bibliothèque analysée, { $count } titres trouvés

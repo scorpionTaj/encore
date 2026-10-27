@@ -7,15 +7,17 @@ pub const AUTO: &str = "auto";
 pub enum Language {
     English,
     French,
+    Arabic,
 }
 
 impl Language {
-    pub const ALL: [Self; 2] = [Self::English, Self::French];
+    pub const ALL: [Self; 3] = [Self::English, Self::French, Self::Arabic];
 
     pub fn id(self) -> &'static str {
         match self {
             Self::English => "en-US",
             Self::French => "fr",
+            Self::Arabic => "ar",
         }
     }
 
@@ -23,6 +25,7 @@ impl Language {
         match self {
             Self::English => "English",
             Self::French => "Français",
+            Self::Arabic => "العربية",
         }
     }
 
@@ -46,6 +49,7 @@ impl Language {
         match self {
             Self::English => langid!("en-US"),
             Self::French => langid!("fr"),
+            Self::Arabic => langid!("ar"),
         }
     }
 
@@ -53,6 +57,7 @@ impl Language {
         match self {
             Self::English => include_str!("../../../assets/i18n/en-US/main.ftl"),
             Self::French => include_str!("../../../assets/i18n/fr/main.ftl"),
+            Self::Arabic => include_str!("../../../assets/i18n/ar/main.ftl"),
         }
     }
 }

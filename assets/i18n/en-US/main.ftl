@@ -1,6 +1,4 @@
 # common
-common-on = On
-common-off = Off
 common-left = Left
 common-right = Right
 common-search = Search
@@ -22,7 +20,6 @@ number-group = { "," }
 nav-history = History
 nav-home = Home
 nav-search = Search
-nav-library = Your Library
 nav-settings = Settings
 nav-songs = Songs
 nav-albums = Albums
@@ -49,28 +46,19 @@ nav-unpin = Unpin
 nav-pin-hint = Drop here to pin
 library-liked-songs = Favorites
 library-play-liked-songs = Play
-library-no-songs = No favorites yet
-library-no-albums = No saved albums yet
-library-no-playlists = No playlists yet
-library-no-artists = No favorite artists yet
 library-no-local-songs = No imported songs found
 library-no-local-albums = No imported albums found
 library-no-local-artists = No imported artists found
 library-no-local-playlists = No local playlists yet
-library-no-catalog-songs = No songs found
-library-no-catalog-albums = No albums found
-library-no-catalog-artists = No artists found
 library-no-matches = No matches
 library-not-loaded = Your library did not load
 library-scanning = Looking through your folders…
-library-scanning-found = Looking through your folders… { $found } so far
 library-scanning-progress = Reading your music… { $read } of { $found }
 library-part-not-loaded = This part of your library did not load
 library-local-unconfigured = Configure your local library
 
 # app menu
 app-refresh = Refresh
-app-sign-out = Sign Out
 app-quit = Quit
 app-settings = Settings…
 app-hide = Hide Encore
@@ -143,17 +131,6 @@ menu-remove-tracks-from-history = { $count ->
 }
 menu-delete-track-file = Delete track file
 menu-delete-track-files = Delete { $count } track files
-menu-download = Download
-menu-download-tracks = { $count ->
-    [one] Download { $count } track
-   *[other] Download { $count } tracks
-}
-menu-remove-download = Remove download
-menu-remove-downloads = { $count ->
-    [one] Remove { $count } download
-   *[other] Remove { $count } downloads
-}
-menu-downloading = Downloading. Click to stop
 menu-play-next = Play next
 menu-play-tracks-next = { $count ->
     [one] Play { $count } track next
@@ -271,39 +248,7 @@ mini-player = Mini player
 mini-player-progress = Song progress
 app-mini-player = Mini Player
 player-fullscreen-leave = Leave Now playing
-player-devices = Devices
-devices-this-computer = This computer
-devices-pause = Pause
-devices-resume = Resume
-devices-jam-join = Join a Jam…
-devices-jam-join-title = Join a Jam
-devices-jam-join-detail = Paste the link a friend shared with you
-devices-jam-paste = Paste
-devices-jam-link-hint = Jam link
-devices-jam-start = Start a Jam
-devices-jam-copy = Copy Jam link
-devices-jam-code = QR code
 devices-jam-code-menu = Show QR code
-devices-jam-code-title = Scan to join { $host }'s Jam
-devices-jam-code-title-anonymous = Scan to join the Jam
-devices-jam-code-close = Close
-devices-jam-leave = Leave Jam
-devices-jam-end = End Jam
-devices-jam-banner = In { $host }'s Jam
-devices-jam-banner-anonymous = In a Jam
-devices-jam-more = +{ $count }
-devices-jam-host = Host
-devices-jam-you = You
-devices-jam-remove = Remove
-devices-jam-invite-title = Join { $host }'s Jam?
-devices-jam-invite-title-anonymous = Join this Jam?
-devices-jam-invite-detail = { $count ->
-    [one] { $count } person is already in this Jam.
-   *[other] { $count } people are already in this Jam.
-}
-devices-jam-invite-join = Join
-devices-elsewhere-banner = Playing on { $device }
-devices-elsewhere-here = Play here
 fullscreen-artwork = Artwork
 
 # filters
@@ -321,7 +266,6 @@ filter-year = Year
 filter-hide-explicit = Hide explicit
 filter-playable = Playable only
 filter-favorites = Favorites only
-filter-downloaded = Downloaded
 filter-owned = By you
 
 # view
@@ -334,54 +278,6 @@ tool-sort = Sort
 tool-filters = Filters
 
 # login
-login-signed-out = Sign in to load your music library
-login-restoring = Checking your saved session…
-login-authorizing = Waiting for authorization in your browser…
-login-signed-in = Signed in as { $name }
-login-failed-title = Sign-in failed
-login-problem-region = Spotify will not open a session from the country you are in. Sign in from your home country, or change the country on your Spotify account.
-login-problem-credentials = Your saved session for this service is no longer valid. Sign in again to continue.
-login-problem-network = Encore could not reach the music service. Check your internet connection and try again.
-login-problem-cancelled = The sign-in was not approved in the browser, or ran out of time. Start again to finish.
-login-problem-refused = Spotify turned down the sign-in. Wait a moment and try again.
-login-problem-premium = Encore streams through Spotify Premium, and this account does not have it. Sign in with a Premium account to continue.
-login-sign-in = Sign in with { $provider }
-login-connect-cookies = Paste cookies manually
-login-cookie-open = Open { $provider }
-login-cookie-submit = Continue
-login-cookie-hint = Paste the Cookie request header here
-login-cookie-step-1 = Open music.youtube.com and make sure you are signed in. An incognito window works best.
-login-cookie-step-2 = Press F12, open the Network tab and reload the page.
-login-cookie-step-3 = Select any request named "browse" or "next".
-login-cookie-step-4 = In Headers, find Cookie under Request Headers, right-click it and copy its value.
-login-cookie-step-note = Make sure to paste the whole value, including SAPISID and __Secure-3PAPISID.
-login-cookie-header-title = Paste your { $provider } cookies to finish signing in
-login-cookie-apple-step-3 = Select any request to { $site }.
-login-cookie-apple-note = Make sure to paste the whole value, including { $cookie }.
-login-cookie-named-title = Paste your { $provider } cookie to finish signing in
-login-cookie-named-hint = Paste the cookie value here
-login-cookie-named-step-1 = Open { $site } and make sure you are signed in.
-login-cookie-named-step-2 = Press F12 and open the Storage tab in Firefox, or the Application tab in Chrome.
-login-cookie-named-step-3 = Expand Cookies, select { $site } and find the cookie named { $cookie }.
-login-cookie-named-step-4 = Double-click its value and copy it.
-login-cookie-named-note = The { $cookie } value alone is enough. A whole Cookie header copied from the Network tab works too.
-login-window-title = Sign in to { $provider }
-login-use = Use { $provider }
-login-guest-title = Guest mode
-login-guest-use = Use Guest mode
-login-guest-detail = Browse and play without an account. Your library, likes and playlists stay out of reach.
-login-usage-consent = Help us estimate how many people use Encore.
-login-device-code = Enter this code at { $url }
-login-server-title = Connect to your Subsonic server
-login-server-detail = Enter the address of any Subsonic or OpenSubsonic server (Navidrome, Airsonic, Gonic, …), then sign in with your server username and password. The session stays on this device.
-login-server-hint = https://music.example.com
-login-username-hint = Username
-login-password-hint = Password
-login-server-submit = Connect
-login-account-title = Choose an account
-login-account-detail = This session is signed in to more than one Google account. Pick the one Encore should use.
-login-choose-title = Sign in to { $provider }
-login-choose-detail = Choose how to sign in to { $provider }.
 
 # album and playlist pages
 detail-playlist = Playlist
@@ -419,15 +315,6 @@ album-tab-artists = Artists
 album-label = ℗ { $label }
 
 # user profile page
-user-eyebrow = Profile
-user-followers = { $count ->
-    [one] { $value } follower
-   *[other] { $value } followers
-}
-user-following = { $count ->
-   *[other] { $value } following
-}
-user-playlists = Public playlists
 user-playlists-empty = No public playlists yet
 
 # release kinds
@@ -437,7 +324,6 @@ release-compilation = Compilation
 release-ep = EP
 release-audiobook = Audiobook
 release-podcast = Podcast
-release-meta = { $year } • { $kind }
 
 # home page
 home-quick-picks = Quick picks
@@ -450,7 +336,6 @@ home-collection-albums = Albums from your collection
 
 # search page
 search-placeholder = What do you want to listen to?
-search-browse = Browse all
 genre-empty = Nothing to show here yet
 search-best-match = Best match
 search-no-matches = No matches
@@ -473,7 +358,6 @@ kind-playlist = Playlist
 song-eyebrow = Song
 song-play = Play song
 song-view-album = View album
-song-loading = Loading song information…
 song-about = About this song
 song-album = Album
 song-released = Released
@@ -822,20 +706,6 @@ settings-widevine-missing = Not installed
 settings-widevine-configured = Set by the environment
 settings-widevine-fetch = Download
 settings-widevine-uninstall = Uninstall
-confirm-uninstall-widevine-title = Uninstall the Widevine module?
-confirm-uninstall-widevine = Encore deletes the copy it downloaded from Google. Apple Music tracks stop playing until it is downloaded again.
-confirm-remove-downloads-title = Remove all downloads?
-confirm-remove-downloads = Every song you downloaded is deleted from this computer, from every service. They stream again until you download them once more.
-widevine-prompt-title = Widevine module
-widevine-prompt-wanted = Apple Music tracks are encrypted and need Google's Widevine module. No browser on this computer has one. Encore can download it from Google's servers, the same file Chrome installs, and keep it in its own folder.
-widevine-prompt-replace = Apple Music tracks are encrypted and need Google's Widevine module. A browser on this computer has one, and Encore can download Google's own copy to use instead, the same file Chrome installs, kept in its own folder.
-widevine-prompt-downloading = Downloading…
-widevine-prompt-terms = Version { $version } is downloaded. Installing it means accepting Google's terms for the module:
-widevine-prompt-installing = Installing…
-widevine-prompt-download = Download
-widevine-prompt-later = Not now
-widevine-prompt-accept = Accept and install
-widevine-prompt-decline = Decline
 settings-equalizer = Equalizer
 settings-equalizer-detail = Shapes the sound with a preset or a curve of your own
 settings-equalizer-preset-detail = A ready-made sound, or one of your own profiles
@@ -938,8 +808,6 @@ equalizer-rule-choose-sound = Choose a sound
 equalizer-rule-add = Add rule
 equalizer-rule-remove = Remove rule
 equalizer-output-port = { $device } · { $port }
-signal-path-codec-alac = ALAC
-signal-path-codec-pcm = PCM
 signal-path-codec-other = Other codec
 equalizer-invalid-frequency = Frequency must be between { $low } and { $high } Hz
 equalizer-invalid-gain = Gain must be between { $low } and { $high } dB
@@ -1119,7 +987,6 @@ toast-queued-artist = Artist added to the queue
 toast-next-artist = Artist plays next
 toast-last-artist = Artist plays last
 toast-queue-failed = That could not be added to the queue
-toast-queue-local-elsewhere = Local files cannot be queued on another device
 toast-queued-tracks = { $count } tracks added to the queue
 toast-next-tracks = { $count } tracks play next
 toast-last-tracks = { $count } tracks play last
@@ -1133,22 +1000,11 @@ toast-open-failed = Could not open { $name }
 toast-open-unsupported = { $name } is not an audio file Encore can play
 toast-open-all-failed = { $count } files could not be opened
 toast-open-some-failed = Some files could not be opened
-toast-keys-error = Playback key error
-toast-keys-refused = Spotify may not work here
-toast-why = Why?
-toast-sign-in-to-play = { $name } only streams to a signed-in listener
-toast-restore-failed = { $name } could not sign back in, so Encore carried on without it
 toast-track-unplayable = { $name } could not be played
 toast-playback-stopped = Playback stopped after several tracks in a row could not be played
-toast-widevine-failed = Playback failed
-toast-widevine-borrowed = Try updating Widevine
-toast-open-settings = Settings
-toast-throttled = { $name } is limiting playback for now. Trying again in a moment
-toast-still-throttled = { $name } is still limiting playback. Press play to try again
 toast-library-add-failed = { $name } could not be added to your library
 toast-library-remove-failed = { $name } could not be removed from your library
 toast-library-added = Added to your library
-toast-library-removed = Removed from your library
 toast-library-removed-one = Removed { $name } from your library
 toast-library-songs-removed = Removed { $count ->
         [one] one song
@@ -1213,15 +1069,11 @@ requirement-audio-bridge = { $server ->
 }
 requirement-audio-output-title = No sound output
 requirement-audio-output = Encore could not open your audio device, so nothing you play is heard. Check that a device is connected and not held by another app.
-requirement-web-engine-title = Browser sign-in is unavailable
-requirement-web-engine = Install webkit2gtk-4.1 to sign in to YouTube Music, Deezer or Apple Music in a browser window. Until then, paste your cookies instead.
 requirement-help = What to install
 settings-check-updates = Check for updates
 settings-check-updates-detail = Ask GitHub once at startup whether a newer version is out. Encore installs it itself unless a package manager keeps it up to date, in which case it points you at what changed
 settings-update-channel = Release channel
 settings-update-channel-detail = Stable follows releases. Nightly follows the build of main made every night, which gets changes first and has had less testing
-update-channel-stable = Stable
-update-channel-nightly = Nightly
 settings-log = Log file
 settings-log-detail = What Encore wrote while running. Attach it to a bug report
 settings-log-open = Open log
@@ -1254,13 +1106,6 @@ toast-output-select-failed = Unable to select { $name }
 toast-output-default-failed = Unable to select the system default device
 
 nav-pin = Pin
-toast-library-pin-failed = Could not update the pin.
-toast-jam-unreadable = That link does not lead to a Jam you can join.
-toast-jam-needs-connect = Turn on “Show as a Spotify device” in settings to join a Jam
-toast-jam-failed = The Jam could not be started or joined.
-toast-jam-ended = Jam ended
-toast-jam-left = You left the Jam
-toast-jam-leave-failed = The Jam could not be ended or left.
 nav-nothing-pinned = Nothing here
 nav-pins-alphabetical = Alphabetical
 nav-pins-kind = By type
@@ -1272,45 +1117,18 @@ trouble-offline = No connection
 trouble-offline-detail = Check your internet connection and try again.
 trouble-not-loaded = Could not load
 trouble-retry = Try again
-toast-offline = No connection. Nothing will stream until it is back.
-toast-offline-unsupported = { $name } plays downloads only when online.
-toast-offline-mode = You are offline. Go online to stream this song.
 offline-title = You are offline.
 offline-go-online = Go online
-toast-download-failed = Could not list the tracks to download.
-toast-downloading = Downloading { $name }
-toast-downloading-songs = { $count ->
-    [one] Downloading { $count } track
-   *[other] Downloading { $count } tracks
-}
-toast-downloaded = Downloaded { $name }
-toast-downloaded-songs = { $count ->
-    [one] Downloaded { $count } track
-   *[other] Downloaded { $count } tracks
-}
-toast-download-set-failed = Some tracks of { $name } could not be downloaded
-toast-download-song-failed = { $name } could not be downloaded
-toast-download-songs-failed = Some of the tracks could not be downloaded
 toast-percent = { $percent }%
-toast-download-cancelled = Cancelled downloading { $name }
-toast-downloads-cancelled = { $count ->
-    [one] Cancelled downloading { $count } track
-   *[other] Cancelled downloading { $count } tracks
-}
 toast-settings-broken = Fix line { $name } of settings.json to save changes
 toast-tray-unavailable = There is no system tray to put the icon in
 toast-undo = Undo
 toast-link-copied = Link copied
-toast-link-sign-in = Sign in to { $name } to open this link
 toast-link-unreadable = That link does not lead anywhere Encore can open
-toast-code-copied = Code copied
 menu-copy-link-none = This has no link to share
 menu-copy-link-local = Local artists and playlists have no link
 toast-settings-save-failed = Settings could not be saved
 toast-settings-overwritten = settings.json changed on disk, so your last change was not saved
-toast-widevine-download-failed = Widevine could not be downloaded
-toast-widevine-install-failed = Widevine could not be installed
-toast-widevine-remove-failed = Widevine could not be removed
 toast-library-scanned = { $count ->
     [one] Library scanned, one song found
    *[other] Library scanned, { $count } songs found
