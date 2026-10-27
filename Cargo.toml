@@ -82,7 +82,6 @@ zbus = { version = "5", default-features = false, features = ["async-io", "block
 libc = "0.2"
 lofty = "0.25"
 log = "0.4"
-md-5 = "0.10"
 moka = { version = "0.12.15", features = ["future", "sync"] }
 mpris-server = "0.10"
 notify = "8.2"

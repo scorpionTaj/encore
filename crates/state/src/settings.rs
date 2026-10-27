@@ -12,7 +12,7 @@ pub use self::equalizer::equalizer_profile_label;
 pub use self::themes::{ThemeFamily, ThemeVariant};
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -27,7 +27,6 @@ use gpui::{
 };
 use music::WritingSystem;
 use music::lyrics::LOCAL;
-use music::scrobble::Account;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
@@ -366,8 +365,6 @@ struct Values {
     /// Missing system requirements the user asked never to hear about again.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     silenced_requirements: Vec<String>,
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    scrobbling: BTreeMap<String, Account>,
     appearance: Appearance,
 }
 
@@ -547,7 +544,6 @@ impl Default for Values {
             local_folders: Vec::new(),
             hidden_nav: Vec::new(),
             silenced_requirements: Vec::new(),
-            scrobbling: BTreeMap::new(),
             appearance: Appearance::default(),
         }
     }
@@ -992,20 +988,6 @@ impl AppSettings {
         self.values.stay_awake
     }
 
-    /// Every linked scrobbling account, keyed by its service slug.
-    pub fn scrobbling(&self) -> &BTreeMap<String, Account> {
-        &self.values.scrobbling
-    }
-
-    /// One service's account, blank when it was never linked.
-    pub fn account(&self, service: &str) -> Account {
-        self.values
-            .scrobbling
-            .get(service)
-            .cloned()
-            .unwrap_or_default()
-    }
-
     pub fn sidebar_width(&self) -> f32 {
         self.state.sidebar_width
     }
@@ -1441,28 +1423,6 @@ impl AppSettings {
 
     pub fn set_stay_awake(&mut self, stay_awake: bool, cx: &mut Context<Self>) {
         self.values.stay_awake = stay_awake;
-        self.schedule_save(cx);
-    }
-
-    /// Stores a linked account, or forgets the service when the account carries no session.
-    pub fn set_account(&mut self, service: &str, account: Account, cx: &mut Context<Self>) {
-        match account.linked() {
-            true => {
-                self.values.scrobbling.insert(service.to_owned(), account);
-            }
-            false => {
-                self.values.scrobbling.remove(service);
-            }
-        }
-        self.schedule_save(cx);
-    }
-
-    /// Turns submissions to one linked service on or off, leaving the link itself alone.
-    pub fn set_scrobbling(&mut self, service: &str, enabled: bool, cx: &mut Context<Self>) {
-        let Some(account) = self.values.scrobbling.get_mut(service) else {
-            return;
-        };
-        account.enabled = enabled;
         self.schedule_save(cx);
     }
 
@@ -2462,8 +2422,8 @@ fn save_settings(path: &Path, bytes: &[u8], previous: Option<&[u8]>) -> Result<(
 }
 
 /// Replaces settings with a synced file beside the destination, so an interrupted save leaves
-/// the previous contents intact. Symlinks keep pointing to their target. The file can hold
-/// scrobbling keys, so on unix only its owner may read it.
+/// the previous contents intact. Symlinks keep pointing to their target. On unix only its
+/// owner may read it.
 fn write_settings(path: &Path, bytes: &[u8]) -> Result<()> {
     let path = match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {

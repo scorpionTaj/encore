@@ -9,9 +9,7 @@ use gpui::{
 };
 use i18n::{Language, t};
 use router::{Destination, SettingsPage, SettingsTab, navigate};
-use state::{
-    AppSettings, Encore, Equalizer, Io, Outputs, Playback, Scan, Scrobbling, Session, Sleep,
-};
+use state::{AppSettings, Encore, Equalizer, Io, Outputs, Playback, Scan, Session, Sleep};
 use ui::{
     ActiveTheme as _, Card, Deck, Dismiss, Input, Lazy, Popovers, Scrollbar, ScrubberState,
     Vacancy, faint, snapped, upper,
@@ -34,7 +32,6 @@ mod playback;
 mod player_bar;
 mod preview;
 mod rows;
-mod scrobbling;
 mod sound;
 mod storage;
 mod themes;
@@ -99,7 +96,6 @@ enum Slot {
     DiscordBadge,
     DiscordAnonymous,
     ArtworkForLocal,
-    Scrobble(usize),
     Startup,
     Entries,
     Language,
@@ -217,16 +213,8 @@ pub struct SettingsView {
     popovers: Popovers,
     /// The theme family whose variant menu opened last, which owns that menu's popover.
     theme_variants: Option<String>,
-    scrobbling: Entity<Scrobbling>,
-    scrobble_first: Entity<Input>,
-    scrobble_second: Entity<Input>,
-    /// The service whose link dialog is open, by slug.
-    scrobble_prompt: Option<&'static str>,
-    /// Holds the key focus while a dialog is up, so escape reaches the page and closes it,
-    /// and is where the language and typeface pickers put it back when they close.
+    /// Where the language and typeface pickers put the key focus back when they close.
     focus: FocusHandle,
-    /// Whether the focus has already been taken for the dialog that is up.
-    grabbed: bool,
     languages: SearchPopup,
     typefaces: SearchPopup,
     typeface_faced: RefCell<HashSet<SharedString>>,
@@ -244,7 +232,6 @@ impl SettingsView {
         cx: &mut Context<Self>,
     ) -> Self {
         let settings = Encore::global(cx).settings.clone();
-        let scrobbling = Encore::global(cx).scrobbling.clone();
         let equalizer = Encore::global(cx).equalizer.clone();
         let outputs = Encore::global(cx).outputs.clone();
         cx.observe(&equalizer, |this, _, cx| this.remeasure(cx))
@@ -252,8 +239,6 @@ impl SettingsView {
         cx.observe(&outputs, |this, _, cx| this.remeasure(cx))
             .detach();
         cx.observe(&session, |this, _, cx| this.remeasure(cx))
-            .detach();
-        cx.observe(&scrobbling, |this, _, cx| this.remeasure(cx))
             .detach();
         cx.observe(&settings, |this, _, cx| this.remeasure(cx))
             .detach();
@@ -323,11 +308,6 @@ impl SettingsView {
             popovers,
             theme_variants: None,
             focus,
-            grabbed: false,
-            scrobbling,
-            scrobble_first: cx.new(|cx| Input::new("settings-scrobble-key", cx)),
-            scrobble_second: cx.new(|cx| Input::new("settings-scrobble-secret", cx)),
-            scrobble_prompt: None,
             languages,
             typefaces,
             typeface_faced: RefCell::new(HashSet::new()),
@@ -397,10 +377,6 @@ impl SettingsView {
     /// Takes one step back out of whatever is open on the page: a dialog first, then a menu,
     /// then the search. Returns false when nothing was open.
     pub(crate) fn escape(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.scrobble_prompt.is_some() {
-            self.close_scrobble(cx);
-            return true;
-        }
         if self.popovers.any() {
             self.popovers.close();
             cx.notify();
@@ -424,7 +400,6 @@ impl SettingsView {
             SettingsPage::Sound => self.sound_groups(cx),
             SettingsPage::Storage => self.storage_groups(cx),
             SettingsPage::Discord => self.discord_groups(cx),
-            SettingsPage::Scrobbling => self.scrobbling_groups(cx),
             SettingsPage::General => self.general_groups(cx),
             SettingsPage::About => self.about_groups(),
             SettingsPage::LyricsSources => self.lyrics_sources_groups(),
@@ -734,7 +709,6 @@ impl SettingsView {
                 t!("settings-discord-anonymous"),
                 t!("settings-discord-anonymous-detail"),
             ),
-            Slot::Scrobble(index) => self.scrobble_meta(index, cx)?,
             Slot::Version => (t!("settings-version"), t!("settings-version-detail")),
             Slot::Updates => (
                 t!("settings-check-updates"),
@@ -815,10 +789,6 @@ impl SettingsView {
             Slot::DiscordBadge => self.discord_badge_row(cx),
             Slot::ArtworkForLocal => self.artwork_for_local_files_row(cx),
             Slot::DiscordAnonymous => self.discord_anonymous_row(cx),
-            Slot::Scrobble(index) => match index < self.scrobbling.read(cx).rows().len() {
-                true => self.scrobble_row(index, cx),
-                false => div().into_any_element(),
-            },
             Slot::Updates => self.updates_row(cx),
             Slot::Version => self.version_row(),
             Slot::Log => self.log_row(cx),
@@ -1118,17 +1088,6 @@ impl Render for SettingsView {
             self.typefaces.sync(false, None, window, cx);
         }
 
-        // a dialog takes the key focus, since escape only reaches the page from inside it
-        let dialog = self.scrobble_prompt.is_some();
-        match (dialog, self.grabbed) {
-            (true, false) => {
-                window.focus(&self.focus, cx);
-                self.grabbed = true;
-            }
-            (false, true) => self.grabbed = false,
-            _ => {}
-        }
-
         let body = match self.searching() {
             true => self.results(window, cx),
             false => self.tab(window, cx),
@@ -1156,9 +1115,6 @@ impl Render for SettingsView {
                 cx.propagate();
             }
         }))
-        .when_some(self.scrobble_prompt, |this, service| {
-            this.child(self.scrobble_modal(service, cx).into_any_element())
-        })
     }
 }
 

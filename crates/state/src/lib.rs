@@ -20,7 +20,6 @@ mod radio;
 mod remote;
 mod requirements;
 mod scan;
-mod scrobble;
 mod search;
 mod session;
 mod settings;
@@ -55,7 +54,6 @@ pub use radio::{Radio, RadioState};
 pub use remote::{Remote, attach as attach_remote};
 pub use requirements::{Requirement, Requirements};
 pub use scan::Scan;
-pub use scrobble::{ScrobbleRow, ScrobbleState, Scrobbling};
 pub use search::{AlbumHit, ArtistHit, Hit, Kind, PlaylistHit, Search};
 pub use session::{Session, SessionEvent};
 pub use settings::{
@@ -184,7 +182,6 @@ pub struct Encore {
     pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
     pub scan: Entity<Scan>,
-    pub scrobbling: Entity<Scrobbling>,
     pub settings: Entity<AppSettings>,
     pub signal: Entity<Signal>,
     pub updates: Entity<Updates>,
@@ -244,15 +241,6 @@ pub fn init(
         )
     });
     let scan = cx.new(|cx| Scan::new(session.clone(), cx));
-    let scrobbling = cx.new(|cx| {
-        Scrobbling::new(
-            playback.clone(),
-            session.clone(),
-            settings.clone(),
-            io.clone(),
-            cx,
-        )
-    });
     let lyrics = cx.new(|cx| {
         Lyrics::new(
             playback.clone(),
@@ -296,7 +284,6 @@ pub fn init(
         radio,
         requirements,
         scan,
-        scrobbling,
         settings,
         signal,
         updates,

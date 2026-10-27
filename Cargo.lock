@@ -3959,7 +3959,6 @@ dependencies = [
  "kakasi",
  "lofty",
  "log",
- "md-5",
  "open",
  "percent-encoding",
  "pulseaudio",

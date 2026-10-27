@@ -228,8 +228,8 @@ pub enum PlaybackState {
     Failed(String),
 }
 
-/// What other entities hear from `Playback`: history records a start, the sheet closes on an
-/// end, and scrobbling tells the provider about every pause and seek.
+/// What other entities hear from `Playback`: history records a start and the sheet closes on
+/// an end.
 pub enum PlaybackEvent {
     StartedPlayback,
     EndedPlayback,

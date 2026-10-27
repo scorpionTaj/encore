@@ -140,14 +140,13 @@ pub enum SettingsPage {
     Sound,
     Storage,
     Discord,
-    Scrobbling,
     About,
     LyricsSources,
 }
 
 impl SettingsPage {
     /// Every page, the sections first and the drill-ins after them.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 12] = [
         Self::MusicFolders,
         Self::General,
         Self::Appearance,
@@ -158,7 +157,6 @@ impl SettingsPage {
         Self::Sound,
         Self::Storage,
         Self::Discord,
-        Self::Scrobbling,
         Self::About,
         Self::LyricsSources,
     ];
@@ -174,7 +172,6 @@ impl SettingsPage {
             Self::Sound => "sound",
             Self::Storage => "storage",
             Self::Discord => "discord",
-            Self::Scrobbling => "scrobbling",
             Self::About => "about",
             Self::LyricsSources => "lyrics-sources",
             Self::MusicFolders => "music-folders",
@@ -193,7 +190,6 @@ impl SettingsPage {
             Self::Sound => "settings-page-sound",
             Self::Storage => "settings-page-storage",
             Self::Discord => "settings-page-discord",
-            Self::Scrobbling => "settings-page-scrobbling",
             Self::About => "settings-page-about",
             Self::LyricsSources => "settings-page-lyrics-sources",
             Self::MusicFolders => "settings-page-music-folders",
@@ -220,7 +216,7 @@ impl SettingsPage {
             Self::Appearance | Self::PlayerBar | Self::NowPlaying => SettingsTab::Appearance,
             Self::Lyrics | Self::LyricsSources => SettingsTab::Lyrics,
             Self::Playback | Self::Sound | Self::Storage => SettingsTab::Playback,
-            Self::Discord | Self::Scrobbling => SettingsTab::Integrations,
+            Self::Discord => SettingsTab::Integrations,
         }
     }
 }
@@ -299,7 +295,7 @@ impl SettingsTab {
                 SettingsPage::Sound,
                 SettingsPage::Storage,
             ],
-            Self::Integrations => &[SettingsPage::Discord, SettingsPage::Scrobbling],
+            Self::Integrations => &[SettingsPage::Discord],
         }
     }
 

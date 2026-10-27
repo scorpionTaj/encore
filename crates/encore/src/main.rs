@@ -290,7 +290,6 @@ fn open_window(cx: &mut App) {
         radio: _,
         requirements: _,
         scan: _,
-        scrobbling: _,
         settings: _,
         signal: _,
         updates: _,

@@ -20,7 +20,6 @@ only your own folders of music.
 - Gapless playback, loudness normalisation, an equalizer, shuffle, repeat and a sleep timer
 - Synced and karaoke lyrics from `.lrc` files beside your music or from LrcLib, Musixmatch,
   Kugou and NetEase, with romanization
-- Scrobbling to Last.fm, ListenBrainz, Libre.fm and Maloja
 - Discord Rich Presence, media keys and Now Playing, opening files from Finder
 - Themes, fonts, icon packs, transparency and blur
 - English and French

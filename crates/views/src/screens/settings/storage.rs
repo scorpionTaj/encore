@@ -7,7 +7,7 @@ use ui::Switch;
 use super::{Group, SettingsView, Slot};
 
 impl SettingsView {
-    /// The storage section: offline mode, which keeps lyrics and scrobbles off the network.
+    /// The storage section: offline mode, which keeps lyrics off the network.
     pub(super) fn storage_groups(&self, _cx: &App) -> Vec<Group> {
         vec![Group::untitled().rows([Slot::OfflineMode])]
     }
