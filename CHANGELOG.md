@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Check for Updates in the Encore menu.
+- The update card lists what changed in the new version.
+
+### Changed
+
+- Scrobbling to Last.fm, ListenBrainz, Libre.fm and Maloja is gone.
+
 ## [1.1.1]
 
 ### Fixed
