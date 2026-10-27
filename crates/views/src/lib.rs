@@ -4,9 +4,9 @@ mod screens;
 mod shared;
 mod shells;
 
-pub use chrome::ToastStack;
 #[cfg(target_os = "macos")]
 pub use chrome::traffic_lights;
+pub use chrome::{MiniPlayer, ToastStack};
 pub use root::Root;
 use screens::artist::ArtistView;
 use screens::detail::DetailView;

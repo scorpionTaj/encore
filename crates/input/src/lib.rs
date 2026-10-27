@@ -23,6 +23,7 @@ actions!(
         OpenSearch,
         OpenSettings,
         ToggleFullscreen,
+        ToggleMiniPlayer,
         ToggleQueue,
         ToggleLyrics,
         CloseWindow,

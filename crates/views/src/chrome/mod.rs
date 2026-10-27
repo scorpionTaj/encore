@@ -1,4 +1,5 @@
 mod aside;
+mod mini_player;
 mod notice;
 mod output_picker;
 mod player_bar;
@@ -10,6 +11,7 @@ mod toolbar;
 pub(crate) mod tools;
 
 pub(crate) use aside::{Aside, VerseLook, verse, verse_sizes};
+pub use mini_player::MiniPlayer;
 pub(crate) use notice::AppNotice;
 pub(crate) use output_picker::OutputPicker;
 pub(crate) use player_bar::PlayerBar;

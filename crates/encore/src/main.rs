@@ -9,6 +9,7 @@ mod gestures;
 mod http;
 mod logging;
 mod memory;
+mod mini;
 mod single;
 #[cfg(windows)]
 mod thumbbar;
@@ -255,7 +256,11 @@ fn percent_decode(value: &str) -> String {
 }
 
 fn show_window(cx: &mut App) {
-    match cx.windows().first() {
+    let main = cx
+        .windows()
+        .into_iter()
+        .find(|window| !mini::is_mini(*window, cx));
+    match main {
         Some(window) => {
             window
                 .update(cx, |_, window, _| window.activate_window())

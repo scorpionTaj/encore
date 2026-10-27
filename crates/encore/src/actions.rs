@@ -3,7 +3,7 @@ use i18n::t;
 use input::{
     CloseWindow, DecreaseFontSize, Hide, HideOthers, IncreaseFontSize, MinimizeWindow,
     OpenSettings, Quit, Redo, Refresh, ResetFontSize, ShowAll, SongNext, SongPrevious,
-    TogglePlayback, ToggleRepeat, ToggleShuffle, Undo, ZoomWindow,
+    ToggleMiniPlayer, TogglePlayback, ToggleRepeat, ToggleShuffle, Undo, ZoomWindow,
 };
 use router::Destination;
 use state::{AppSettings, Encore, Equalizer, Shelf};
@@ -16,6 +16,7 @@ pub fn register(lingers: bool, cx: &mut App) {
     cx.bind_keys(input::bindings());
 
     cx.on_action(|_: &Quit, cx: &mut App| cx.quit());
+    cx.on_action(|_: &ToggleMiniPlayer, cx: &mut App| crate::mini::toggle(cx));
     cx.on_action(|_: &Hide, cx: &mut App| cx.hide());
     cx.on_action(|_: &HideOthers, cx: &mut App| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx: &mut App| cx.unhide_other_apps());
@@ -102,6 +103,7 @@ fn menus() -> Vec<Menu> {
             MenuItem::action(t!("app-settings"), OpenSettings),
             MenuItem::separator(),
             MenuItem::action(t!("app-refresh"), Refresh),
+            MenuItem::action(t!("app-mini-player"), ToggleMiniPlayer),
             MenuItem::separator(),
             MenuItem::action(t!("app-hide"), Hide),
             MenuItem::action(t!("app-hide-others"), HideOthers),
@@ -111,6 +113,7 @@ fn menus() -> Vec<Menu> {
         ],
         false => vec![
             MenuItem::action(t!("app-refresh"), Refresh),
+            MenuItem::action(t!("app-mini-player"), ToggleMiniPlayer),
             MenuItem::separator(),
             MenuItem::action(t!("app-quit"), Quit),
         ],

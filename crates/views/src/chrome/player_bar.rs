@@ -11,7 +11,7 @@ use gpui::{
 };
 use gpui::{Window, div, px};
 use i18n::t;
-use input::{ToggleFullscreen, ToggleLyrics, ToggleQueue};
+use input::{ToggleFullscreen, ToggleLyrics, ToggleMiniPlayer, ToggleQueue};
 use state::{AppSettings, Encore, Playback, PlayerBarLayout, Queue, SideTab};
 use ui::{
     Artwork, Button, ExplicitBadge, InlineLink, InlineLinks, Popup, Room, Scrollbar, Scrubber,
@@ -239,6 +239,15 @@ impl PlayerBar {
                 SideTab::Queue,
             ))
             .into_any_element()
+    }
+
+    fn mini_player_button(&self) -> Button {
+        Button::new("toggle-mini-player")
+            .ghost()
+            .small()
+            .icon("icons/minimize.svg")
+            .tooltip_above("player-mini")
+            .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleMiniPlayer), cx))
     }
 
     fn fullscreen_button(&self) -> Button {
@@ -586,6 +595,7 @@ impl Render for PlayerBar {
                         .child(div().flex_1().min_w_0().child(seek))
                         .children(sides)
                         .child(self.sound(Self::volume_width(window), cx))
+                        .child(self.mini_player_button())
                         .child(self.fullscreen_button()),
                 ),
             (false, PlayerBarLayout::Centered) => base
@@ -626,6 +636,7 @@ impl Render for PlayerBar {
                         .gap_2()
                         .children(sides)
                         .child(self.sound(px(VOLUME_WIDTH), cx))
+                        .child(self.mini_player_button())
                         .child(self.fullscreen_button()),
                 ),
             (false, PlayerBarLayout::Compact) => base
@@ -639,6 +650,7 @@ impl Render for PlayerBar {
                 .child(div().flex_1().min_w_0().child(seek))
                 .children(sides)
                 .child(self.sound(px(VOLUME_WIDTH), cx))
+                .child(self.mini_player_button())
                 .child(self.fullscreen_button()),
             _ => base
                 .items_center()
@@ -666,6 +678,7 @@ impl Render for PlayerBar {
                         .flex_1()
                         .children(sides)
                         .child(self.sound(px(VOLUME_WIDTH), cx))
+                        .child(self.mini_player_button())
                         .child(self.fullscreen_button()),
                 ),
         };
