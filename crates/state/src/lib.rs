@@ -1,0 +1,300 @@
+mod artist;
+mod catalog;
+mod cover;
+mod detail;
+mod discord;
+mod equalizer;
+mod history;
+mod home;
+mod library;
+mod logging;
+mod lyrics;
+mod mosaic;
+mod network;
+mod outputs;
+mod overload;
+mod pins;
+mod playback;
+mod queue;
+mod remote;
+mod requirements;
+mod scan;
+mod scrobble;
+mod search;
+mod session;
+mod settings;
+mod sheets;
+mod signal;
+mod snapshot;
+mod song;
+mod tags;
+mod toast;
+mod updates;
+mod wake;
+mod window_shape;
+
+pub use artist::{ArtistDetail, ArtistDetailEvent};
+pub use cover::Cover;
+pub use detail::{Collection, Detail, Header};
+pub use equalizer::{DeviceRule, Equalizer, RuleDevice, Sound};
+pub use history::{History, HistoryState};
+pub use home::Home;
+pub use library::{
+    Addition, Library, LibraryEvent, LibraryPart, LibraryState, Problem, Ready, Shelf,
+};
+pub use logging::log_file;
+pub use lyrics::{Lyrics, LyricsState};
+pub use network::{Network, Reconnected};
+pub use outputs::Outputs;
+pub use overload::OutputLevel;
+pub use pins::{PinSort, Pins};
+pub use playback::{Origin, Playback, PlaybackState, Repeat, Sleep, Whence};
+pub use queue::{Named, Queue, Resume, Stub};
+pub use remote::{Remote, attach as attach_remote};
+pub use requirements::{Requirement, Requirements};
+pub use scan::Scan;
+pub use scrobble::{ScrobbleRow, ScrobbleState, Scrobbling};
+pub use search::{AlbumHit, ArtistHit, Hit, Kind, PlaylistHit, Search};
+pub use session::{Session, SessionEvent};
+pub use settings::{
+    AppSettings, DiscordName, FilterValue, FullscreenControlsAutohide, LYRICS_SOURCES,
+    PlayerBarLayout, Reloaded, RomanizationScripts, SYSTEM_FONT, SideTab, ThemeFamily,
+    ThemeVariant, equalizer_profile_label, remember_window, window_placement,
+};
+pub use signal::{Change, Equalizing, FLOAT_BITS, Following, Signal, SignalPath};
+pub use song::SongDetail;
+pub use tags::{TagState, Tags};
+pub use toast::{Outcome, Target, Toast, ToastAction, Toasts};
+pub use updates::{Release, UpdateState, Updates, updates_itself};
+pub use wake::Wake;
+pub use window_shape::{apply_window_rounding, install_rounded_window_hook};
+
+use std::future::Future;
+use std::sync::Arc;
+use std::time::Duration;
+
+use anyhow::Result;
+use gpui::{App, AppContext as _, Entity, Global};
+use music::{LyricsProvider, MusicProvider};
+
+/// The version this build shows, which is the Cargo version.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
+
+#[derive(Clone)]
+pub struct Io(Arc<Runtime>);
+
+impl Global for Io {}
+
+/// Worker threads for the tokio runtime. The work here is network calls and the json they
+/// answer with, never a long computation, so the default of one worker per core buys nothing
+/// and costs a stack and an allocator arena each.
+const WORKERS: usize = 4;
+/// The ceiling on blocking threads, which is where the sqlite reads, the artwork disk cache and
+/// DNS lookups go. The artwork cache sits behind one lock, so threads past a handful only queue
+/// on it while each holds a stack and an allocator arena. The default is 512.
+const BLOCKING: usize = 8;
+/// How long an idle blocking thread lingers before it exits. A burst of cover reads should not
+/// leave its threads parked for the default ten seconds.
+const LINGER: Duration = Duration::from_secs(2);
+
+impl Io {
+    pub fn new() -> Result<Self> {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(WORKERS)
+            .max_blocking_threads(BLOCKING)
+            .thread_keep_alive(LINGER)
+            .thread_name("encore-io")
+            .enable_all()
+            .build()?;
+
+        Ok(Self(Arc::new(runtime)))
+    }
+
+    pub fn global(cx: &App) -> Self {
+        cx.global::<Self>().clone()
+    }
+
+    pub fn handle(&self) -> tokio::runtime::Handle {
+        self.0.handle().clone()
+    }
+
+    pub fn spawn<F>(&self, future: F) -> JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.0.spawn(future)
+    }
+
+    pub fn spawn_blocking<F, R>(&self, func: F) -> JoinHandle<R>
+    where
+        F: FnOnce() -> R + Send + 'static,
+        R: Send + 'static,
+    {
+        self.0.spawn_blocking(func)
+    }
+}
+
+pub(crate) async fn join<T>(handle: JoinHandle<Result<T>>) -> Result<T> {
+    handle.await?
+}
+
+/// Flattens a failed call's reason and tells `Network` about it, so one screen's failure puts
+/// the whole app offline rather than only its own page.
+pub(crate) fn blamed(error: &anyhow::Error, cx: &mut gpui::App) -> String {
+    let reason = format!("{error:#}");
+    Network::failed(&reason, cx);
+    reason
+}
+
+/// Tells `Network` about a failure a caller only logs. An outage is then noticed at the first
+/// call that runs into it, rather than the first one that happens to put its reason on a page.
+pub(crate) fn noted(error: &anyhow::Error, cx: &mut gpui::App) {
+    Network::failed(&format!("{error:#}"), cx);
+}
+
+/// Reports a network call's outcome to `Network` and turns its failure into the reason a screen
+/// stores. A success is what puts the app back online the moment one load gets through.
+pub(crate) fn settled<T>(result: Result<T>, cx: &mut gpui::App) -> std::result::Result<T, String> {
+    match result {
+        Ok(value) => {
+            Network::reached(cx);
+            Ok(value)
+        }
+        Err(error) => Err(blamed(&error, cx)),
+    }
+}
+
+pub struct Encore {
+    pub session: Entity<Session>,
+    pub cover: Entity<Cover>,
+    pub equalizer: Entity<Equalizer>,
+    pub library: Entity<Library>,
+    pub history: Entity<History>,
+    pub lyrics: Entity<Lyrics>,
+    pub network: Entity<Network>,
+    pub outputs: Entity<Outputs>,
+    pub pins: Entity<Pins>,
+    pub playback: Entity<Playback>,
+    pub queue: Entity<Queue>,
+    pub requirements: Entity<Requirements>,
+    pub scan: Entity<Scan>,
+    pub scrobbling: Entity<Scrobbling>,
+    pub settings: Entity<AppSettings>,
+    pub signal: Entity<Signal>,
+    pub updates: Entity<Updates>,
+    pub wake: Entity<Wake>,
+}
+
+impl Global for Encore {}
+
+impl Encore {
+    pub fn global(cx: &App) -> &Self {
+        cx.global()
+    }
+}
+
+pub fn init(
+    cx: &mut App,
+    io: Io,
+    database: storage::Database,
+    local_provider: Arc<dyn MusicProvider>,
+    lyrics_providers: Vec<Arc<dyn LyricsProvider>>,
+) {
+    cx.set_global(io.clone());
+    let settings = cx.new(|cx| {
+        let mut settings = AppSettings::load(database.clone());
+        settings.watch_files(cx);
+        settings.report_broken(cx);
+        settings
+    });
+    let session = cx.new(|cx| Session::new(local_provider, settings.clone(), io.clone(), cx));
+    let network = cx.new(|cx| Network::new(settings.clone(), cx));
+    let cache = storage::Cache::standard();
+    let library = cx.new(|cx| Library::new(session.clone(), io.clone(), cache, cx));
+    let queue = cx.new(|cx| Queue::new(session.clone(), settings.clone(), cx));
+    // Playback starts no engine until a provider is up, so the saved device is handed over
+    // before any stream opens.
+    let equalizer = cx.new(|cx| Equalizer::new(settings.clone(), cx));
+    let playback = cx.new(|cx| {
+        Playback::new(
+            session.clone(),
+            queue.clone(),
+            settings.clone(),
+            &equalizer,
+            cx,
+        )
+    });
+    let outputs = cx.new(|cx| Outputs::new(settings.clone(), playback.clone(), cx));
+    equalizer.update(cx, |equalizer, cx| {
+        equalizer.follow(&playback, &outputs, cx)
+    });
+    let history = cx.new(|cx| {
+        History::new(
+            session.clone(),
+            playback.clone(),
+            database.clone(),
+            io.clone(),
+            cx,
+        )
+    });
+    let scan = cx.new(|cx| Scan::new(session.clone(), cx));
+    let scrobbling = cx.new(|cx| {
+        Scrobbling::new(
+            playback.clone(),
+            session.clone(),
+            settings.clone(),
+            io.clone(),
+            cx,
+        )
+    });
+    let lyrics = cx.new(|cx| {
+        Lyrics::new(
+            playback.clone(),
+            queue.clone(),
+            session.clone(),
+            settings.clone(),
+            lyrics_providers,
+            io.clone(),
+            cx,
+        )
+    });
+    let cover = cx.new(|cx| Cover::new(session.clone(), playback.clone(), io.clone(), cx));
+    let requirements =
+        cx.new(|cx| Requirements::new(settings.clone(), outputs.clone(), io.clone(), cx));
+    let pins = cx.new(|cx| Pins::new(settings.clone(), library.clone(), session.clone(), cx));
+    let signal = cx.new(|cx| Signal::new(playback.clone(), outputs.clone(), equalizer.clone(), cx));
+    let wake = cx.new(|cx| Wake::new(settings.clone(), playback.clone(), io.clone(), cx));
+    let updates = cx.new(|cx| Updates::new(settings.clone(), io.clone(), cx));
+    discord::attach(
+        playback.clone(),
+        settings.clone(),
+        session.clone(),
+        cover.clone(),
+        io,
+        cx,
+    );
+
+    cx.set_global(Encore {
+        session,
+        cover,
+        equalizer,
+        library,
+        history,
+        lyrics,
+        network,
+        outputs,
+        pins,
+        playback,
+        queue,
+        requirements,
+        scan,
+        scrobbling,
+        settings,
+        signal,
+        updates,
+        wake,
+    });
+}

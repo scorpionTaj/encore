@@ -1,0 +1,6 @@
+# Encore builds for Apple Silicon Macs only.
+[build]
+target = "aarch64-apple-darwin"
+
+[alias]
+prof = "run --release --package encore --features profiler"
