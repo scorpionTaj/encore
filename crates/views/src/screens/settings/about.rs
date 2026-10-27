@@ -28,14 +28,12 @@ struct Member {
 #[derive(Clone, Copy)]
 enum Role {
     LeadMaintainer,
-    Contributor,
 }
 
 impl Role {
     fn label(self) -> SharedString {
         match self {
             Self::LeadMaintainer => t!("settings-role-lead-maintainer"),
-            Self::Contributor => t!("settings-role-contributor"),
         }
     }
 }
@@ -51,9 +49,7 @@ macro_rules! member {
     };
 }
 
-const MEMBERS: [Member; 6] = [
-    member!("scorpionTaj", Role::LeadMaintainer)
-];
+const MEMBERS: [Member; 1] = [member!("scorpionTaj", Role::LeadMaintainer)];
 
 impl SettingsView {
     pub(super) fn about_groups(&self) -> Vec<Group> {

@@ -1047,7 +1047,6 @@ settings-source = Source code
 settings-source-detail = The corresponding source for this build
 settings-team = Team
 settings-role-lead-maintainer = Lead Maintainer
-settings-role-contributor = Contributor
 settings-notice = Copyright © 2026 Encore Contributors. Encore comes with absolutely no warranty. It is free software, and you are welcome to redistribute it under the terms of the GNU General Public License version 3 or later. Encore is unofficial and is not affiliated with Spotify AB.
 
 # themes
