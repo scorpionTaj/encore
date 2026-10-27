@@ -1363,7 +1363,8 @@ fn head_height(window: &Window, cx: &App) -> Pixels {
     snapped(window.rem_size() * 0.5 + title, window)
 }
 
-fn deck_gap(window: &Window) -> Pixels {
+/// The space between rows of cards, shared by every page that stacks them.
+pub(crate) fn deck_gap(window: &Window) -> Pixels {
     snapped(window.rem_size() * 1.5, window)
 }
 

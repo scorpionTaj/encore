@@ -484,8 +484,9 @@ impl Render for PlayerBar {
         };
 
         let playback = self.playback.read(cx);
-        let seekable = playback.shown_track(cx).is_some();
         let (elapsed, total) = playback.shown_time(cx);
+        // A live radio stream has no length, so it has nothing to seek through or count down.
+        let seekable = playback.shown_track(cx).is_some() && !total.is_zero();
         let progress = self.pending.unwrap_or_else(|| fraction(elapsed, total));
         let clock_width = clock_text
             * match total.as_secs() >= 3600 {
@@ -534,7 +535,10 @@ impl Render for PlayerBar {
                         ),
                 ),
             )
-            .child(clock_label(total, false))
+            .child(match seekable {
+                true => clock_label(total, false).into_any_element(),
+                false => div().w(clock_width).flex_none().into_any_element(),
+            })
             .into_any_element();
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]

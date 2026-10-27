@@ -698,8 +698,9 @@ impl FullscreenView {
         let empty = muted.opacity(0.3);
         let text = theme.text(Text::Tiny);
         let playback = self.playback.read(cx);
-        let seekable = playback.shown_track(cx).is_some();
         let (elapsed, total) = playback.shown_time(cx);
+        // A live radio stream has no length, so it has nothing to seek through or count down.
+        let seekable = playback.shown_track(cx).is_some() && !total.is_zero();
         let progress = self.pending.unwrap_or_else(|| fraction(elapsed, total));
         let width = text
             * match total.as_secs() >= 3600 {
@@ -744,7 +745,10 @@ impl FullscreenView {
                         ),
                 ),
             )
-            .child(label(total, false))
+            .child(match seekable {
+                true => label(total, false).into_any_element(),
+                false => div().w(width).flex_none().into_any_element(),
+            })
     }
 
     /// The pill, the seek bar and the transport row. Below `Room::Roomy` the row spans the

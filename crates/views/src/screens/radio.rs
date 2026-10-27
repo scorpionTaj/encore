@@ -11,6 +11,7 @@ use state::{Playback, Radio, RadioState};
 use ui::{ActiveTheme as _, Button, Card, Scrollbar, Scroller, vacant};
 
 use crate::chrome::{Searchable, Toolbar, Tooled};
+use crate::screens::library::deck_gap;
 use crate::shared::album_grid::CardGrid;
 use crate::shared::cells;
 use crate::shared::hero::{HeroMetaStrip, PageHero};
@@ -143,10 +144,15 @@ impl Render for RadioView {
         let shown: Rc<Vec<Station>> = Rc::new(self.shown(cx));
         let count = shown.len();
         let layout = CardGrid::layout(width);
-        let cards: Vec<AnyElement> = shown
-            .iter()
+        let columns = layout.columns;
+        let rows: Vec<CardGrid> = shown
+            .chunks(columns)
             .enumerate()
-            .map(|(index, station)| self.card(index, station, layout.card, cx))
+            .map(|(row, stations)| {
+                CardGrid::new(width).children(stations.iter().enumerate().map(
+                    |(column, station)| self.card(row * columns + column, station, layout.card, cx),
+                ))
+            })
             .collect();
         let note = self.note(count, cx);
 
@@ -162,7 +168,10 @@ impl Render for RadioView {
                     .aria_label(t!("nav-radio"))
                     .px(inset)
                     .pt(inset)
-                    .child(CardGrid::new(width).children(cards)),
+                    .flex()
+                    .flex_col()
+                    .gap(deck_gap(window))
+                    .children(rows),
             )
             .when_some(note, |this, note| {
                 this.child(
