@@ -14,7 +14,7 @@ use gpui::{
     AnyElement, App, Entity, Hsla, InteractiveElement as _, IntoElement as _, SharedString,
     Styled as _, WeakEntity,
 };
-use music::Track;
+use music::{Encoding, Track};
 use router::Destination;
 use state::{Detail, Encore, History, Library, Origin, Playback, Shelf};
 use ui::{
@@ -520,6 +520,7 @@ impl TableSource for TrackSource {
                 tracks.iter().any(|track| track.added_at.is_some())
             }
             TrackField::ModifiedAt => tracks.iter().any(|track| track.modified_at.is_some()),
+            TrackField::Format => tracks.iter().any(|track| track.encoding.is_some()),
             TrackField::AddedBy => tracks.iter().any(|track| track.added_by.is_some()),
             TrackField::Plays => tracks.iter().any(|track| track.playcount.is_some()),
             _ => true,
@@ -573,6 +574,18 @@ impl TableSource for TrackSource {
                 on: self.sieve.favorites,
             }));
         }
+        if self
+            .provider
+            .tracks(cx)
+            .iter()
+            .any(|track| track.encoding.is_some())
+        {
+            axes.push(Filter::Flag(FlagAxis {
+                key: "filter-lossless",
+                label: t!("filter-lossless"),
+                on: self.sieve.lossless,
+            }));
+        }
         axes
     }
 
@@ -592,6 +605,10 @@ impl TableSource for TrackSource {
             }
             FilterChange::Flag("filter-favorites", value) => {
                 self.sieve.favorites = value;
+                true
+            }
+            FilterChange::Flag("filter-lossless", value) => {
+                self.sieve.lossless = value;
                 true
             }
             FilterChange::Reset => {
@@ -650,6 +667,11 @@ impl TableSource for TrackSource {
                 detail,
             ),
             TrackField::ModifiedAt => cells::dim(&cell, cells::stamp(track.modified_at), detail),
+            TrackField::Format => cells::dim(
+                &cell,
+                track.encoding.map(format).unwrap_or_default(),
+                detail,
+            ),
             TrackField::AddedBy => match track.added_by.as_deref() {
                 Some(added) => cells::added_by(&cell, added, detail),
                 None => cells::blank(&cell),
@@ -715,6 +737,47 @@ impl TableSource for TrackSource {
     }
 }
 
+/// What the Format column says of a file: its codec, then the bit depth of a lossless one or the
+/// bit rate of a lossy one, as "FLAC · 24-bit" or "MP3 · 320 kbps".
+fn format(encoding: Encoding) -> SharedString {
+    let bits = |depth: u8| t!("settings-signal-bits", depth = i64::from(depth));
+    let rate = |kbps: u32| t!("settings-signal-kbps", kbps = i64::from(kbps));
+    let (codec, quality) = match encoding {
+        Encoding::Flac { depth, .. } => ("FLAC", bits(depth)),
+        Encoding::Alac { depth } => ("ALAC", bits(depth)),
+        Encoding::Pcm { depth } => ("PCM", bits(depth)),
+        Encoding::Aac { kbps } => ("AAC", rate(kbps)),
+        Encoding::Mp3 { kbps } => ("MP3", rate(kbps)),
+        Encoding::Vorbis { kbps } => ("Vorbis", rate(kbps)),
+        Encoding::Opus { kbps } => ("Opus", rate(kbps)),
+        Encoding::Other => return t!("signal-path-codec-other"),
+    };
+    t!("format-value", codec = codec, quality = quality.to_string())
+}
+
+/// Whether an encoding keeps every bit of the original.
+pub(super) fn lossless(encoding: Encoding) -> bool {
+    matches!(
+        encoding,
+        Encoding::Flac { .. } | Encoding::Alac { .. } | Encoding::Pcm { .. }
+    )
+}
+
+/// How an encoding sorts against others: lossless above lossy, then the deeper or the higher bit
+/// rate first within each.
+pub(super) fn quality(encoding: Encoding) -> (bool, u32) {
+    let figure = match encoding {
+        Encoding::Flac { depth, .. } | Encoding::Alac { depth } | Encoding::Pcm { depth } => {
+            u32::from(depth)
+        }
+        Encoding::Aac { kbps }
+        | Encoding::Mp3 { kbps }
+        | Encoding::Vorbis { kbps }
+        | Encoding::Opus { kbps } => kbps,
+        Encoding::Other => 0,
+    };
+    (lossless(encoding), figure)
+}
 #[cfg(test)]
 mod fixture {
     use std::time::Duration;
@@ -734,6 +797,7 @@ mod fixture {
             duration: Duration::from_secs(seconds),
             added_at: None,
             modified_at: None,
+            encoding: None,
             added_by: None,
             playcount: None,
             popularity: 0,

@@ -591,6 +591,12 @@ pub fn track_from_file(
             duration,
             added_at: created_at(path).or_else(|| modified_at(path)),
             modified_at: modified_at(path),
+            encoding: Some(
+                tagged
+                    .as_ref()
+                    .and_then(super::tags::encoding)
+                    .unwrap_or(crate::Encoding::Other),
+            ),
             added_by: None,
             playcount: None,
             popularity: 0,

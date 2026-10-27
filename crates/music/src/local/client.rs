@@ -636,6 +636,7 @@ mod tests {
             duration: Duration::from_secs(180),
             added_at: None,
             modified_at: None,
+            encoding: None,
             added_by: None,
             playcount: None,
             popularity: 50,

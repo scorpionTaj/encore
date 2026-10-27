@@ -23,6 +23,16 @@ pub(super) fn compare(tracks: &[Track], field: TrackField, a: usize, b: usize) -
             .get(a)
             .and_then(|track| track.modified_at)
             .cmp(&tracks.get(b).and_then(|track| track.modified_at)),
+        TrackField::Format => tracks
+            .get(a)
+            .and_then(|track| track.encoding)
+            .map(super::quality)
+            .cmp(
+                &tracks
+                    .get(b)
+                    .and_then(|track| track.encoding)
+                    .map(super::quality),
+            ),
         TrackField::AddedBy => folded(contributor),
         TrackField::Plays => tracks
             .get(a)

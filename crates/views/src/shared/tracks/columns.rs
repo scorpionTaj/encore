@@ -13,6 +13,7 @@ pub(crate) enum TrackField {
     Album,
     AddedAt,
     ModifiedAt,
+    Format,
     AddedBy,
     PlayedAt,
     Plays,
@@ -71,6 +72,15 @@ const MODIFIED_AT: ColumnSpec<TrackField> = ColumnSpec {
     field: TrackField::ModifiedAt,
     key: "modified-at",
     header: "column-date-modified",
+    width: Width::Fixed(DATE),
+    rank: NICE,
+    ..COLUMN
+};
+
+const FORMAT: ColumnSpec<TrackField> = ColumnSpec {
+    field: TrackField::Format,
+    key: "format",
+    header: "column-format",
     width: Width::Fixed(DATE),
     rank: NICE,
     ..COLUMN
@@ -146,6 +156,7 @@ pub(crate) const LIBRARY_COLUMNS: &[ColumnSpec<TrackField>] = &[
     ALBUM,
     ADDED_AT,
     MODIFIED_AT,
+    FORMAT,
     DURATION,
 ];
 

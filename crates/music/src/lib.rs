@@ -335,7 +335,7 @@ pub struct PlaybackConfig {
 
 /// What a stream or a file is encoded as: a lossless encoding with its bit depth, a lossy one
 /// with its bit rate in kilobits a second.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Encoding {
     /// FLAC at this bit depth and sample rate in hertz.
     Flac {

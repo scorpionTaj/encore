@@ -68,6 +68,10 @@ pub struct Track {
     /// When the file was last written, in seconds since the epoch, for a track that is a file.
     #[serde(default)]
     pub modified_at: Option<i64>,
+    /// How the file is encoded, for a track that is a file. A file whose figures are unreadable
+    /// still has `Encoding::Other`, so `None` means the track was never read as a file.
+    #[serde(default)]
+    pub encoding: Option<crate::Encoding>,
     pub added_by: Option<Arc<Contributor>>,
     pub playcount: Option<u64>,
     pub popularity: u32,

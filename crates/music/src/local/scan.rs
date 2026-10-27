@@ -141,12 +141,15 @@ fn read_tags(
     progress: &progress::Scan,
 ) -> Vec<Reading> {
     spread(files, progress, |found| {
-        // A file read before tracks carried their modified time is read again to learn it.
+        // A file read before tracks carried their modified time and encoding is read again to
+        // learn them.
         let kept = found
             .known
             .then(|| remembered.files.get(&found.path))
             .flatten()
-            .filter(|known| known.tagged.track.modified_at.is_some());
+            .filter(|known| {
+                known.tagged.track.modified_at.is_some() && known.tagged.track.encoding.is_some()
+            });
         let reading = match kept {
             Some(known) => Some(Reading {
                 path: found.path.clone(),

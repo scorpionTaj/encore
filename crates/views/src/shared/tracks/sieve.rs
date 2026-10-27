@@ -8,15 +8,24 @@ pub(crate) struct TrackSieve {
     pub playable: bool,
     /// Keep only starred tracks. `keeps` cannot see the library, so the source applies it.
     pub favorites: bool,
+    /// Keep only lossless files: FLAC, ALAC and uncompressed audio.
+    pub lossless: bool,
 }
 
 impl TrackSieve {
     pub(crate) fn active(&self) -> bool {
-        self.duration.is_some() || self.hide_explicit || self.playable || self.favorites
+        self.duration.is_some()
+            || self.hide_explicit
+            || self.playable
+            || self.favorites
+            || self.lossless
     }
 
     pub(super) fn keeps(&self, track: &Track) -> bool {
         if self.hide_explicit && track.explicit {
+            return false;
+        }
+        if self.lossless && !track.encoding.is_some_and(super::lossless) {
             return false;
         }
         if self.playable && !track.playable {
@@ -59,6 +68,7 @@ mod tests {
             hide_explicit: true,
             playable: true,
             favorites: false,
+            lossless: false,
         };
 
         assert!(sieve.keeps(&track(120, false, true)));
