@@ -27,10 +27,7 @@ jobs:
       - name: make the disk image
         run: |
           image="Encore-$VERSION-macos-arm64.dmg"
-          mkdir -p dist/image
-          cp -R dist/Encore.app dist/image/
-          ln -s /Applications dist/image/Applications
-          hdiutil create -volname Encore -srcfolder dist/image -ov -format UDZO "dist/$image"
+          ./scripts/make-dmg.sh "dist/$image"
           (cd dist && shasum -a 256 "$image" > SHA256SUMS)
           echo "IMAGE=$image" >> "$GITHUB_ENV"
 

@@ -192,6 +192,23 @@ def rasterize(svg_text, pixels, workdir, name):
     return target.read_bytes()
 
 
+def rasterize_size(svg_text, width, height, workdir, name):
+    source = workdir / f"{name}.svg"
+    target = workdir / f"{name}.png"
+    source.write_text(svg_text, encoding="utf-8")
+    subprocess.run(
+        [
+            "rsvg-convert",
+            "--width", str(width),
+            "--height", str(height),
+            "--output", str(target),
+            str(source),
+        ],
+        check=True,
+    )
+    return target.read_bytes()
+
+
 def write_icns(entries, path):
     body = b""
     for kind, blob in entries:
@@ -225,6 +242,12 @@ def main():
             icns.append((kind, rendered[pixels]))
         write_icns(icns, assets / "macos" / "encore.icns")
 
+        # the disk image's window, at its own size and at twice it for Retina screens
+        background = (assets / "macos" / "dmg-background.svg").read_text(encoding="utf-8")
+        for scale, suffix in ((1, ""), (2, "@2x")):
+            blob = rasterize_size(background, 660 * scale, 400 * scale, workdir, f"dmg{scale}")
+            (assets / "macos" / f"dmg-background{suffix}.png").write_bytes(blob)
+
         tray = assets / "tray"
         tray.mkdir(parents=True, exist_ok=True)
         for pixels in TRAY_SIZES:
@@ -232,7 +255,7 @@ def main():
             (tray / f"template-{pixels}.png").write_bytes(blob)
 
     print(
-        f"icons: 1 icns, {len(TRAY_SIZES)} tray png, 1 readme svg, 1 macos svg"
+        f"icons: 1 icns, {len(TRAY_SIZES)} tray png, 1 readme svg, 1 macos svg, 2 dmg backgrounds"
     )
 
 

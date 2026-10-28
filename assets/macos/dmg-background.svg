@@ -1,0 +1,39 @@
+<svg width="660" height="400" viewBox="0 0 660 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="660" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBFAFF"/>
+      <stop offset="1" stop-color="#EEE9FF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="330" cy="0" r="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B3DF5" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#5B3DF5" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="arrow" x1="262" y1="0" x2="398" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B3DF5" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#5B3DF5"/>
+    </linearGradient>
+  </defs>
+  <rect width="660" height="400" fill="url(#wash)"/>
+  <rect width="660" height="400" fill="url(#glow)"/>
+
+  <!-- the brand's rising bars, faint along the foot of the window -->
+  <g stroke="#5B3DF5" stroke-opacity="0.07" stroke-width="14" stroke-linecap="round">
+    <path d="M40 392V380"/>
+    <path d="M70 392V370"/>
+    <path d="M100 392V360"/>
+    <path d="M130 392V350"/>
+    <path d="M530 392V350"/>
+    <path d="M560 392V360"/>
+    <path d="M590 392V370"/>
+    <path d="M620 392V380"/>
+  </g>
+
+  <text x="330" y="62" text-anchor="middle" font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#1B1530">Encore</text>
+  <text x="330" y="88" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" fill="#5E5873">Your music, played beautifully</text>
+
+  <!-- from the app to Applications -->
+  <path d="M266 190H384" stroke="url(#arrow)" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 12"/>
+  <path d="M378 176L396 190L378 204" stroke="#5B3DF5" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="330" y="330" text-anchor="middle" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="500" fill="#3D3655">Drag Encore into Applications to install it</text>
+</svg>

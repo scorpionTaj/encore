@@ -55,6 +55,12 @@ To build `dist/Encore.app`:
 ./scripts/bundle-macos.sh
 ```
 
+And to pack it into a disk image like the releases:
+
+```sh
+./scripts/make-dmg.sh dist/Encore.dmg
+```
+
 ## License
 
 Encore is free software under the GNU General Public License, version 3 or later. See

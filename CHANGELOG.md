@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- More Moroccan radio: Medi 1 Radio, Monte Carlo Doualiya, Urban Hit Maroc and 4U Classic Rock.
+- Logos for Radio Mars, Med Radio, Medi 1, Hit Radio, Cap Radio, Aswat and other stations.
+- A designed install window in the disk image.
+
+### Changed
+
+- Encore is a Mac app only.
+
+### Fixed
+
+- Stations listed twice under different names show once.
+
 ## [1.2.0]
 
 ### Added
