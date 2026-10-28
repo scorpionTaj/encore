@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A song's details show its year, genres, label, language and composer from the file's tags.
+- Right-click a list's column headers to show or hide columns. The Columns button is gone.
+- Install themes shared as links, including the ones on sonorahq.org/themes, with one click.
+- Explore community themes from Settings, Appearance, Theme.
+- Delete a theme you added with the trash button on its card.
+
 ## [1.3.0]
 
 ### Added
