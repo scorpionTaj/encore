@@ -7,30 +7,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0]
+
 ### Added
 
 - More Moroccan radio: Medi 1 Radio, Monte Carlo Doualiya, Urban Hit Maroc and 4U Classic Rock.
 - Logos for Radio Mars, Med Radio, Medi 1, Hit Radio, Cap Radio, Aswat and other stations.
+- Check for Updates in the Encore menu.
+- The update card lists what changed in the new version.
 - A designed install window in the disk image.
 
 ### Changed
 
 - Encore is a Mac app only.
+- Scrobbling to Last.fm, ListenBrainz, Libre.fm and Maloja is gone.
 
 ### Fixed
 
 - Stations listed twice under different names show once.
-
-## [1.2.0]
-
-### Added
-
-- Check for Updates in the Encore menu.
-- The update card lists what changed in the new version.
-
-### Changed
-
-- Scrobbling to Last.fm, ListenBrainz, Libre.fm and Maloja is gone.
 
 ## [1.1.1]
 
