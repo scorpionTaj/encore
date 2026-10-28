@@ -277,7 +277,6 @@ view-list = Liste
 view-cards = Cartes
 
 # toolbar
-tool-columns = Colonnes
 tool-sort = Trier
 tool-filters = Filtres
 
@@ -1149,3 +1148,16 @@ response-graph-readout = { $frequency } · { $direction ->
         [down] -{ $gain }
        *[flat] { $gain }
     } dB
+
+settings-tab-library = Bibliothèque
+settings-theme-explore = Explorer les thèmes de la communauté
+settings-theme-explore-detail = Trouvez des thèmes créés par d'autres et installez-les en un clic
+settings-theme-delete = Supprimer le thème
+settings-theme-delete-title = Supprimer { $name } ?
+settings-theme-delete-detail = Le thème sera retiré de votre dossier de thèmes. Cette action est irréversible.
+theme-install-title = Installer { $name } ?
+theme-install-detail = Le thème sera ajouté à votre dossier de thèmes.
+theme-install-confirm = Installer
+toast-theme-link-unreadable = Ce lien de thème est endommagé ou ne contient pas de thème
+toast-theme-install-failed = Impossible d'installer { $name }
+toast-theme-delete-failed = Impossible de supprimer { $name }

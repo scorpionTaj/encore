@@ -10,10 +10,13 @@ use ui::{
     Picker, Rounding, Scrubber, Switch, Theme, ThemeKind,
 };
 
-use super::rows::grid;
+use super::rows::{grid, outward};
 use super::{Group, SettingsView, Slot, TYPEFACES};
 use crate::shared::popups::matches_query;
 
+/// Sonora's gallery of themes people made. Its install buttons open `sonora://theme/` links,
+/// which Encore reads too.
+const COMMUNITY_THEMES: &str = "https://sonorahq.org/themes";
 /// How large a pack's sample glyphs draw on its card.
 const SAMPLE: Pixels = px(14.);
 const TYPEFACE_LIMIT: usize = 200;
@@ -28,7 +31,7 @@ impl SettingsView {
         vec![
             Group::new("settings-theme", "icons/palette.svg")
                 .cards(Slot::Theme)
-                .rows([Slot::Adaptive]),
+                .rows([Slot::Adaptive, Slot::CommunityThemes]),
             Group::new("settings-icons", "icons/layout-grid.svg").cards(Slot::Icons),
             Group::new("settings-corners", "icons/maximize.svg").cards(Slot::Corners),
             Group::new("settings-group-text", "icons/text-select.svg")
@@ -396,6 +399,12 @@ impl SettingsView {
             );
 
         self.row(t!("settings-opacity"), control.into_any_element())
+    }
+
+    pub(super) fn community_themes_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        outward("community-themes", t!("settings-theme-explore"), None, cx)
+            .on_click(|_, _, cx| cx.open_url(COMMUNITY_THEMES))
+            .into_any_element()
     }
 
     pub(super) fn adaptive_row(&self, cx: &mut Context<Self>) -> AnyElement {

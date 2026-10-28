@@ -13,7 +13,7 @@ use state::{
 };
 use ui::{ActiveTheme as _, Dismiss, Entrance, Look, Stillness, Theme, ThemeKind, clear_listing};
 
-use crate::chrome::{Busy, TitleBar, TitleBarEvent, TitleBarOptions, Toolbar, Tooled};
+use crate::chrome::{Busy, ThemeInvite, TitleBar, TitleBarEvent, TitleBarOptions, Toolbar, Tooled};
 use crate::screens::search::SearchView;
 use crate::screens::settings::SettingsHeader;
 use crate::shared::ambient::{self, Ambient};
@@ -83,6 +83,8 @@ pub struct Root {
     io: Io,
     title_bar: Entity<TitleBar>,
     ambient: Entity<Ambient>,
+    /// The question before a linked theme is installed, drawn over whichever shell is up.
+    theme_invite: Entity<ThemeInvite>,
     shells: Shells,
     view: RootView,
     toolbar: Option<Entity<Toolbar>>,
@@ -265,6 +267,7 @@ impl Root {
             },
             adaptive,
             ambient,
+            theme_invite: cx.new(ThemeInvite::new),
             background: None,
             font: None,
             framed: None,
@@ -936,7 +939,8 @@ impl Render for Root {
                         .bg(theme.background)
                         .opacity(hidden),
                 )
-            });
+            })
+            .child(self.theme_invite.clone());
 
         div()
             .relative()

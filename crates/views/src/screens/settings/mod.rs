@@ -56,6 +56,7 @@ enum Slot {
     Folders,
     Theme,
     Adaptive,
+    CommunityThemes,
     Icons,
     Corners,
     Typeface,
@@ -201,8 +202,13 @@ pub struct SettingsView {
     popovers: Popovers,
     /// The theme family whose variant menu opened last, which owns that menu's popover.
     theme_variants: Option<String>,
-    /// Where the language and typeface pickers put the key focus back when they close.
+    /// The user's theme family waiting for the user to confirm its deletion.
+    deleting_theme: Option<String>,
+    /// Holds the key focus while a dialog is up, so escape reaches the page and closes it,
+    /// and is where the language and typeface pickers put it back when they close.
     focus: FocusHandle,
+    /// Whether the focus has already been taken for the dialog that is up.
+    grabbed: bool,
     languages: SearchPopup,
     typefaces: SearchPopup,
     typeface_faced: RefCell<HashSet<SharedString>>,
@@ -295,7 +301,9 @@ impl SettingsView {
             pending_sleep: None,
             popovers,
             theme_variants: None,
+            deleting_theme: None,
             focus,
+            grabbed: false,
             languages,
             typefaces,
             typeface_faced: RefCell::new(HashSet::new()),
@@ -540,6 +548,10 @@ impl SettingsView {
             Slot::TrayIcon => (t!("settings-tray-icon"), t!("settings-tray-icon-detail")),
             Slot::Theme => (t!("settings-theme"), t!("settings-theme-detail")),
             Slot::Adaptive => (t!("settings-adaptive"), t!("settings-adaptive-detail")),
+            Slot::CommunityThemes => (
+                t!("settings-theme-explore"),
+                t!("settings-theme-explore-detail"),
+            ),
             Slot::Ambient => (t!("settings-ambient"), t!("settings-ambient-detail")),
             Slot::AmbientMotion => (
                 t!("settings-ambient-motion"),
@@ -699,6 +711,7 @@ impl SettingsView {
             Slot::Folders => self.folders(cx),
             Slot::Theme | Slot::Icons | Slot::Corners => div().into_any_element(),
             Slot::Adaptive => self.adaptive_row(cx),
+            Slot::CommunityThemes => self.community_themes_row(cx),
             Slot::Ambient => self.ambient_row(cx),
             Slot::AmbientMotion => self.ambient_motion_row(cx),
             Slot::Visualizer => div().into_any_element(),
@@ -1043,6 +1056,17 @@ impl Render for SettingsView {
             self.typefaces.sync(false, None, window, cx);
         }
 
+        // a dialog takes the key focus, since escape only reaches the page from inside it
+        let theme_delete = self.theme_delete_modal(cx);
+        match (theme_delete.is_some(), self.grabbed) {
+            (true, false) => {
+                window.focus(&self.focus, cx);
+                self.grabbed = true;
+            }
+            (false, true) => self.grabbed = false,
+            _ => {}
+        }
+
         let body = match self.searching() {
             true => self.results(window, cx),
             false => self.tab(window, cx),
@@ -1070,6 +1094,7 @@ impl Render for SettingsView {
                 cx.propagate();
             }
         }))
+        .when_some(theme_delete, |this, modal| this.child(modal))
     }
 }
 

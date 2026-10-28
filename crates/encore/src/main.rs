@@ -172,7 +172,11 @@ fn main() {
 fn follow(items: &[String], cx: &mut App) {
     show_window(cx);
     let mut paths: Vec<PathBuf> = Vec::new();
+    let links = Encore::global(cx).links.clone();
     for item in items {
+        if links.update(cx, |links, cx| links.open(item, cx)) {
+            continue;
+        }
         match is_address(item) {
             true => Toasts::show(Outcome::Failed, "toast-link-unreadable", cx),
             false => paths.extend(local_path_from_arg(item)),
@@ -198,8 +202,7 @@ fn local_path_from_arg(arg: &str) -> Option<PathBuf> {
     }
 }
 
-/// A `file://` URI body turned into a filesystem path. Windows `file:///C:/…`
-/// keeps a slash in front of the drive, which is not a path the OS will open.
+/// A `file://` URI body turned into a filesystem path.
 fn file_uri_path(rest: &str) -> String {
     let decoded = percent_decode(rest);
     let path = decoded
@@ -262,6 +265,7 @@ fn open_window(cx: &mut App) {
         playback,
         queue,
         radio: _,
+        links: _,
         requirements: _,
         scan: _,
         settings: _,

@@ -275,7 +275,6 @@ view-list = قائمة
 view-cards = شبكة
 
 # toolbar
-tool-columns = الأعمدة
 tool-sort = الترتيب
 tool-filters = عوامل التصفية
 
@@ -1048,8 +1047,6 @@ requirement-audio-output-title = لا يوجد إخراج صوتي
 requirement-audio-output = تعذّر على Encore فتح جهاز الصوت، لذا لا يُسمع ما تشغّله. تأكد من توصيل جهاز وأنه غير مستخدم من تطبيق آخر.
 settings-check-updates = البحث عن تحديثات
 settings-check-updates-detail = سؤال GitHub مرة عند بدء التشغيل عن وجود إصدار أحدث. يثبّته Encore بنفسه
-settings-update-channel = قناة الإصدار
-settings-update-channel-detail = المستقرة تتبع الإصدارات الرسمية
 settings-log = ملف السجل
 settings-log-detail = ما كتبه Encore أثناء عمله. أرفقه ببلاغ الأخطاء
 settings-log-open = فتح السجل
@@ -1153,3 +1150,15 @@ response-graph-readout = { $frequency } · { $direction ->
         [down] -{ $gain }
        *[flat] { $gain }
     } ديسيبل
+
+settings-theme-explore = استكشاف سمات المجتمع
+settings-theme-explore-detail = اعثر على سمات صنعها آخرون وثبّتها بنقرة واحدة
+settings-theme-delete = حذف السمة
+settings-theme-delete-title = حذف { $name }؟
+settings-theme-delete-detail = ستُزال من مجلد السمات. لا يمكن التراجع عن ذلك.
+theme-install-title = تثبيت { $name }؟
+theme-install-detail = ستُضاف إلى مجلد السمات.
+theme-install-confirm = تثبيت
+toast-theme-link-unreadable = رابط السمة هذا تالف أو لا يحتوي على سمة
+toast-theme-install-failed = تعذّر تثبيت { $name }
+toast-theme-delete-failed = تعذّر حذف { $name }

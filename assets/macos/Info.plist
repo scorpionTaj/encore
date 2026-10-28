@@ -22,6 +22,25 @@
 	<string>@VERSION@</string>
 	<key>CFBundleVersion</key>
 	<string>@VERSION@</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Encore link</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>encore</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>Sonora theme link</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sonora</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>

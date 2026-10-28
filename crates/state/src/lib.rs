@@ -7,6 +7,7 @@ mod equalizer;
 mod history;
 mod home;
 mod library;
+mod links;
 mod logging;
 mod lyrics;
 mod mosaic;
@@ -42,6 +43,7 @@ pub use home::Home;
 pub use library::{
     Addition, Library, LibraryEvent, LibraryPart, LibraryState, Problem, Ready, Shelf,
 };
+pub use links::Links;
 pub use logging::log_file;
 pub use lyrics::{Lyrics, LyricsState};
 pub use network::{Network, Reconnected};
@@ -59,7 +61,8 @@ pub use session::{Session, SessionEvent};
 pub use settings::{
     AppSettings, CROSSFADE_MAX, DiscordName, FilterValue, FullscreenControlsAutohide,
     LYRICS_SOURCES, PlayerBarLayout, Reloaded, RomanizationScripts, SYSTEM_FONT, SideTab,
-    ThemeFamily, ThemeVariant, equalizer_profile_label, remember_window, window_placement,
+    ThemeFamily, ThemeOffer, ThemeVariant, equalizer_profile_label, remember_window,
+    window_placement,
 };
 pub use signal::{Change, Equalizing, FLOAT_BITS, Following, Signal, SignalPath};
 pub use song::SongDetail;
@@ -178,6 +181,7 @@ pub struct Encore {
     pub outputs: Entity<Outputs>,
     pub pins: Entity<Pins>,
     pub playback: Entity<Playback>,
+    pub links: Entity<Links>,
     pub queue: Entity<Queue>,
     pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
@@ -259,6 +263,7 @@ pub fn init(
     let wake = cx.new(|cx| Wake::new(settings.clone(), playback.clone(), io.clone(), cx));
     let updates = cx.new(|cx| Updates::new(settings.clone(), io.clone(), cx));
     let radio = cx.new(|_| Radio::new(io.clone()));
+    let links = cx.new(|cx| Links::new(settings.clone(), cx));
     discord::attach(
         playback.clone(),
         settings.clone(),
@@ -281,6 +286,7 @@ pub fn init(
         playback,
         queue,
         radio,
+        links,
         requirements,
         scan,
         settings,

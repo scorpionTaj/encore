@@ -274,7 +274,6 @@ view-list = List
 view-cards = Grid
 
 # toolbar
-tool-columns = Columns
 tool-sort = Sort
 tool-filters = Filters
 
@@ -501,6 +500,11 @@ settings-opacity = Opacity
 settings-opacity-detail = Adjust the app background opacity
 settings-opacity-value = { $percent }%
 settings-theme-folder = Open folder
+settings-theme-explore = Explore community themes
+settings-theme-explore-detail = Find themes other people made and install them in one click
+settings-theme-delete = Delete theme
+settings-theme-delete-title = Delete { $name }?
+settings-theme-delete-detail = This removes it from your themes folder. It cannot be undone.
 settings-theme-unavailable = This theme can be applied only when adaptive theme is disabled
 settings-adaptive = Adaptive theme
 settings-adaptive-detail = Tint the palette with the artwork of the playing album
@@ -919,6 +923,9 @@ theme-system = System
 theme-dark = Dark
 theme-light = Light
 theme-unavailable = { $name } (unavailable)
+theme-install-title = Install { $name }?
+theme-install-detail = This will add it to your themes folder.
+theme-install-confirm = Install
 
 # corners
 corners-square = Square
@@ -1044,8 +1051,6 @@ requirement-audio-output-title = No sound output
 requirement-audio-output = Encore could not open your audio device, so nothing you play is heard. Check that a device is connected and not held by another app.
 settings-check-updates = Check for updates
 settings-check-updates-detail = Ask GitHub once at startup whether a newer version is out. Encore installs it itself unless a package manager keeps it up to date, in which case it points you at what changed
-settings-update-channel = Release channel
-settings-update-channel-detail = Stable follows releases. Nightly follows the build of main made every night, which gets changes first and has had less testing
 settings-log = Log file
 settings-log-detail = What Encore wrote while running. Attach it to a bug report
 settings-log-open = Open log
@@ -1097,6 +1102,9 @@ toast-tray-unavailable = There is no system tray to put the icon in
 toast-undo = Undo
 toast-link-copied = Link copied
 toast-link-unreadable = That link does not lead anywhere Encore can open
+toast-theme-link-unreadable = That theme link is damaged or holds something other than a theme
+toast-theme-install-failed = Cannot install { $name }
+toast-theme-delete-failed = Cannot delete { $name }
 menu-copy-link-none = This has no link to share
 menu-copy-link-local = Local artists and playlists have no link
 toast-settings-save-failed = Settings could not be saved

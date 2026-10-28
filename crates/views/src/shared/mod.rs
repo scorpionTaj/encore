@@ -18,6 +18,7 @@ pub(crate) mod popups;
 pub(crate) mod shelves;
 pub(crate) mod tag_editor;
 pub(crate) mod text;
+pub(crate) mod theme_miniature;
 pub(crate) mod track_card;
 pub(crate) mod tracks;
 pub(crate) mod transport;
