@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0]
+
 ### Added
 
 - A song's details show its year, genres, label, language and composer from the file's tags.
