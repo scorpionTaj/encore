@@ -81,9 +81,7 @@ impl SettingsView {
         let locked = outputs.switching();
         let settings_uri = match rates.len() > 1 {
             true => None,
-            false => {
-                music::output::system_audio_settings_uri(device.map(|device| device.id.as_str()))
-            }
+            false => Some(music::output::system_audio_settings_uri()),
         };
         let rate = current
             .map(|rate| t!("settings-sample-rate-value", khz = f64::from(rate) / 1_000.))

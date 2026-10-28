@@ -39,7 +39,6 @@ pub use models::{
     RomanizedText, SavedArtist, Track, TrackKey, TrackTags, UserDetail, UserProfile, Voice,
     WritingSystem,
 };
-pub use output::{Server as SoundServer, missing_bridge};
 pub use spectrum::{Analyzer, Level, Spectrum, Watch};
 
 pub const LOCAL_TRACK_PREFIX: &str = "local:";

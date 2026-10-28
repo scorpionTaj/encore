@@ -30,10 +30,10 @@ const MAX_ACCENT_SATURATION: f32 = 0.85;
 /// Art lighter than this wears a dark control and art darker than it a light
 /// one, which is the whole of what tells a white sleeve from a black one.
 const NEUTRAL_PIVOT: f32 = 0.5;
-const SYSTEM_FILLS: bool = cfg!(target_os = "windows");
+const SYSTEM_FILLS: bool = false;
 /// Whether the platform can blur the desktop behind a see-through window. Linux and FreeBSD
 /// compositors ignore the request, so the setting is not offered there at all.
-pub const WINDOW_BLUR: bool = !cfg!(any(target_os = "linux", target_os = "freebsd"));
+pub const WINDOW_BLUR: bool = !false;
 
 /// What a fill keeps of itself once the window is fully see-through. The page
 /// background has no floor — a clear window is the point — but everything drawn

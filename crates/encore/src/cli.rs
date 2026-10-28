@@ -34,7 +34,6 @@ impl Cli {
                     ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
                 ) =>
             {
-                attach_console();
                 error.exit()
             }
             Err(_) => Self {
@@ -44,16 +43,5 @@ impl Cli {
                     .collect(),
             },
         }
-    }
-}
-
-/// A Windows release build has no console of its own, so it borrows the one of the terminal that
-/// started it before printing. Without one there is nowhere to print, which is not an error.
-fn attach_console() {
-    #[cfg(windows)]
-    // SAFETY: AttachConsole takes no pointers and only reports whether a console was attached.
-    unsafe {
-        use windows_sys::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
-        AttachConsole(ATTACH_PARENT_PROCESS);
     }
 }

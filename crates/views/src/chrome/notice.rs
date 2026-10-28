@@ -8,7 +8,6 @@ use gpui::{
     div, px, svg,
 };
 use i18n::t;
-use music::SoundServer;
 use state::{AppSettings, Encore, Requirement, Requirements, UpdateState, Updates};
 use ui::{ActiveTheme as _, Button, SMALL_INSET, Text, corners};
 
@@ -16,8 +15,6 @@ const ICON: Pixels = px(18.);
 const REACH: Pixels = px(400.);
 /// How many of a release's changes the update card lists before leaving the rest to the notes.
 const NOTES_SHOWN: usize = 5;
-/// Where Encore's README says what to install alongside it on Linux, which Encore shares.
-const INSTALL: &str = "https://github.com/scorpionTaj/encore#readme";
 
 type Handler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
@@ -59,18 +56,6 @@ impl AppNotice {
 
     fn requirement(&self, requirement: Requirement) -> Card {
         let (id, icon, title, detail) = match requirement {
-            Requirement::AudioBridge(server) => (
-                "requirement-audio-bridge",
-                "icons/volume-x.svg",
-                t!("requirement-audio-bridge-title"),
-                t!(
-                    "requirement-audio-bridge",
-                    server = match server {
-                        SoundServer::PipeWire => "pipewire",
-                        SoundServer::PulseAudio => "pulseaudio",
-                    }
-                ),
-            ),
             Requirement::AudioOutput => (
                 "requirement-audio-output",
                 "icons/volume-x.svg",
@@ -93,11 +78,7 @@ impl AppNotice {
             silence: Box::new(move |_, _, cx| {
                 silence.update(cx, |requirements, cx| requirements.silence(requirement, cx));
             }),
-            link: Some(link(
-                SharedString::from(format!("{id}-help")),
-                t!("requirement-help"),
-                INSTALL.to_owned(),
-            )),
+            link: None,
             actions: Vec::new(),
         }
     }

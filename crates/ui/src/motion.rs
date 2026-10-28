@@ -512,68 +512,11 @@ mod system {
     use gpui::App;
 
     /// Reduce Motion under System Settings > Accessibility > Display.
-    #[cfg(target_os = "macos")]
     pub(super) fn settle(cx: &mut App, _generation: u64) {
         use objc2_app_kit::NSWorkspace;
 
         let still = NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion();
         cx.set_reduce_motion(still);
-    }
-
-    /// "Animation effects" under Settings > Accessibility > Visual effects.
-    #[cfg(windows)]
-    pub(super) fn settle(cx: &mut App, _generation: u64) {
-        use windows_sys::Win32::UI::WindowsAndMessaging::{
-            SPI_GETCLIENTAREAANIMATION, SystemParametersInfoW,
-        };
-
-        let mut animated: windows_sys::core::BOOL = 1;
-        // SAFETY: SPI_GETCLIENTAREAANIMATION writes one BOOL through pvparam, which is what
-        // `animated` is, and asks nothing else of the caller.
-        let answered = unsafe {
-            SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, (&raw mut animated).cast(), 0)
-        };
-        cx.set_reduce_motion(answered != 0 && animated == 0);
-    }
-
-    /// Reads the standardized XDG reduced-motion preference.
-    ///
-    /// Older portals may not expose `org.freedesktop.appearance.reduced-motion`; that failure
-    /// leaves animations enabled.
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    pub(super) fn settle(cx: &mut App, generation: u64) {
-        use ashpd::desktop::settings::{ReducedMotion, Settings};
-        use gpui::AppContext as _;
-        use std::sync::atomic::Ordering;
-
-        use super::APPLY_GENERATION;
-
-        cx.spawn(async move |cx| {
-            let still = cx
-                .background_spawn(async {
-                    let settings = Settings::new().await.ok()?;
-                    let reduced = settings.reduced_motion().await.ok()?;
-
-                    Some(reduced == ReducedMotion::ReducedMotion)
-                })
-                .await;
-            cx.update(|cx| {
-                if APPLY_GENERATION.load(Ordering::SeqCst) == generation {
-                    cx.set_reduce_motion(still.unwrap_or(false));
-                }
-            });
-        })
-        .detach();
-    }
-
-    #[cfg(not(any(
-        target_os = "macos",
-        windows,
-        target_os = "linux",
-        target_os = "freebsd"
-    )))]
-    pub(super) fn settle(cx: &mut App, _generation: u64) {
-        cx.set_reduce_motion(false);
     }
 }
 

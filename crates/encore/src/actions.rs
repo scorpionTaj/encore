@@ -99,58 +99,47 @@ pub fn register(lingers: bool, cx: &mut App) {
     cx.set_menus(menus());
 }
 
-/// The menu bar. Only macOS draws one, so only macOS gets the Edit and Window menus and the
-/// application-menu items Cocoa users expect; the other platforms keep the one Encore menu.
+/// The menu bar: the Encore menu with the application items Cocoa users expect, then Edit and
+/// Window.
 fn menus() -> Vec<Menu> {
-    let app = match cfg!(target_os = "macos") {
-        true => vec![
-            MenuItem::action(t!("app-check-updates"), CheckForUpdates),
-            MenuItem::separator(),
-            MenuItem::action(t!("app-settings"), OpenSettings),
-            MenuItem::separator(),
-            MenuItem::action(t!("app-refresh"), Refresh),
-            MenuItem::action(t!("app-mini-player"), ToggleMiniPlayer),
-            MenuItem::separator(),
-            MenuItem::action(t!("app-hide"), Hide),
-            MenuItem::action(t!("app-hide-others"), HideOthers),
-            MenuItem::action(t!("app-show-all"), ShowAll),
-            MenuItem::separator(),
-            MenuItem::action(t!("app-quit"), Quit),
-        ],
-        false => vec![
-            MenuItem::action(t!("app-refresh"), Refresh),
-            MenuItem::action(t!("app-mini-player"), ToggleMiniPlayer),
-            MenuItem::action(t!("app-check-updates"), CheckForUpdates),
-            MenuItem::separator(),
-            MenuItem::action(t!("app-quit"), Quit),
-        ],
-    };
+    let app = vec![
+        MenuItem::action(t!("app-check-updates"), CheckForUpdates),
+        MenuItem::separator(),
+        MenuItem::action(t!("app-settings"), OpenSettings),
+        MenuItem::separator(),
+        MenuItem::action(t!("app-refresh"), Refresh),
+        MenuItem::action(t!("app-mini-player"), ToggleMiniPlayer),
+        MenuItem::separator(),
+        MenuItem::action(t!("app-hide"), Hide),
+        MenuItem::action(t!("app-hide-others"), HideOthers),
+        MenuItem::action(t!("app-show-all"), ShowAll),
+        MenuItem::separator(),
+        MenuItem::action(t!("app-quit"), Quit),
+    ];
     let mut menus = vec![Menu {
         name: "Encore".into(),
         disabled: false,
         items: app,
     }];
-    if cfg!(target_os = "macos") {
-        menus.push(Menu {
-            name: t!("app-edit"),
-            disabled: false,
-            items: vec![
-                MenuItem::os_action(t!("app-cut"), Cut, OsAction::Cut),
-                MenuItem::os_action(t!("app-copy"), Copy, OsAction::Copy),
-                MenuItem::os_action(t!("app-paste"), Paste, OsAction::Paste),
-                MenuItem::os_action(t!("app-select-all"), SelectAll, OsAction::SelectAll),
-            ],
-        });
-        menus.push(Menu {
-            name: t!("app-window"),
-            disabled: false,
-            items: vec![
-                MenuItem::action(t!("app-close-window"), CloseWindow),
-                MenuItem::action(t!("app-minimize"), MinimizeWindow),
-                MenuItem::action(t!("app-zoom"), ZoomWindow),
-            ],
-        });
-    }
+    menus.push(Menu {
+        name: t!("app-edit"),
+        disabled: false,
+        items: vec![
+            MenuItem::os_action(t!("app-cut"), Cut, OsAction::Cut),
+            MenuItem::os_action(t!("app-copy"), Copy, OsAction::Copy),
+            MenuItem::os_action(t!("app-paste"), Paste, OsAction::Paste),
+            MenuItem::os_action(t!("app-select-all"), SelectAll, OsAction::SelectAll),
+        ],
+    });
+    menus.push(Menu {
+        name: t!("app-window"),
+        disabled: false,
+        items: vec![
+            MenuItem::action(t!("app-close-window"), CloseWindow),
+            MenuItem::action(t!("app-minimize"), MinimizeWindow),
+            MenuItem::action(t!("app-zoom"), ZoomWindow),
+        ],
+    });
     menus
 }
 

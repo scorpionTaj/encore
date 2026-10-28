@@ -19,8 +19,6 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-use gpui::WindowDecorations;
 use gpui::{
     App, Bounds, Context, DisplayId, EventEmitter, Pixels, Size, Subscription, Task, Window,
     WindowBounds, point, px, size,
@@ -432,23 +430,10 @@ struct Appearance {
     font_size: f32,
     transparent: bool,
     transparency: f32,
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    server_side_decorations: bool,
     /// The window's own corner rounding, independent of `rounding` (the UI element radius).
-    /// On Windows this maps onto DWM's two fixed presets and on macOS onto the toolbar styles
-    /// AppKit sizes its corners by. On Linux/FreeBSD it only has an effect with client-side
-    /// decorations, since server-side ones are the compositor's call.
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "macos"
-    ))]
+    /// Maps onto the toolbar styles AppKit sizes its corners by.
     window_rounding: String,
     window_controls: bool,
-    #[cfg(not(target_os = "macos"))]
-    traffic_light_controls: bool,
-    controls_on_left: bool,
     reduce_motion: String,
     motion_pace: String,
     battery_saver: String,
@@ -707,18 +692,9 @@ impl Default for Appearance {
             font_size: DEFAULT_FONT_SIZE,
             transparent: false,
             transparency: ui::BACKDROP_TRANSPARENCY,
-            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-            server_side_decorations: true,
-            #[cfg(target_os = "windows")]
-            window_rounding: Rounding::Rounded.id().to_owned(),
-            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-            window_rounding: Rounding::Square.id().to_owned(),
-            #[cfg(target_os = "macos")]
+
             window_rounding: Rounding::Subtle.id().to_owned(),
             window_controls: true,
-            #[cfg(not(target_os = "macos"))]
-            traffic_light_controls: false,
-            controls_on_left: false,
             reduce_motion: Stillness::default().id().to_owned(),
             motion_pace: Pace::default().id().to_owned(),
             battery_saver: Saver::default().id().to_owned(),
@@ -1189,40 +1165,12 @@ impl AppSettings {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    pub fn server_side_decorations(&self) -> bool {
-        self.values.appearance.server_side_decorations
-    }
-
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    pub fn window_decorations(&self) -> WindowDecorations {
-        match self.server_side_decorations() {
-            true => WindowDecorations::Server,
-            false => WindowDecorations::Client,
-        }
-    }
-
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "macos"
-    ))]
     pub fn window_rounding(&self) -> Rounding {
         Rounding::from_id(&self.values.appearance.window_rounding)
     }
 
     pub fn window_controls(&self) -> bool {
         self.values.appearance.window_controls
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    pub fn traffic_light_controls(&self) -> bool {
-        self.values.appearance.traffic_light_controls
-    }
-
-    pub fn controls_on_left(&self) -> bool {
-        self.values.appearance.controls_on_left
     }
 
     pub fn font_size(&self) -> f32 {
@@ -1845,18 +1793,6 @@ impl AppSettings {
         self.schedule_save(cx);
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    pub fn set_server_side_decorations(&mut self, shown: bool, cx: &mut Context<Self>) {
-        self.values.appearance.server_side_decorations = shown;
-        self.schedule_save(cx);
-    }
-
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "macos"
-    ))]
     pub fn set_window_rounding(&mut self, rounding: Rounding, cx: &mut Context<Self>) {
         self.values.appearance.window_rounding = rounding.id().to_owned();
         self.schedule_save(cx);
@@ -1864,17 +1800,6 @@ impl AppSettings {
 
     pub fn set_window_controls(&mut self, shown: bool, cx: &mut Context<Self>) {
         self.values.appearance.window_controls = shown;
-        self.schedule_save(cx);
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    pub fn set_traffic_light_controls(&mut self, traffic_light: bool, cx: &mut Context<Self>) {
-        self.values.appearance.traffic_light_controls = traffic_light;
-        self.schedule_save(cx);
-    }
-
-    pub fn set_controls_on_left(&mut self, left: bool, cx: &mut Context<Self>) {
-        self.values.appearance.controls_on_left = left;
         self.schedule_save(cx);
     }
 
@@ -2366,12 +2291,6 @@ fn same_path(left: &Path, right: &Path, case_insensitive: bool) -> bool {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn filesystem_ignores_case(_: &Path) -> bool {
-    true
-}
-
-#[cfg(target_os = "macos")]
 fn filesystem_ignores_case(path: &Path) -> bool {
     let Some(name) = path.file_name() else {
         return false;
@@ -2389,11 +2308,6 @@ fn filesystem_ignores_case(path: &Path) -> bool {
         (Ok(path), Ok(other)) => path == other,
         _ => false,
     }
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn filesystem_ignores_case(_: &Path) -> bool {
-    false
 }
 
 fn absolute_path(path: &Path) -> PathBuf {
@@ -2449,7 +2363,6 @@ fn write_settings(path: &Path, bytes: &[u8]) -> Result<()> {
     temporary
         .write_all(bytes)
         .context("cannot write temporary settings file")?;
-    #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
         temporary
@@ -2465,7 +2378,6 @@ fn write_settings(path: &Path, bytes: &[u8]) -> Result<()> {
         .persist(&path)
         .map_err(|error| error.error)
         .context("cannot replace settings file")?;
-    #[cfg(unix)]
     if let Err(error) = fs::File::open(parent).and_then(|folder| folder.sync_all()) {
         log::debug!("settings: cannot sync {}: {error}", parent.display());
     }

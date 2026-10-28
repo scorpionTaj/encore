@@ -33,10 +33,7 @@ const REFERENCE: f32 = 0.3;
 /// The dash and gap of the reference line, so it reads apart from the grid.
 const DASH: [Pixels; 2] = [px(4.), px(3.)];
 /// How many lines one wheel notch scrolls, so a notch is one width step on every platform.
-#[cfg(target_os = "macos")]
 const LINES_PER_NOTCH: f32 = 1.;
-#[cfg(not(target_os = "macos"))]
-const LINES_PER_NOTCH: f32 = 3.;
 /// How far a held node must travel before it moves, so a click that selects it edits nothing.
 const DEADZONE: f32 = 3.;
 /// The curve coordinates that mark a path's triangle as wholly inside its shape.

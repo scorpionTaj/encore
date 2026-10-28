@@ -13,7 +13,7 @@ const STARTUP: &str = "startup";
 const ENTRIES: &str = "entries";
 
 impl SettingsView {
-    pub(super) fn general_groups(&self, cx: &App) -> Vec<Group> {
+    pub(super) fn general_groups(&self, _cx: &App) -> Vec<Group> {
         vec![
             Group::new("settings-group-startup", "icons/house.svg").rows([
                 Slot::Startup,
@@ -22,7 +22,7 @@ impl SettingsView {
             ]),
             Group::new("settings-group-window", "icons/panel-left-open.svg")
                 .rows([Slot::Tray, Slot::TrayIcon])
-                .rows(self.decoration_slots(cx)),
+                .rows([Slot::Decorations, Slot::WindowRounding]),
             Group::new("settings-group-motion", "icons/loader-circle.svg").rows([
                 Slot::Motion,
                 Slot::Pace,
@@ -30,32 +30,6 @@ impl SettingsView {
             ]),
             Group::new("settings-group-context-menus", "icons/list.svg").rows([Slot::AdaptiveMenu]),
         ]
-    }
-
-    /// The rows about the window's own frame, which differ by platform.
-    #[allow(
-        unused_variables,
-        reason = "cx is only read on Linux and FreeBSD, where rounding follows the decorations"
-    )]
-    fn decoration_slots(&self, cx: &App) -> Vec<Slot> {
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let mut slots = vec![Slot::ServerSideDecorations, Slot::Side, Slot::TrafficLights];
-        // Server-side decorations put the compositor in charge of the frame, so window
-        // rounding is only ever this app's call with client-side ones.
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        if !self.settings.read(cx).server_side_decorations() {
-            slots.push(Slot::WindowRounding);
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "macos")))]
-        let slots = vec![
-            Slot::Decorations,
-            Slot::Side,
-            Slot::TrafficLights,
-            Slot::WindowRounding,
-        ];
-        #[cfg(target_os = "macos")]
-        let slots = vec![Slot::Decorations, Slot::WindowRounding];
-        slots
     }
 
     pub(super) fn startup_row(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -154,25 +128,6 @@ impl SettingsView {
         self.row(t!("settings-language"), picker.into_any_element())
     }
 
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    pub(super) fn server_side_decorations_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let enabled = self.settings.read(cx).server_side_decorations();
-
-        self.row(
-            t!("settings-server-side-decorations"),
-            Switch::new("server-side-decorations", enabled)
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    let decorations = this.settings.update(cx, |settings, cx| {
-                        settings.set_server_side_decorations(!enabled, cx);
-                        settings.window_decorations()
-                    });
-                    window.request_decorations(decorations);
-                }))
-                .into_any_element(),
-        )
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
     pub(super) fn decorations_row(&self, cx: &mut Context<Self>) -> AnyElement {
         let on = self.settings.read(cx).window_controls();
 
@@ -187,30 +142,8 @@ impl SettingsView {
         )
     }
 
-    #[cfg(not(target_os = "macos"))]
-    pub(super) fn traffic_light_controls_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let on = self.settings.read(cx).traffic_light_controls();
-
-        self.row(
-            t!("settings-traffic-light-controls"),
-            Switch::new("traffic-light-controls", on)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_traffic_light_controls(!on, cx)
-                    });
-                }))
-                .into_any_element(),
-        )
-    }
-
     /// The window's corners as one card per rounding, each showing a corner at that radius.
     /// AppKit has no square window, so macOS offers only the corners it can draw.
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "macos"
-    ))]
     pub(super) fn window_rounding_row(
         &self,
         window: &Window,
@@ -219,7 +152,7 @@ impl SettingsView {
         let current = self.settings.read(cx).window_rounding();
         let offered = Rounding::ALL
             .into_iter()
-            .filter(|rounding| cfg!(not(target_os = "macos")) || *rounding != Rounding::Square)
+            .filter(|rounding| *rounding != Rounding::Square)
             .collect::<Vec<_>>();
 
         let cards =
@@ -237,33 +170,6 @@ impl SettingsView {
             }));
 
         self.stacked(t!("settings-window-rounding"), cards)
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    pub(super) fn side_row(&self, cx: &mut Context<Self>) -> AnyElement {
-        let settings = self.settings.read(cx);
-        let left = settings.controls_on_left();
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let shown = !settings.server_side_decorations();
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        let shown = settings.window_controls();
-
-        let sides = segmented(
-            "controls-side",
-            [(true, t!("common-left")), (false, t!("common-right"))],
-            left,
-            cx.listener(move |this, left: &bool, _, cx| {
-                if !shown {
-                    return;
-                }
-                let left = *left;
-                this.settings
-                    .update(cx, |settings, cx| settings.set_controls_on_left(left, cx));
-            }),
-        )
-        .when(!shown, |bar| bar.opacity(0.4));
-
-        self.row(t!("settings-controls-side"), sides.into_any_element())
     }
 
     pub(super) fn motion_row(&self, cx: &mut Context<Self>) -> AnyElement {

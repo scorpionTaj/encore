@@ -1,7 +1,4 @@
-#[cfg(any(target_os = "macos", windows))]
 mod native;
-#[cfg(target_os = "linux")]
-mod sni;
 
 use std::sync::Arc;
 
@@ -14,10 +11,7 @@ use router::Destination;
 use state::{Encore, Outcome, PlaybackState, Repeat, Toasts};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
-#[cfg(any(target_os = "macos", windows))]
 use native::Icon;
-#[cfg(target_os = "linux")]
-use sni::Icon;
 
 const CAPTION_LIMIT: usize = 26;
 

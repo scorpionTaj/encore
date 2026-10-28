@@ -4,9 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-bundled-sqlite = ["rusqlite/bundled", "storage/bundled-sqlite"]
-
 [dependencies]
 anyhow.workspace = true
 ardftsrc.workspace = true
@@ -39,17 +36,6 @@ storage.workspace = true
 symphonia.workspace = true
 time.workspace = true
 tokio.workspace = true
-
-[target.'cfg(target_os = "linux")'.dependencies]
-alsa.workspace = true
-# TODO: move to cpal's native `pipewire` backend, and drop the trip through pipewire-pulse, once a
-# cpal release sets `node.rate` (upstream commit ec35008, unreleased in 0.18) and CI builds on a
-# distro with libpipewire 0.3.53 or newer.
-cpal = { workspace = true, features = ["pulseaudio"] }
-pulseaudio.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-windows.workspace = true
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }

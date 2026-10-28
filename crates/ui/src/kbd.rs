@@ -89,17 +89,12 @@ impl RenderOnce for Kbd {
 
 /// What the cap of one part of a keystroke says.
 fn label(part: &str) -> SharedString {
-    let mac = cfg!(target_os = "macos");
-    match (part, mac) {
-        ("secondary" | "cmd", true) => SharedString::new_static("⌘"),
-        ("ctrl", true) => SharedString::new_static("⌃"),
-        ("alt", true) => SharedString::new_static("⌥"),
-        ("shift", true) => SharedString::new_static("⇧"),
-        ("secondary" | "ctrl", false) => i18n::lookup("key-ctrl", None),
-        ("cmd", false) => i18n::lookup("key-super", None),
-        ("alt", false) => i18n::lookup("key-alt", None),
-        ("shift", false) => i18n::lookup("key-shift", None),
-        (part, _) => named(part),
+    match part {
+        "secondary" | "cmd" => SharedString::new_static("⌘"),
+        "ctrl" => SharedString::new_static("⌃"),
+        "alt" => SharedString::new_static("⌥"),
+        "shift" => SharedString::new_static("⇧"),
+        part => named(part),
     }
 }
 

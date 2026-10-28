@@ -10,15 +10,7 @@
 //! or leaves the system and comes back. Opening one can take CoreAudio ten seconds to give up on.
 //! A device the system no longer lists is gone, which is not a failure: the default plays in its
 //! place without trying it, and it is played on again once it is back.
-//!
-//! On Linux cpal plays through PulseAudio when a server answers, PipeWire's `pipewire-pulse`
-//! included, and ALSA otherwise. A sound server offers its own outputs, and a sound card's own
-//! ALSA device can still be picked to play past it.
 
-#[cfg(target_os = "linux")]
-mod output_alsa;
-#[cfg(target_os = "linux")]
-mod output_host;
 mod output_rate;
 
 use std::collections::HashSet;
@@ -35,8 +27,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch;
 
 use crate::audio::{self, Chain};
-#[cfg(target_os = "linux")]
-use output_host::host;
 
 /// The buffer asked of the device, in frames, as far as the device allows it, when none is
 /// chosen in settings.
@@ -154,13 +144,6 @@ pub struct Failure {
     /// Whether it is the chosen device, which gave way to the system's default, rather than the
     /// default itself, which leaves nothing playing.
     pub saved: bool,
-}
-
-/// A desktop sound server, which ALSA reaches only through the plugin its package installs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Server {
-    PipeWire,
-    PulseAudio,
 }
 
 /// Which device and rate were chosen in settings, which devices would not open, and whether
@@ -514,47 +497,6 @@ impl Device {
     }
 }
 
-/// Holds the calling thread in COM's multithreaded apartment until it exits. Every cpal call goes
-/// through `host` first, so a thread joins it before cpal would put it in a single-threaded one.
-///
-/// From a single-threaded apartment WASAPI now and then fails to open the default device just
-/// after the system switches it, with `RPC_E_CHANGED_MODE`. A bare cpal program does not hit that,
-/// so something else in Encore that uses COM plays a part, but from the multithreaded apartment
-/// the new default opens every time. A thread already in an apartment, such as the UI thread,
-/// stays in it.
-#[cfg(windows)]
-struct Apartment {
-    /// Whether this thread's call initialized COM, so it has to uninitialize it on exit.
-    entered: bool,
-}
-
-#[cfg(windows)]
-impl Apartment {
-    fn enter() {
-        thread_local! {
-            static APARTMENT: Apartment = Apartment {
-                entered: unsafe {
-                    windows::Win32::System::Com::CoInitializeEx(
-                        None,
-                        windows::Win32::System::Com::COINIT_MULTITHREADED,
-                    )
-                }
-                .is_ok(),
-            };
-        }
-        APARTMENT.with(|_| {});
-    }
-}
-
-#[cfg(windows)]
-impl Drop for Apartment {
-    fn drop(&mut self) {
-        if self.entered {
-            unsafe { windows::Win32::System::Com::CoUninitialize() };
-        }
-    }
-}
-
 impl Sample {
     fn of(format: cpal::SampleFormat) -> Self {
         use cpal::SampleFormat::*;
@@ -666,19 +608,9 @@ pub fn devices() -> Vec<DeviceOption> {
                 direct: false,
                 sink: None,
             };
-            #[cfg(target_os = "linux")]
-            let option = output_host::listed(&device, option)?;
             Some(option)
         })
         .collect();
-    #[cfg(target_os = "linux")]
-    if output_host::is_server(&host) {
-        let mut sinks = output_host::sinks();
-        for option in &mut options {
-            option.sink = sinks.remove(&option.id);
-        }
-        options.extend(output_alsa::direct_devices());
-    }
     // ALSA can list one card both by name and by number, which come out as one id
     let mut seen = HashSet::new();
     options.retain(|option| seen.insert(option.id.clone()));
@@ -686,21 +618,9 @@ pub fn devices() -> Vec<DeviceOption> {
 }
 
 /// Whether a device id saved in settings can never name a device here again, so it should be
-/// forgotten rather than waited for. That is an id that does not parse, or an ALSA device other
-/// than a sound card's own once a sound server plays. Asks the system, so call it off the UI
-/// thread.
+/// forgotten rather than waited for: an id that does not parse.
 pub fn retired(id: &str) -> bool {
-    match id.parse::<cpal::DeviceId>() {
-        Err(_) => true,
-        #[cfg(target_os = "linux")]
-        Ok(id) => {
-            id.host() == cpal::HostId::Alsa
-                && !output_alsa::is_direct(id.id())
-                && output_host::is_server(&host())
-        }
-        #[cfg(not(target_os = "linux"))]
-        Ok(_) => false,
-    }
+    id.parse::<cpal::DeviceId>().is_err()
 }
 
 /// Opens the device with `id`, or the system's default when `id` is `None`, as a device picked in
@@ -790,24 +710,9 @@ fn announce_device_changes() {
     DEVICE_CHANGES.send_modify(|_| {});
 }
 
-/// Where the system lets someone change the device's sample rate, as a URI to open, or `None` on
-/// a system that has no such place. `device` is the `DeviceInfo::id` of the device playing, if
-/// any; Windows opens that device's own page, and its general sound page without one.
-pub fn system_audio_settings_uri(device: Option<&str>) -> Option<String> {
-    if cfg!(target_os = "macos") {
-        Some("file:///System/Applications/Utilities/Audio%20MIDI%20Setup.app".to_owned())
-    } else if cfg!(target_os = "windows") {
-        // a WASAPI id is the endpoint id the device properties page takes
-        let endpoint = device
-            .and_then(|id| id.parse::<cpal::DeviceId>().ok())
-            .map(|id| id.id().to_owned());
-        Some(match endpoint {
-            Some(endpoint) => format!("ms-settings:sound-properties?endpointId={endpoint}"),
-            None => "ms-settings:sound".to_owned(),
-        })
-    } else {
-        None
-    }
+/// Where macOS lets someone change the device's sample rate: Audio MIDI Setup, as a URI to open.
+pub fn system_audio_settings_uri() -> String {
+    "file:///System/Applications/Utilities/Audio%20MIDI%20Setup.app".to_owned()
 }
 
 /// Picks the device Encore should play on right now.
@@ -892,14 +797,6 @@ pub fn failing() -> bool {
     DeviceSelection::lock().failing
 }
 
-#[cfg(target_os = "linux")]
-pub use output_alsa::missing_bridge;
-
-#[cfg(not(target_os = "linux"))]
-pub fn missing_bridge() -> Option<Server> {
-    None
-}
-
 /// The key device rules know an output by: the device's id, and for a sound server's sink the
 /// port that plays after a `#`, so headphones and speakers on one card are two outputs.
 pub fn output_key(device: &str, port: Option<&Port>) -> String {
@@ -909,34 +806,13 @@ pub fn output_key(device: &str, port: Option<&Port>) -> String {
     }
 }
 
-/// The key an output saved by an older Encore goes by now, or `None` when `key` is current.
-/// Device rules once keyed a sound server's sink by its bare name, which cpal now puts behind its
-/// `pulseaudio` host.
-#[cfg(target_os = "linux")]
-pub fn upgrade_output_key(key: &str) -> Option<String> {
-    let device = key.split_once('#').map_or(key, |(device, _)| device);
-    if device.parse::<cpal::DeviceId>().is_ok() {
-        return None;
-    }
-    Some(format!("{}:{key}", cpal::HostId::PulseAudio))
-}
-
 /// The key an output saved by an older Encore goes by now. Every key is current here, since only
 /// Linux ever keyed a sound server's sink.
-#[cfg(not(target_os = "linux"))]
 pub fn upgrade_output_key(_key: &str) -> Option<String> {
     None
 }
 
-/// What the sound server says of the sink behind the device `id`, or `None` for any other device.
-/// It asks the server, so call it off the UI thread.
-#[cfg(target_os = "linux")]
-fn read_sink(id: &str) -> Option<Sink> {
-    output_host::sink(id)
-}
-
 /// What the sound server says of the sink behind the device `id`. There is no sound server here.
-#[cfg(not(target_os = "linux"))]
 fn read_sink(_id: &str) -> Option<Sink> {
     None
 }
@@ -958,22 +834,11 @@ fn forget_gone(host: &cpal::Host) {
 
 /// The host Encore plays through. On Windows the calling thread joins COM's multithreaded
 /// apartment first, see `Apartment`.
-#[cfg(not(target_os = "linux"))]
 fn host() -> cpal::Host {
-    #[cfg(windows)]
-    Apartment::enter();
     cpal::default_host()
 }
 
-/// The id of the device the system plays its default output on, as `devices` lists it, or `None`
-/// when the default is not one of the listed devices.
-#[cfg(target_os = "linux")]
-fn system_default(host: &cpal::Host) -> Option<String> {
-    output_host::system_default(host)
-}
-
 /// The id of the device the system plays its default output on, as `devices` lists it.
-#[cfg(not(target_os = "linux"))]
 fn system_default(host: &cpal::Host) -> Option<String> {
     host.default_output_device()
         .and_then(|device| cpal_ident(&device))
@@ -983,10 +848,6 @@ fn system_default(host: &cpal::Host) -> Option<String> {
 /// own device. `None` when it is not connected or `id` names nothing here.
 fn find_device(host: &cpal::Host, id: &str) -> Option<cpal::Device> {
     let id: cpal::DeviceId = id.parse().ok()?;
-    #[cfg(target_os = "linux")]
-    if id.host() == cpal::HostId::Alsa {
-        return output_alsa::device(host, id.id());
-    }
     if id.host() != host.id() {
         return None;
     }
@@ -997,11 +858,6 @@ fn find_device(host: &cpal::Host, id: &str) -> Option<cpal::Device> {
 /// ALSA sound card named rather than numbered, since the numbers change as cards come and go.
 fn cpal_ident(device: &cpal::Device) -> Option<String> {
     let id = device.id().ok()?;
-    #[cfg(target_os = "linux")]
-    if id.host() == cpal::HostId::Alsa {
-        let pcm = output_alsa::named(id.id());
-        return Some(cpal::DeviceId::new(cpal::HostId::Alsa, &pcm).to_string());
-    }
     Some(id.to_string())
 }
 

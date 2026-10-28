@@ -1183,9 +1183,6 @@ impl Render for FullscreenView {
                 .max(px(VISUALIZER_MIN));
         let root_bounds = self.root_bounds.clone();
         // The visualizer and its veil sit flush with the window's bottom corners.
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let corner = crate::chrome::window_radius(self.settings.read(cx), cx, window);
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         let corner: Option<Pixels> = None;
         let visualizer_tint = match ambient::shown(cx) {
             true => theme.tint.map(|tint| theme.primary_of(tint)),

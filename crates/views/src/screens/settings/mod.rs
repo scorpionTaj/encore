@@ -101,20 +101,8 @@ enum Slot {
     Language,
     Tray,
     TrayIcon,
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    ServerSideDecorations,
-    #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
     Decorations,
-    #[cfg(not(target_os = "macos"))]
-    Side,
-    #[cfg(not(target_os = "macos"))]
-    TrafficLights,
-    #[cfg(any(
-        target_os = "windows",
-        target_os = "linux",
-        target_os = "freebsd",
-        target_os = "macos"
-    ))]
+
     WindowRounding,
     Motion,
     Pace,
@@ -603,32 +591,11 @@ impl SettingsView {
             Slot::Motion => (t!("settings-motion"), t!("settings-motion-detail")),
             Slot::Pace => (t!("settings-pace"), t!("settings-pace-detail")),
             Slot::Saver => (t!("settings-saver"), t!("settings-saver-detail")),
-            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-            Slot::ServerSideDecorations => (
-                t!("settings-server-side-decorations"),
-                t!("settings-server-side-decorations-detail"),
-            ),
-            #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
             Slot::Decorations => (
                 t!("settings-window-controls"),
                 t!("settings-window-controls-detail"),
             ),
-            #[cfg(not(target_os = "macos"))]
-            Slot::Side => (
-                t!("settings-controls-side"),
-                t!("settings-controls-side-detail"),
-            ),
-            #[cfg(not(target_os = "macos"))]
-            Slot::TrafficLights => (
-                t!("settings-traffic-light-controls"),
-                t!("settings-traffic-light-controls-detail"),
-            ),
-            #[cfg(any(
-                target_os = "windows",
-                target_os = "linux",
-                target_os = "freebsd",
-                target_os = "macos"
-            ))]
+
             Slot::WindowRounding => (
                 t!("settings-window-rounding"),
                 t!("settings-window-rounding-detail"),
@@ -751,20 +718,8 @@ impl SettingsView {
             Slot::Motion => self.motion_row(cx),
             Slot::Pace => self.pace_row(cx),
             Slot::Saver => self.saver_row(cx),
-            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-            Slot::ServerSideDecorations => self.server_side_decorations_row(cx),
-            #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
             Slot::Decorations => self.decorations_row(cx),
-            #[cfg(not(target_os = "macos"))]
-            Slot::Side => self.side_row(cx),
-            #[cfg(not(target_os = "macos"))]
-            Slot::TrafficLights => self.traffic_light_controls_row(cx),
-            #[cfg(any(
-                target_os = "windows",
-                target_os = "linux",
-                target_os = "freebsd",
-                target_os = "macos"
-            ))]
+
             Slot::WindowRounding => self.window_rounding_row(window, cx),
             Slot::AdaptiveMenu => self.adaptive_menu_row(cx),
             Slot::Normalisation => self.playback_row(cx),

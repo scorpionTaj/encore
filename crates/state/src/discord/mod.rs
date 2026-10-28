@@ -9,12 +9,8 @@ use tokio::sync::watch;
 
 use crate::{AppSettings, Cover, DiscordName, Io, Playback, Session, join};
 
-#[cfg(unix)]
 mod socket;
 
-#[cfg(not(unix))]
-use discord_rich_presence::DiscordIpcClient as Client;
-#[cfg(unix)]
 use socket::Socket as Client;
 
 const APPLICATION_ID: &str = "1564767195748110577";

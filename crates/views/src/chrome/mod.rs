@@ -17,7 +17,6 @@ pub(crate) use output_picker::OutputPicker;
 pub(crate) use player_bar::PlayerBar;
 pub(crate) use sidebar_left::SidebarLeft;
 pub(crate) use sidebar_right::SidebarRight;
-#[cfg(target_os = "macos")]
 pub use title_bar::traffic_lights;
 pub(crate) use title_bar::{Busy, TitleBar, TitleBarEvent, TitleBarOptions};
 pub use toasts::ToastStack;
@@ -26,24 +25,7 @@ pub(crate) use toolbar::{Searchable, Toolbar, Tooled};
 use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{App, Div, Entity, Global, Pixels, SharedString, Window, div};
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-use state::AppSettings;
 use ui::{ActiveTheme as _, MIN_CONTENT, Room, eyebrow};
-
-/// The radius every element touching a corner of the window rounds that corner with, or `None`
-/// under server-side decorations or `Rounding::Square`. It never exceeds half the title bar's
-/// height, since GPUI clamps a quad's radius to half its shorter side and the title bar would
-/// otherwise draw a tighter corner than the rest of the chrome.
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-pub(crate) fn window_radius(settings: &AppSettings, cx: &App, window: &Window) -> Option<Pixels> {
-    if window.is_fullscreen() || settings.server_side_decorations() {
-        return None;
-    }
-    match settings.window_rounding() {
-        ui::Rounding::Square => None,
-        rounding => Some(rounding.radius().min(cx.theme().metrics.title_bar / 2.)),
-    }
-}
 
 pub(crate) fn section_label(key: &'static str, cx: &App) -> gpui::Stateful<Div> {
     div()

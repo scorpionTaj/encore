@@ -7,12 +7,7 @@ include!(concat!(env!("OUT_DIR"), "/fonts.rs"));
 
 /// Where About asks for the app icon, and the icon this platform shows for the app.
 const APP_ICON: &str = "brand/encore.svg";
-#[cfg(target_os = "macos")]
 const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/macos/encore.svg");
-#[cfg(target_os = "windows")]
-const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/windows/encore.svg");
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/linux/encore.svg");
 
 pub struct Assets;
 

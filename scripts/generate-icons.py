@@ -13,8 +13,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MASTER = ROOT / "assets" / "icon.svg"
 
-LINUX_SIZES = [16, 24, 32, 48, 64, 128, 256, 512]
-WINDOWS_SIZES = [16, 24, 32, 48, 64, 128, 256]
 TRAY_SIZES = [32, 64]
 TRAY_STROKE = 3.2
 
@@ -34,7 +32,6 @@ ICNS_TYPES = [
 SQUIRCLE_FILL = 824 / 1024
 SQUIRCLE_RADIUS = 185.4 / 824
 SQUIRCLE_SMOOTHING = 0.6
-WINDOWS_RADIUS = 0.1875
 
 OPTICAL_STROKE = [(16, 4.0), (24, 3.2), (32, 2.8), (48, 2.3)]
 
@@ -135,18 +132,6 @@ def squircle(side, radius, smoothing):
     )
 
 
-def round_svg(master, pixels):
-    half = master.span / 2
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{master.span:g}"'
-        f' height="{master.span:g}" viewBox="0 0 {master.span:g} {master.span:g}">\n'
-        f'  <circle cx="{half:g}" cy="{half:g}" r="{half:g}"'
-        f' fill="{master.background}"/>\n'
-        f"{master.glyph(stroke_for(pixels, master))}\n"
-        f"</svg>\n"
-    )
-
-
 def squircle_svg(master, pixels):
     canvas = 1024.0
     side = canvas * SQUIRCLE_FILL
@@ -188,18 +173,6 @@ def template_svg(master):
     )
 
 
-def rounded_svg(master, pixels):
-    radius = master.span * WINDOWS_RADIUS
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{master.span:g}"'
-        f' height="{master.span:g}" viewBox="0 0 {master.span:g} {master.span:g}">\n'
-        f'  <rect width="{master.span:g}" height="{master.span:g}"'
-        f' rx="{radius:g}" ry="{radius:g}" fill="{master.background}"/>\n'
-        f"{master.glyph(stroke_for(pixels, master))}\n"
-        f"</svg>\n"
-    )
-
-
 def rasterize(svg_text, pixels, workdir, name):
     source = workdir / f"{name}.svg"
     target = workdir / f"{name}.png"
@@ -219,28 +192,6 @@ def rasterize(svg_text, pixels, workdir, name):
     return target.read_bytes()
 
 
-def write_ico(entries, path):
-    header = struct.pack("<HHH", 0, 1, len(entries))
-    offset = len(header) + 16 * len(entries)
-    directory = b""
-    payload = b""
-    for pixels, blob in entries:
-        directory += struct.pack(
-            "<BBBBHHII",
-            0 if pixels >= 256 else pixels,
-            0 if pixels >= 256 else pixels,
-            0,
-            0,
-            1,
-            32,
-            len(blob),
-            offset,
-        )
-        payload += blob
-        offset += len(blob)
-    path.write_bytes(header + directory + payload)
-
-
 def write_icns(entries, path):
     body = b""
     for kind, blob in entries:
@@ -258,33 +209,11 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         workdir = Path(tmp)
 
-        scalable = assets / "linux" / "encore.svg"
-        scalable.parent.mkdir(parents=True, exist_ok=True)
-        scalable.write_text(round_svg(master, 512), encoding="utf-8")
-
         (assets / "readme-icon.svg").write_text(
             readme_svg(master), encoding="utf-8"
         )
         (assets / "macos").mkdir(parents=True, exist_ok=True)
         (assets / "macos" / "encore.svg").write_text(readme_svg(master), encoding="utf-8")
-        (assets / "windows").mkdir(parents=True, exist_ok=True)
-        (assets / "windows" / "encore.svg").write_text(
-            rounded_svg(master, 512), encoding="utf-8"
-        )
-
-        for pixels in LINUX_SIZES:
-            blob = rasterize(round_svg(master, pixels), pixels, workdir, f"l{pixels}")
-            target = (
-                assets
-                / "linux"
-                / "icons"
-                / "hicolor"
-                / f"{pixels}x{pixels}"
-                / "apps"
-                / "encore.png"
-            )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(blob)
 
         icns = []
         rendered = {}
@@ -296,29 +225,14 @@ def main():
             icns.append((kind, rendered[pixels]))
         write_icns(icns, assets / "macos" / "encore.icns")
 
-        ico = [
-            (
-                pixels,
-                rasterize(rounded_svg(master, pixels), pixels, workdir, f"w{pixels}"),
-            )
-            for pixels in WINDOWS_SIZES
-        ]
-        windows = assets / "windows"
-        windows.mkdir(parents=True, exist_ok=True)
-        write_ico(ico, windows / "encore.ico")
-
         tray = assets / "tray"
         tray.mkdir(parents=True, exist_ok=True)
         for pixels in TRAY_SIZES:
             blob = rasterize(template_svg(master), pixels, workdir, f"t{pixels}")
             (tray / f"template-{pixels}.png").write_bytes(blob)
-        (tray / "encore.png").write_bytes(
-            rasterize(round_svg(master, 32), 32, workdir, "tray")
-        )
 
     print(
-        f"icons: {len(LINUX_SIZES)} linux png, 1 linux svg, 1 icns, 1 ico,"
-        f" {len(TRAY_SIZES) + 1} tray png, 1 readme svg, 1 macos svg, 1 windows svg"
+        f"icons: 1 icns, {len(TRAY_SIZES)} tray png, 1 readme svg, 1 macos svg"
     )
 
 

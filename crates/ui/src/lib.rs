@@ -3,7 +3,6 @@ mod artwork;
 mod button;
 mod card;
 mod checkbox;
-mod controls;
 mod deck;
 mod drag;
 mod explicit;
@@ -51,7 +50,6 @@ mod theme;
 mod time;
 mod toast;
 mod tooltip;
-mod traffic_light_controls;
 mod vacancy;
 mod veil;
 mod view;
@@ -65,9 +63,6 @@ pub use button::{Button, SMALL_INSET};
 pub use card::CARD_GROUP;
 pub use card::Card;
 pub use checkbox::Checkbox;
-pub use controls::WindowControls;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-pub use controls::WindowFrame;
 pub use deck::Deck;
 pub use drag::{Edge, Ghost, drop_gap, drop_marker, grip};
 pub use explicit::ExplicitBadge;
@@ -86,7 +81,7 @@ pub use input::{
     Backspace, BackspaceToStart, BackspaceWord, Copy, Cut, Delete, DeleteToEnd, DeleteWord,
     Dismiss, End, Home, INPUT_CONTEXT, Input, Left, Paste, Right, SelectAll, SelectEnd, SelectHome,
     SelectLeft, SelectRight, SelectWordLeft, SelectWordRight, ShowCharacterPalette, Space,
-    WordLeft, WordRight, refresh_primary_paste,
+    WordLeft, WordRight,
 };
 pub use kbd::Kbd;
 pub use label::{Tails, eyebrow, faint, heading, upper, vacant};
@@ -141,7 +136,6 @@ pub use theme::{
 pub use time::{clock, runtime, tabular};
 pub use toast::Toast;
 pub use tooltip::{Perch, Tipped, Tooltip};
-pub use traffic_light_controls::TrafficLightControls;
 pub use vacancy::Vacancy;
 pub use veil::{VeilEdge, effects, veil};
 pub use view::Mode;

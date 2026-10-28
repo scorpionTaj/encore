@@ -1,14 +1,10 @@
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-use gpui::Decorations;
 use gpui::accesskit::Role;
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Window, div};
 use gpui::{
     AnyView, Context, Entity, EventEmitter, MouseButton, MouseDownEvent, MouseMoveEvent,
     MouseUpEvent, Pixels, Render,
 };
-use ui::TrafficLightControls;
-use ui::WindowControls;
+use gpui::{App, Window, div};
 use ui::{ActiveTheme as _, Button, Spin};
 
 use crate::chrome::SidebarRight;
@@ -16,26 +12,19 @@ use input::Refresh;
 use router::Navigation;
 use state::{AppSettings, Encore};
 
-const SYSTEM_ZOOMS: bool = cfg!(target_os = "windows");
-
 /// Tells whether the page a refresh reloaded is still waiting for its data.
 pub(crate) type Busy = Box<dyn Fn(&App) -> bool>;
 
 /// The height of AppKit's traffic-light buttons, which the bar centres them by.
-#[cfg(target_os = "macos")]
 const TRAFFIC_LIGHTS_SIZE: f32 = 14.;
 /// The extra room round corners leave before the traffic lights, since their wider curve
 /// otherwise crowds the close button.
-#[cfg(target_os = "macos")]
 const TRAFFIC_LIGHTS_ROUND_PAD: f32 = 4.;
 /// The bar's bottom border, which sits inside its height and so out of the centring.
-#[cfg(target_os = "macos")]
 const TITLE_BAR_BORDER: f32 = 1.;
 /// Where hidden traffic lights go: past the window's left edge, where nothing draws or hits them.
-#[cfg(target_os = "macos")]
 const TRAFFIC_LIGHTS_HIDDEN: f32 = -200.;
 /// The width of the three traffic lights and the gap the title bar leaves after them.
-#[cfg(target_os = "macos")]
 const TRAFFIC_LIGHTS_SPAN: f32 = 65.;
 
 #[derive(Clone, PartialEq)]
@@ -250,24 +239,7 @@ impl Render for TitleBar {
             false => Pixels::ZERO,
         };
         let content = self.options.content.clone();
-        let window_fullscreen = window.is_fullscreen();
-        let settings = self.settings.read(cx);
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let controls =
-            matches!(window.window_decorations(), Decorations::Client { .. }) && !window_fullscreen;
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        let controls = settings.window_controls() && !window_fullscreen;
-        let inset = traffic_lights_inset(settings, height);
-        let decorated = cfg!(not(target_os = "macos")) && controls;
-        let leading = decorated && settings.controls_on_left();
-        #[cfg(not(target_os = "macos"))]
-        let traffic_light = settings.traffic_light_controls();
-        #[cfg(target_os = "macos")]
-        let traffic_light = false;
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let radius = crate::chrome::window_radius(settings, cx, window);
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        let radius: Option<Pixels> = None;
+        let inset = traffic_lights_inset(self.settings.read(cx), height);
 
         div()
             .id("title-bar")
@@ -277,7 +249,6 @@ impl Render for TitleBar {
             .w_full()
             .h(height)
             .flex_none()
-            .when_some(radius, |this, radius| this.rounded_t(radius))
             .when(!self.options.transparent && !theme.transparent, |this| {
                 this.bg(theme.background)
             })
@@ -295,7 +266,7 @@ impl Render for TitleBar {
                 cx.listener(
                     |this, event: &MouseDownEvent, window, _| match event.click_count {
                         1 => this.grabbed = true,
-                        2 if !SYSTEM_ZOOMS => titlebar_double_click(window),
+                        2 => window.titlebar_double_click(),
                         _ => {}
                     },
                 ),
@@ -316,17 +287,13 @@ impl Render for TitleBar {
                     .flex()
                     .flex_none()
                     .items_center()
-                    .map(|this| match (leading, inset) {
-                        (true, _) => this.pl_2(),
-                        (false, Some(inset)) => this.pl(inset),
-                        (false, None) => this.pl_3(),
+                    .map(|this| match inset {
+                        Some(inset) => this.pl(inset),
+                        None => this.pl_3(),
                     })
                     .pr_3()
                     .gap_1()
                     .when(offset > Pixels::ZERO, |this| this.w(offset))
-                    .when(leading, |this| {
-                        this.child(window_controls(true, traffic_light))
-                    })
                     .when(navigation, |this| this.child(self.toggle(cx))),
             )
             .child(
@@ -348,19 +315,6 @@ impl Render for TitleBar {
                     this.child(div().flex_none().pr_3().child(self.lyrics_toggle(open, cx)))
                 },
             )
-            .when(decorated && !leading, |this| {
-                this.child(
-                    div()
-                        .flex_none()
-                        .when(cfg!(target_os = "windows") && !traffic_light, |this| {
-                            this.h_full().self_stretch()
-                        })
-                        .when(!cfg!(target_os = "windows") || traffic_light, |this| {
-                            this.pr_2()
-                        })
-                        .child(window_controls(false, traffic_light)),
-                )
-            })
     }
 }
 
@@ -368,7 +322,6 @@ impl Render for TitleBar {
 /// measured from the window's top-left corner. They are centred in the bar and kept as far from
 /// the left edge as from the top, which centres them in the corner, with a little more room for
 /// round corners. Hidden controls are moved off the window, since AppKit rebuilds them.
-#[cfg(target_os = "macos")]
 pub fn traffic_lights(settings: &AppSettings, height: Pixels) -> gpui::Point<Pixels> {
     let left = match settings.window_controls() {
         true => traffic_lights_left(settings, height),
@@ -377,7 +330,6 @@ pub fn traffic_lights(settings: &AppSettings, height: Pixels) -> gpui::Point<Pix
     gpui::point(left, traffic_lights_offset(height))
 }
 
-#[cfg(target_os = "macos")]
 fn traffic_lights_left(settings: &AppSettings, height: Pixels) -> Pixels {
     let pad = match settings.window_rounding() {
         ui::Rounding::Round => gpui::px(TRAFFIC_LIGHTS_ROUND_PAD),
@@ -386,7 +338,6 @@ fn traffic_lights_left(settings: &AppSettings, height: Pixels) -> Pixels {
     traffic_lights_offset(height) + pad
 }
 
-#[cfg(target_os = "macos")]
 fn traffic_lights_offset(height: Pixels) -> Pixels {
     let room = height - gpui::px(TITLE_BAR_BORDER + TRAFFIC_LIGHTS_SIZE);
     room / 2.
@@ -395,27 +346,8 @@ fn traffic_lights_offset(height: Pixels) -> Pixels {
 /// How far past the traffic lights the title bar's content starts while macOS shows them, or
 /// `None` when it takes the same padding as the right edge.
 fn traffic_lights_inset(settings: &AppSettings, height: Pixels) -> Option<Pixels> {
-    #[cfg(target_os = "macos")]
     if settings.window_controls() {
         return Some(traffic_lights_left(settings, height) + gpui::px(TRAFFIC_LIGHTS_SPAN));
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (settings, height);
     None
-}
-
-fn window_controls(leading: bool, traffic_light: bool) -> AnyElement {
-    match traffic_light {
-        true => TrafficLightControls::new(leading).into_any_element(),
-        false => WindowControls::new(leading).into_any_element(),
-    }
-}
-
-/// Runs the title bar's double-click action. macOS performs the action set in System Settings;
-/// the window zooms everywhere else, since there is no such preference.
-fn titlebar_double_click(window: &Window) {
-    #[cfg(target_os = "macos")]
-    window.titlebar_double_click();
-    #[cfg(not(target_os = "macos"))]
-    window.zoom_window();
 }

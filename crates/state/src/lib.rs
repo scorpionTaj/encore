@@ -253,8 +253,7 @@ pub fn init(
         )
     });
     let cover = cx.new(|cx| Cover::new(session.clone(), playback.clone(), io.clone(), cx));
-    let requirements =
-        cx.new(|cx| Requirements::new(settings.clone(), outputs.clone(), io.clone(), cx));
+    let requirements = cx.new(|cx| Requirements::new(settings.clone(), outputs.clone(), cx));
     let pins = cx.new(|cx| Pins::new(settings.clone(), library.clone(), session.clone(), cx));
     let signal = cx.new(|cx| Signal::new(playback.clone(), outputs.clone(), equalizer.clone(), cx));
     let wake = cx.new(|cx| Wake::new(settings.clone(), playback.clone(), io.clone(), cx));

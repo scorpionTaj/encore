@@ -11,8 +11,6 @@ use state::{
     ArtistDetail, Detail, Encore, HistoryState, Home, Io, Library, LibraryState, Network, Playback,
     Queue, Reconnected, SYSTEM_FONT, Scan, Search, Session, Shelf, SideTab, SongDetail,
 };
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-use ui::WindowFrame;
 use ui::{ActiveTheme as _, Dismiss, Entrance, Look, Stillness, Theme, ThemeKind, clear_listing};
 
 use crate::chrome::{Busy, TitleBar, TitleBarEvent, TitleBarOptions, Toolbar, Tooled};
@@ -103,13 +101,8 @@ pub struct Root {
     /// The font the window is set in and the name it was built from, rebuilt only when the
     /// chosen font changes since the root renders every frame anything below it animates.
     font: Option<(String, Font)>,
-    #[cfg(target_os = "windows")]
-    rounded: Option<ui::Rounding>,
     /// The corners and traffic-light position last handed to AppKit.
-    #[cfg(target_os = "macos")]
     framed: Option<(ui::Rounding, gpui::Point<gpui::Pixels>)>,
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    decorations: gpui::WindowDecorations,
 }
 
 impl Root {
@@ -195,7 +188,6 @@ impl Root {
             if !window.is_window_active() {
                 return;
             }
-            ui::refresh_primary_paste(cx);
             let settings = Encore::global(cx).settings.clone();
             let (stillness, pace) = {
                 let settings = settings.read(cx);
@@ -275,12 +267,7 @@ impl Root {
             ambient,
             background: None,
             font: None,
-            #[cfg(target_os = "windows")]
-            rounded: None,
-            #[cfg(target_os = "macos")]
             framed: None,
-            #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-            decorations: Encore::global(cx).settings.read(cx).window_decorations(),
         };
         root.show(start, cx);
         root
@@ -888,25 +875,9 @@ impl Render for Root {
             window.set_background_appearance(appearance);
         }
 
-        // Windows can only round a window's corners while it's opaque (DWM never rounds a
-        // per-pixel-alpha window), so this only takes effect once `backdrop` above lands on
-        // `Opaque`; Linux/FreeBSD round their own chrome directly instead, below.
-        #[cfg(target_os = "windows")]
-        {
-            let rounding = match window.is_fullscreen() {
-                true => ui::Rounding::Square,
-                false => Encore::global(cx).settings.read(cx).window_rounding(),
-            };
-            if self.rounded != Some(rounding) {
-                self.rounded = Some(rounding);
-                state::apply_window_rounding(window, rounding, cx);
-            }
-        }
-
         // AppKit lays the window out again while its toolbar changes and calls back into it, so
         // the change waits until this frame has drawn. Fullscreen has no corners to pick, and
         // AppKit puts the traffic lights back itself on the way out.
-        #[cfg(target_os = "macos")]
         if !window.is_fullscreen() {
             let settings = Encore::global(cx).settings.read(cx);
             let framed = (
@@ -924,25 +895,6 @@ impl Render for Root {
                 });
             }
         }
-
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        {
-            let decorations = Encore::global(cx).settings.read(cx).window_decorations();
-            if self.decorations != decorations {
-                self.decorations = decorations;
-                window.request_decorations(decorations);
-            }
-        }
-
-        // GPUI can't clip a subtree to a rounded parent (its content mask is a plain
-        // rectangle), so on Linux/FreeBSD each edge of the chrome that actually touches a
-        // corner rounds itself to match — see `chrome::window_radius`, and `TitleBar` /
-        // `PlayerBar` for the top and bottom edges. Rounding the root too keeps its own
-        // background quad correct and costs nothing.
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let radius = crate::chrome::window_radius(Encore::global(cx).settings.read(cx), cx, window);
-        #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-        let radius: Option<gpui::Pixels> = None;
 
         // The ambient field covers the window whole and carries the window's own opacity, so
         // the page colour under it would only stack a second alpha beneath that and leave a
@@ -981,21 +933,17 @@ impl Render for Root {
                     div()
                         .absolute()
                         .inset_0()
-                        .when_some(radius, |this, radius| this.rounded_b(radius))
                         .bg(theme.background)
                         .opacity(hidden),
                 )
             });
 
-        let root = div()
+        div()
             .relative()
             .flex()
             .font(self.font(cx))
             .flex_col()
             .size_full()
-            .when_some(radius, |this, radius| {
-                this.rounded(radius).overflow_hidden()
-            })
             .when(!ambient, |this| this.bg(theme.background))
             .text_color(theme.foreground)
             .capture_any_mouse_down(|_, window, cx| {
@@ -1063,9 +1011,6 @@ impl Render for Root {
                         .flex_none(),
                 ),
             )
-            .child(shell);
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        let root = root.child(WindowFrame::new());
-        root
+            .child(shell)
     }
 }

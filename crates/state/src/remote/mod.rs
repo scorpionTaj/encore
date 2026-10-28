@@ -10,15 +10,9 @@ use tokio::sync::mpsc;
 
 use crate::{Cover, Encore, Io, Playback, PlaybackState, Queue, Repeat, join};
 
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-mod mpris;
-#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
 mod souvlaki;
 
-#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
 use self::souvlaki::Controls;
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-use mpris::Controls;
 
 const BUS_NAME: &str = "encore";
 const DISPLAY_NAME: &str = "Encore";
@@ -45,11 +39,6 @@ enum Command {
     Forward(Duration),
     Back(Duration),
     Volume(f64),
-    /// Only MPRIS carries shuffle and repeat, souvlaki has neither.
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    Shuffle(bool),
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    Repeat(Repeat),
 }
 
 /// Publishes what plays to the system media controls and carries their requests back. The
@@ -155,10 +144,6 @@ impl Remote {
                     shift(playback, playback.position().saturating_sub(step), cx)
                 }
                 Command::Volume(level) => playback.set_volume(level as f32, cx),
-                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-                Command::Repeat(repeat) => playback.set_repeat(repeat, cx),
-                #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-                Command::Shuffle(on) => playback.set_shuffle(on, cx),
             });
     }
 

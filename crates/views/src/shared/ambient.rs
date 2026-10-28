@@ -435,13 +435,6 @@ pub(crate) fn shown(cx: &App) -> bool {
     Encore::global(cx).settings.read(cx).ambient()
 }
 
-/// The radius of the window's own corners, where the chrome rounds them.
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-fn window_radius(window: &Window, cx: &App) -> Option<Pixels> {
-    crate::chrome::window_radius(Encore::global(cx).settings.read(cx), cx, window)
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
 fn window_radius(_window: &Window, _cx: &App) -> Option<Pixels> {
     None
 }

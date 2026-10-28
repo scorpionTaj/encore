@@ -49,9 +49,7 @@ pub const SEARCH_CONTEXT: &str = "Search";
 /// within one, the binding registered last, so the macOS set at the end overrides the shared one.
 pub fn bindings() -> Vec<KeyBinding> {
     let mut bindings = shared();
-    if cfg!(target_os = "macos") {
-        bindings.extend(macos());
-    }
+    bindings.extend(macos());
     bindings
 }
 

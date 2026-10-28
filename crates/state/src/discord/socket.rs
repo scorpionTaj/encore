@@ -129,28 +129,6 @@ fn is_ours(stream: &UnixStream) -> bool {
     peer_uid(stream) == Some(uid)
 }
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-fn peer_uid(stream: &UnixStream) -> Option<libc::uid_t> {
-    let mut credentials = libc::ucred {
-        pid: 0,
-        uid: 0,
-        gid: 0,
-    };
-    let mut length = size_of::<libc::ucred>() as libc::socklen_t;
-    // SAFETY: the pointer and length describe a live `ucred`, which SO_PEERCRED fills.
-    let status = unsafe {
-        libc::getsockopt(
-            stream.as_raw_fd(),
-            libc::SOL_SOCKET,
-            libc::SO_PEERCRED,
-            (&raw mut credentials).cast(),
-            &mut length,
-        )
-    };
-    (status == 0).then_some(credentials.uid)
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn peer_uid(stream: &UnixStream) -> Option<libc::uid_t> {
     let mut uid = 0;
     let mut gid = 0;

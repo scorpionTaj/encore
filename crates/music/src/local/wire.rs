@@ -1007,21 +1007,6 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    #[cfg(windows)]
-    #[test]
-    fn a_tagged_file_whose_name_is_not_unicode_still_scans() {
-        use std::os::windows::ffi::OsStringExt;
-
-        log::set_max_level(log::LevelFilter::Warn);
-        let dir = scratch("encore-wire-test-not-unicode");
-        let name = std::ffi::OsString::from_wide(&[0xd800, 0x2e, 0x6d, 0x70, 0x33]);
-        let path = dir.join(name);
-        std::fs::write(&path, b"ID3\x04\x00\x00\x00\x00\x00\x00").unwrap();
-
-        assert!(track_from_file(&path, None, None, &dir).is_some());
-        std::fs::remove_dir_all(&dir).ok();
-    }
-
     #[test]
     fn the_release_type_comes_from_the_tags() {
         let dir = scratch("encore-wire-test-release-type");

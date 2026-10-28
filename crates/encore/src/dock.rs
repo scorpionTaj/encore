@@ -1,4 +1,3 @@
-#[cfg(target_os = "macos")]
 pub fn show(shown: bool) {
     use objc2::MainThreadMarker;
     use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
@@ -13,11 +12,7 @@ pub fn show(shown: bool) {
     NSApplication::sharedApplication(mtm).setActivationPolicy(policy);
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn show(_shown: bool) {}
-
 /// The right-click menu on the Dock icon: transport plus shuffle and repeat, mirroring the tray.
-#[cfg(target_os = "macos")]
 pub fn menu(shown: &crate::tray::Shown, cx: &mut gpui::App) {
     use gpui::MenuItem;
     use input::{SongNext, SongPrevious, TogglePlayback, ToggleRepeat, ToggleShuffle};
@@ -31,6 +26,3 @@ pub fn menu(shown: &crate::tray::Shown, cx: &mut gpui::App) {
         MenuItem::action(shown.repeat.clone(), ToggleRepeat).checked(shown.repeat_on),
     ]);
 }
-
-#[cfg(not(target_os = "macos"))]
-pub fn menu(_shown: &crate::tray::Shown, _cx: &mut gpui::App) {}

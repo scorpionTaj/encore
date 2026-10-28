@@ -1,5 +1,4 @@
 use std::ops::Range;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use gpui::actions;
 use gpui::{
@@ -46,47 +45,7 @@ pub const INPUT_CONTEXT: &str = "Input";
 
 const CARET: Pixels = px(2.);
 const CARET_LINES: f32 = 1.25;
-/// Whether the platform has an X11 or Wayland primary selection, which GPUI exposes only on
-/// Linux and FreeBSD.
-const PRIMARY_SELECTION: bool = cfg!(any(target_os = "linux", target_os = "freebsd"));
-
-/// Whether the desktop lets a middle click paste the primary selection. GNOME can switch it off,
-/// and `refresh_primary_paste` keeps this in step with that switch.
-static PRIMARY_PASTE: AtomicBool = AtomicBool::new(true);
-
 type Motion = fn(&str, usize) -> usize;
-
-/// Re-reads GNOME's middle-click paste switch through the settings portal and repaints every
-/// window when it changed. A desktop that does not expose the switch keeps middle-click paste on.
-#[cfg(any(target_os = "linux", target_os = "freebsd"))]
-pub fn refresh_primary_paste(cx: &mut App) {
-    use gpui::AppContext as _;
-
-    cx.spawn(async move |cx| {
-        let enabled = cx
-            .background_spawn(async {
-                let settings = ashpd::desktop::settings::Settings::new().await.ok()?;
-                settings
-                    .read::<bool>("org.gnome.desktop.interface", "gtk-enable-primary-paste")
-                    .await
-                    .ok()
-            })
-            .await
-            .unwrap_or(true);
-        if PRIMARY_PASTE.swap(enabled, Ordering::Relaxed) != enabled {
-            cx.update(|cx| cx.refresh_windows());
-        }
-    })
-    .detach();
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
-pub fn refresh_primary_paste(_cx: &mut App) {}
-
-/// Whether a middle click in a field pastes the primary selection right now.
-fn primary_paste() -> bool {
-    PRIMARY_SELECTION && PRIMARY_PASTE.load(Ordering::Relaxed)
-}
 
 fn clamp_offset(text: &str, offset: usize) -> usize {
     let mut offset = offset.min(text.len());
@@ -608,22 +567,6 @@ impl Input {
         self.insert_pasted(&pasted, window, cx);
     }
 
-    /// Inserts the primary selection where a middle click landed, as X11 and Wayland apps do.
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    fn paste_primary(
-        &mut self,
-        position: Point<Pixels>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(pasted) = cx.read_from_primary().and_then(|item| item.text()) else {
-            return;
-        };
-        self.selected_word = None;
-        self.move_to(self.offset_for(position), cx);
-        self.insert_pasted(&pasted, window, cx);
-    }
-
     /// Inserts pasted `text` over the selection, flattening newlines since the field holds one
     /// line.
     fn insert_pasted(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -650,8 +593,6 @@ impl Input {
         let hovered = word_at(&self.content, offset);
         self.selected_range = hovered.start.min(anchor.start)..hovered.end.max(anchor.end);
         self.selection_reversed = offset < anchor.start;
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        self.publish_selection(cx);
         cx.notify();
     }
 
@@ -663,12 +604,6 @@ impl Input {
     ) {
         cx.stop_propagation();
         self.focus(window, cx);
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        if event.button == MouseButton::Middle {
-            self.context_menu = None;
-            self.paste_primary(event.position, window, cx);
-            return;
-        }
         if event.button == MouseButton::Right {
             self.context_menu = Some(event.position);
             window.prevent_default();
@@ -742,20 +677,7 @@ impl Input {
             self.selection_reversed = !self.selection_reversed;
             self.selected_range = self.selected_range.end..self.selected_range.start;
         }
-        #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        self.publish_selection(cx);
         cx.notify();
-    }
-
-    /// Offers the selected text as the primary selection, so a middle click pastes it in other
-    /// apps. A masked field never offers its text.
-    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-    fn publish_selection(&self, cx: &mut Context<Self>) {
-        let range = clamp_range(&self.content, &self.selected_range);
-        if self.masked || range.is_empty() {
-            return;
-        }
-        cx.write_to_primary(ClipboardItem::new_string(self.content[range].to_owned()));
     }
 
     fn range_to_utf16(&self, range: &Range<usize>) -> Range<usize> {

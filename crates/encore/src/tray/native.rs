@@ -9,11 +9,8 @@ use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIc
 use super::{Art, Event, Shown};
 
 const TOOLTIP: &str = "Encore";
-const PNG: &[u8] = match cfg!(target_os = "macos") {
-    true => include_bytes!("../../../../assets/tray/template-64.png"),
-    false => include_bytes!("../../../../assets/tray/encore.png"),
-};
-const MENU_ON_CLICK: bool = cfg!(target_os = "macos");
+const PNG: &[u8] = include_bytes!("../../../../assets/tray/template-64.png");
+const MENU_ON_CLICK: bool = true;
 
 /// The tray icon and its menu. The status item is built the first time it goes into the tray, so
 /// a Encore started with the icon off never shows it, not even for a frame.
@@ -141,7 +138,6 @@ impl Icon {
             .with_menu_on_left_click(MENU_ON_CLICK)
             .build()
             .context("cannot build the status item")?;
-        #[cfg(target_os = "macos")]
         keep_cover(&icon);
         Ok(icon)
     }
@@ -185,7 +181,6 @@ fn cover(art: Option<&Art>) -> Option<MenuIcon> {
 /// Keeps the cover on the caption row. From macOS 27 AppKit decides on its own whether a menu
 /// item shows its image and typically hides it, so the caption asks for its image to stay. Older
 /// systems do not know the selector and always show it.
-#[cfg(target_os = "macos")]
 fn keep_cover(icon: &TrayIcon) {
     use objc2::runtime::NSObjectProtocol as _;
     use objc2::{MainThreadMarker, msg_send, sel};
