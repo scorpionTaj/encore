@@ -31,6 +31,7 @@ impl SettingsView {
                 Slot::Normalisation,
                 Slot::Gapless,
                 Slot::Crossfade,
+                Slot::ShuffleAlbums,
                 Slot::Sleep,
                 Slot::StayAwake,
             ]),
@@ -60,6 +61,21 @@ impl SettingsView {
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.playback
                         .update(cx, |playback, cx| playback.set_gapless(!on, cx));
+                }))
+                .into_any_element(),
+        )
+    }
+
+    /// The switch that makes shuffle mix albums rather than songs.
+    pub(super) fn shuffle_albums_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).shuffle_albums();
+
+        self.row(
+            t!("settings-shuffle-albums"),
+            Switch::new("shuffle-albums", on)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_shuffle_albums(!on, cx));
                 }))
                 .into_any_element(),
         )

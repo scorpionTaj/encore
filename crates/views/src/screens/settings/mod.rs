@@ -83,6 +83,7 @@ enum Slot {
     LyricsForLocal,
     Normalisation,
     Gapless,
+    ShuffleAlbums,
     Crossfade,
     OfflineMode,
     Sleep,
@@ -622,6 +623,10 @@ impl SettingsView {
                 t!("settings-normalisation-detail"),
             ),
             Slot::Gapless => (t!("settings-gapless"), t!("settings-gapless-detail")),
+            Slot::ShuffleAlbums => (
+                t!("settings-shuffle-albums"),
+                t!("settings-shuffle-albums-detail"),
+            ),
             Slot::Crossfade => (t!("settings-crossfade"), t!("settings-crossfade-detail")),
             Slot::OfflineMode => (
                 t!("settings-offline-mode"),
@@ -743,6 +748,7 @@ impl SettingsView {
             Slot::AdaptiveMenu => self.adaptive_menu_row(cx),
             Slot::Normalisation => self.playback_row(cx),
             Slot::Gapless => self.gapless_row(cx),
+            Slot::ShuffleAlbums => self.shuffle_albums_row(cx),
             Slot::Crossfade => self.crossfade_row(cx),
             Slot::OfflineMode => self.offline_mode_row(cx),
             Slot::Sleep => self.sleep_row(cx),

@@ -263,6 +263,38 @@ fn scramble(upcoming: &mut VecDeque<Entry>, source: &[Entry], current: Option<&E
     *upcoming = entries.into();
 }
 
+/// Turns a shuffle of songs into a shuffle of albums: the albums keep the random order their
+/// first songs landed in, and each album's songs play in their order in `source`.
+fn keep_albums(upcoming: &mut VecDeque<Entry>, source: &[Entry]) {
+    let place: HashMap<&str, usize> = source
+        .iter()
+        .enumerate()
+        .filter_map(|(index, entry)| Some((entry.id()?, index)))
+        .collect();
+    let mut albums: Vec<(String, Vec<Entry>)> = Vec::new();
+    for entry in upcoming.drain(..) {
+        let album = album_key(&entry.track);
+        match albums.iter_mut().find(|(key, _)| *key == album) {
+            Some((_, songs)) => songs.push(entry),
+            None => albums.push((album, vec![entry])),
+        }
+    }
+    for (_, songs) in &mut albums {
+        songs.sort_by_key(|entry| entry.id().and_then(|id| place.get(id).copied()));
+    }
+    *upcoming = albums.into_iter().flat_map(|(_, songs)| songs).collect();
+}
+
+/// What makes two songs the same album: its id, or its name and artists when it has none. A
+/// song with neither is an album of its own.
+fn album_key(track: &Track) -> String {
+    match (&track.album_id, track.album.is_empty()) {
+        (Some(id), _) => id.clone(),
+        (None, false) => format!("{}|{}", track.album, track.artists),
+        (None, true) => track.id.clone().unwrap_or_default(),
+    }
+}
+
 fn restore(upcoming: &mut VecDeque<Entry>, source: &[Entry], current: Option<&Entry>) {
     let known: HashSet<&str> = source.iter().filter_map(Entry::id).collect();
     let extra: Vec<Entry> = upcoming
@@ -419,7 +451,12 @@ impl Queue {
         let mut suggested = self.upcoming.split_off(self.queued());
         let mut manual: VecDeque<Entry> = self.upcoming.drain(..self.manual).collect();
         match on {
-            true => scramble(&mut self.upcoming, &self.source, self.current.as_ref()),
+            true => {
+                scramble(&mut self.upcoming, &self.source, self.current.as_ref());
+                if self.settings.read(cx).shuffle_albums() {
+                    keep_albums(&mut self.upcoming, &self.source);
+                }
+            }
             false => restore(&mut self.upcoming, &self.source, self.current.as_ref()),
         }
         manual.append(&mut self.upcoming);
@@ -743,6 +780,9 @@ impl Queue {
         self.current = past.pop();
         if self.shuffle {
             scramble(&mut self.upcoming, &self.source, self.current.as_ref());
+            if self.settings.read(cx).shuffle_albums() {
+                keep_albums(&mut self.upcoming, &self.source);
+            }
             past.clear();
         }
         self.past = past;

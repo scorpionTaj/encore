@@ -285,6 +285,8 @@ struct Held {
 struct Values {
     normalisation: bool,
     gapless: bool,
+    /// Whether shuffle keeps each album's songs together and in order, shuffling the albums.
+    shuffle_albums: bool,
     /// How many seconds one track fades into the next, 0 for none.
     crossfade: u32,
     /// Whether the listener put Encore offline, so it shows and plays only what was downloaded
@@ -494,6 +496,7 @@ impl Default for Values {
         Self {
             normalisation: false,
             gapless: true,
+            shuffle_albums: false,
             crossfade: 0,
             offline_mode: false,
             equalizer: false,
@@ -1313,6 +1316,15 @@ impl AppSettings {
 
     pub fn set_gapless(&mut self, gapless: bool, cx: &mut Context<Self>) {
         self.values.gapless = gapless;
+        self.schedule_save(cx);
+    }
+
+    pub fn shuffle_albums(&self) -> bool {
+        self.values.shuffle_albums
+    }
+
+    pub fn set_shuffle_albums(&mut self, on: bool, cx: &mut Context<Self>) {
+        self.values.shuffle_albums = on;
         self.schedule_save(cx);
     }
 
