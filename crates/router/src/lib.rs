@@ -21,15 +21,17 @@ pub enum NavEntry {
     History,
     Local,
     Radio,
+    Stats,
     Pins,
 }
 
 impl NavEntry {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Home,
         Self::Search,
         Self::Radio,
         Self::History,
+        Self::Stats,
         Self::Local,
         Self::Pins,
     ];
@@ -41,6 +43,7 @@ impl NavEntry {
             Self::History => "history",
             Self::Local => "local",
             Self::Radio => "radio",
+            Self::Stats => "stats",
             Self::Pins => "sidebar-pins",
         }
     }
@@ -52,6 +55,7 @@ impl NavEntry {
             Self::History => "nav-history",
             Self::Local => "nav-local",
             Self::Radio => "nav-radio",
+            Self::Stats => "nav-stats",
             Self::Pins => "nav-pinned",
         }
     }
@@ -67,10 +71,11 @@ pub enum Screen {
     Playlists,
     Artists,
     Radio,
+    Stats,
 }
 
 impl Screen {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Home,
         Self::Search,
         Self::Songs,
@@ -79,6 +84,7 @@ impl Screen {
         Self::Playlists,
         Self::Radio,
         Self::History,
+        Self::Stats,
     ];
 
     pub fn id(self) -> &'static str {
@@ -91,6 +97,7 @@ impl Screen {
             Self::Playlists => "playlists",
             Self::Artists => "artists",
             Self::Radio => "radio",
+            Self::Stats => "stats",
         }
     }
 
@@ -104,6 +111,7 @@ impl Screen {
             Self::Playlists => "nav-playlists",
             Self::Artists => "nav-artists",
             Self::Radio => "nav-radio",
+            Self::Stats => "nav-stats",
         }
     }
 
@@ -121,6 +129,7 @@ impl Screen {
             Self::Playlists => Destination::Local(LibraryTab::Playlists),
             Self::Artists => Destination::Local(LibraryTab::Artists),
             Self::Radio => Destination::Radio,
+            Self::Stats => Destination::Stats,
         }
     }
 }
@@ -314,8 +323,10 @@ pub enum Destination {
     Song(SharedString),
     Playlist(SharedString),
     Artist(SharedString),
-    /// The Moroccan radio stations.
+    /// The radio stations of the picked country.
     Radio,
+    /// What was listened to most.
+    Stats,
     Search,
     Settings(SettingsPage),
     /// The equalizer's own settings page, opened from Sound.

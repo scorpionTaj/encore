@@ -28,6 +28,7 @@ mod sheets;
 mod signal;
 mod snapshot;
 mod song;
+mod stats;
 mod tags;
 mod toast;
 mod updates;
@@ -67,6 +68,7 @@ pub use settings::{
 };
 pub use signal::{Change, Equalizing, FLOAT_BITS, Following, Signal, SignalPath};
 pub use song::SongDetail;
+pub use stats::{Period, Stats, Summary, TopArtist, TopSong};
 pub use tags::{TagState, Tags};
 pub use toast::{Outcome, Target, Toast, ToastAction, Toasts};
 pub use updates::{Release, UpdateState, Updates, updates_itself};
@@ -188,6 +190,7 @@ pub struct Encore {
     pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
     pub scan: Entity<Scan>,
+    pub stats: Entity<Stats>,
     pub watch: Entity<FolderWatch>,
     pub settings: Entity<AppSettings>,
     pub signal: Entity<Signal>,
@@ -248,6 +251,7 @@ pub fn init(
         )
     });
     let scan = cx.new(|cx| Scan::new(session.clone(), cx));
+    let stats = cx.new(|cx| Stats::new(history.clone(), database.clone(), io.clone(), cx));
     let watch = cx.new(|cx| FolderWatch::new(session.clone(), settings.clone(), cx));
     let lyrics = cx.new(|cx| {
         Lyrics::new(
@@ -293,6 +297,7 @@ pub fn init(
         links,
         requirements,
         scan,
+        stats,
         watch,
         settings,
         signal,

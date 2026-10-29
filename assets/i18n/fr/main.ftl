@@ -27,6 +27,20 @@ nav-playlists = Playlists
 nav-artists = Artistes
 nav-local = Musique locale
 nav-radio = Radio
+nav-stats = Statistiques
+stats-week = 7 derniers jours
+stats-month = 30 derniers jours
+stats-year = 12 derniers mois
+stats-all = Depuis le début
+stats-period = Période
+stats-top-songs = Titres les plus écoutés
+stats-top-artists = Artistes les plus écoutés
+stats-empty = Écoutez de la musique et vos statistiques apparaîtront ici
+stats-plays =
+    { $count ->
+        [one] 1 écoute
+       *[other] { $count } écoutes
+    }
 radio-country-pick = Pays
 radio-favorite-add = Ajouter aux favoris
 radio-favorite-remove = Retirer des favoris

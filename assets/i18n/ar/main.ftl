@@ -27,6 +27,21 @@ nav-playlists = قوائم التشغيل
 nav-artists = الفنانون
 nav-local = مكتبتك
 nav-radio = الراديو
+nav-stats = الإحصائيات
+stats-week = آخر 7 أيام
+stats-month = آخر 30 يومًا
+stats-year = آخر 12 شهرًا
+stats-all = كل الأوقات
+stats-period = الفترة
+stats-top-songs = الأغاني الأكثر استماعًا
+stats-top-artists = الفنانون الأكثر استماعًا
+stats-empty = شغّل بعض الموسيقى وستظهر إحصائياتك هنا
+stats-plays =
+    { $count ->
+        [one] مرة واحدة
+        [two] مرتان
+       *[other] { $count } مرات
+    }
 radio-country-pick = البلد
 radio-favorite-add = إضافة إلى المفضلة
 radio-favorite-remove = إزالة من المفضلة

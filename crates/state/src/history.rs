@@ -74,7 +74,35 @@ impl Store {
                 ],
             )
             .context("cannot save listening history")?;
+        self.count(track, played_at)?;
         self.prune(scope)
+    }
+
+    /// Adds the play to `listens`, which is never trimmed and which the stats read. A radio
+    /// station is no song, so it is left out.
+    fn count(&self, track: &Track, played_at: i64) -> Result<()> {
+        let Some(track_id) = track.id.as_deref() else {
+            return Ok(());
+        };
+        if music::radio::is_radio_id(track_id) {
+            return Ok(());
+        }
+        self.open()?
+            .execute(
+                "INSERT OR IGNORE INTO listens (
+                    track_id, played_at, name, artists, cover, duration_ms
+                ) VALUES (?, ?, ?, ?, ?, ?)",
+                params![
+                    track_id,
+                    played_at,
+                    track.name,
+                    track.artists,
+                    track.cover,
+                    track.duration.as_millis().min(i64::MAX as u128) as i64,
+                ],
+            )
+            .context("cannot count the play")?;
+        Ok(())
     }
 
     fn prune(&self, scope: &str) -> Result<()> {
@@ -169,6 +197,9 @@ impl Store {
         self.open()?
             .execute("DELETE FROM plays WHERE scope = ?", params![scope])
             .context("cannot clear listening history")?;
+        self.open()?
+            .execute("DELETE FROM listens", [])
+            .context("cannot clear the listening stats")?;
         Ok(())
     }
 

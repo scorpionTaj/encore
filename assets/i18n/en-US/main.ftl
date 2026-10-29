@@ -27,6 +27,20 @@ nav-playlists = Playlists
 nav-artists = Artists
 nav-local = Your Library
 nav-radio = Radio
+nav-stats = Stats
+stats-week = Last 7 days
+stats-month = Last 30 days
+stats-year = Last 12 months
+stats-all = All time
+stats-period = Period
+stats-top-songs = Top songs
+stats-top-artists = Top artists
+stats-empty = Play some music and your stats show up here
+stats-plays =
+    { $count ->
+        [one] 1 play
+       *[other] { $count } plays
+    }
 radio-country-pick = Country
 radio-favorite-add = Add to favourites
 radio-favorite-remove = Remove from favourites
