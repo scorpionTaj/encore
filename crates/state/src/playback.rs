@@ -531,9 +531,19 @@ impl Playback {
         playback
     }
 
-    /// The track the player shows.
+    /// The track the player shows. A radio station that says which song it is playing shows
+    /// that song where an artist would be.
     pub fn shown_track(&self, _cx: &App) -> Option<Track> {
-        self.track.clone()
+        let mut track = self.track.clone()?;
+        if let Some(title) = track
+            .id
+            .as_deref()
+            .and_then(music::radio::stream_of)
+            .and_then(music::radio::now_playing)
+        {
+            track.artists = title;
+        }
+        Some(track)
     }
 
     /// How far into the shown track playback is, and how long that track is.

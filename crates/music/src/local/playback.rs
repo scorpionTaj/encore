@@ -129,15 +129,73 @@ impl Fetch for Local {
 /// A station's audio as it arrives: one endless HTTP response, or the segments of an HLS
 /// playlist joined end to end.
 enum Live {
-    Http(reqwest::blocking::Response),
+    Http(Box<Icy>),
     Hls(Box<Hls>),
+}
+
+/// An HTTP stream that may carry ICY metadata: every `interval` bytes of audio, a length byte
+/// and that many 16-byte blocks naming the song now on. The blocks are taken out, so the
+/// decoder sees only audio, and the song's title goes to `radio::hear`.
+struct Icy {
+    response: reqwest::blocking::Response,
+    stream: String,
+    /// How many audio bytes come between two metadata blocks, `None` when the station sends none.
+    interval: Option<usize>,
+    /// How many audio bytes are left before the next metadata block.
+    left: usize,
+}
+
+impl Icy {
+    fn new(response: reqwest::blocking::Response, stream: &str) -> Self {
+        let interval = response
+            .headers()
+            .get("icy-metaint")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.trim().parse::<usize>().ok())
+            .filter(|interval| *interval > 0);
+        Self {
+            response,
+            stream: stream.to_owned(),
+            interval,
+            left: interval.unwrap_or(0),
+        }
+    }
+
+    /// Reads one metadata block and keeps the title it names.
+    fn metadata(&mut self) -> io::Result<()> {
+        let mut length = [0u8; 1];
+        self.response.read_exact(&mut length)?;
+        let mut block = vec![0u8; usize::from(length[0]) * 16];
+        self.response.read_exact(&mut block)?;
+        if let Some(title) = stream_title(&block) {
+            radio::hear(&self.stream, title);
+        }
+        Ok(())
+    }
+}
+
+impl Read for Icy {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let Some(interval) = self.interval else {
+            return self.response.read(buf);
+        };
+        if self.left == 0 {
+            self.metadata()?;
+            self.left = interval;
+        }
+        let wanted = buf.len().min(self.left);
+        let count = self.response.read(&mut buf[..wanted])?;
+        self.left -= count;
+        Ok(count)
+    }
 }
 
 impl Live {
     /// The type of audio the station sends, when it says.
     fn mime(&self) -> Option<String> {
         match self {
-            Self::Http(response) => response
+            Self::Http(icy) => icy
+                .response
                 .headers()
                 .get(reqwest::header::CONTENT_TYPE)
                 .and_then(|value| value.to_str().ok())
@@ -157,7 +215,7 @@ impl Live {
 impl Read for Live {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
-            Self::Http(response) => response.read(buf),
+            Self::Http(icy) => icy.read(buf),
             Self::Hls(hls) => hls.read(buf),
         }
     }
@@ -230,11 +288,12 @@ fn connect(stream: &str) -> Result<Live> {
     client()
         .get(stream)
         .header("User-Agent", AGENT)
+        .header("Icy-MetaData", "1")
         .send()
         .context("cannot reach the station")?
         .error_for_status()
         .context("the station refused the stream")
-        .map(Live::Http)
+        .map(|response| Live::Http(Box::new(Icy::new(response, stream))))
 }
 
 /// Builds a decoder over a station's stream, guided by the type the station says it sends.
@@ -277,4 +336,15 @@ fn decode(id: &str) -> Result<rodio::Decoder<BufReader<Audio>>> {
         builder = builder.with_byte_len(length.saturating_sub(skip));
     }
     builder.build().context("cannot decode audio")
+}
+
+/// The song an ICY metadata block names after `StreamTitle=`, when it names one.
+fn stream_title(block: &[u8]) -> Option<String> {
+    let text = String::from_utf8_lossy(block);
+    let start = text.find("StreamTitle='")? + "StreamTitle='".len();
+    let end = text[start..]
+        .find("';")
+        .map_or(text.len(), |end| start + end);
+    let title = text[start..end].trim();
+    (!title.is_empty()).then(|| title.to_owned())
 }

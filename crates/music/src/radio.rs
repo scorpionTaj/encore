@@ -5,6 +5,7 @@
 //! history row that names a station needs nothing else to play it again.
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::{Context as _, Result};
@@ -203,6 +204,26 @@ pub fn is_hls(stream: &str) -> bool {
         .split('?')
         .next()
         .is_some_and(|path| path.to_ascii_lowercase().ends_with(".m3u8"))
+}
+
+/// The song a station said it is playing, with the stream it said it on. Only the station
+/// playing now writes it.
+static HEARD: Mutex<Option<(String, String)>> = Mutex::new(None);
+
+/// The song the station on `stream` last said it is playing, when it says.
+pub fn now_playing(stream: &str) -> Option<String> {
+    let heard = HEARD.lock().ok()?;
+    heard
+        .as_ref()
+        .filter(|(from, _)| from == stream)
+        .map(|(_, title)| title.clone())
+}
+
+/// Keeps the song title a station sent in its stream's metadata.
+pub(crate) fn hear(stream: &str, title: String) {
+    if let Ok(mut heard) = HEARD.lock() {
+        *heard = Some((stream.to_owned(), title));
+    }
 }
 
 /// The stream address a station's track id carries.
