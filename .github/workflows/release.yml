@@ -3,15 +3,24 @@ name: release
 # Pushing a tag such as v1.0.1 builds Encore for Apple Silicon Macs and arm64 Android phones and
 # publishes one GitHub release with the disk image, the APK and their checksums. Installed copies of
 # Encore on either platform update themselves from it.
+#
+# Running it by hand with a tag, such as v1.5.0, builds only the APK from the default branch and
+# attaches it to that existing release, for a release that went out without one.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The existing release to attach the Android APK to, such as v1.5.0"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
   macos:
+    if: github.event_name == 'push'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
@@ -47,7 +56,11 @@ jobs:
 
   android:
     needs: macos
+    # a hand-run skips the macOS job, so run after it either succeeded or was skipped
+    if: always() && (needs.macos.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     defaults:
       run:
         working-directory: android
@@ -59,6 +72,11 @@ jobs:
           java-version: 21
       - uses: gradle/actions/wrapper-validation@v4
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: check the tag matches the version
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' ../Cargo.toml | head -n 1)"
+          test "v$version" = "$TAG"
 
       # every release must carry the same signing key, or Android refuses the update
       - name: build the APK with the release key
@@ -79,9 +97,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           apk="Encore-$version-android-arm64.apk"
           cp "app/build/outputs/apk/release/encore-$version-arm64-v8a-release.apk" "$apk"
-          gh release download "$GITHUB_REF_NAME" --pattern SHA256SUMS --clobber
-          sha256sum "$apk" >> SHA256SUMS
-          gh release upload "$GITHUB_REF_NAME" "$apk" SHA256SUMS --clobber
+          gh release download "$TAG" --pattern SHA256SUMS --clobber
+          # replace the APK's line rather than add a second one when the job runs again
+          { grep -v " $apk\$" SHA256SUMS || true; sha256sum "$apk"; } > SHA256SUMS.new
+          mv SHA256SUMS.new SHA256SUMS
+          gh release upload "$TAG" "$apk" SHA256SUMS --clobber
