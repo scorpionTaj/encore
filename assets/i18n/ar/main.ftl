@@ -125,6 +125,7 @@ column-format = الصيغة
 format-value = { $codec } · { $quality }
 filter-lossless = بدون فقدان فقط
 filter-incomplete = بلا غلاف أو ألبوم أو فنان
+filter-duplicates = المكررة فقط
 column-added-by = أضافه
 column-modified = آخر تعديل
 column-length = المدة

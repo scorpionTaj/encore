@@ -5,6 +5,7 @@ mod sort;
 use i18n::t;
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ui::{ActiveTheme as _, Filter, FilterChange, FlagAxis, RangeAxis, Unit};
 
@@ -170,6 +171,9 @@ pub(crate) struct TrackSource {
     menu: ItemMenu,
     table: Option<WeakEntity<TableState<TrackSource>>>,
     sieve: TrackSieve,
+    /// While the duplicates filter is on, the songs found in more than one file, by
+    /// `duplicate_key`. Taken when the filter is turned on.
+    doubled: Option<HashSet<String>>,
     spread: RefCell<Option<Spread>>,
 }
 
@@ -216,6 +220,7 @@ impl TrackSource {
             menu: ItemMenu::new(playlist_scrollbar, cx),
             table: None,
             sieve: TrackSieve::default(),
+            doubled: None,
             spread: RefCell::new(None),
         }
     }
@@ -535,6 +540,11 @@ impl TableSource for TrackSource {
             if self.sieve.favorites && !self.starred(track, cx) {
                 return false;
             }
+            if let Some(doubled) = &self.doubled
+                && !doubled.contains(&duplicate_key(track))
+            {
+                return false;
+            }
             hits(track, query)
         })
     }
@@ -590,12 +600,21 @@ impl TableSource for TrackSource {
                 label: t!("filter-incomplete"),
                 on: self.sieve.incomplete,
             }));
+            axes.push(Filter::Flag(FlagAxis {
+                key: "filter-duplicates",
+                label: t!("filter-duplicates"),
+                on: self.doubled.is_some(),
+            }));
         }
         axes
     }
 
-    fn filter(&mut self, change: FilterChange, _cx: &App) -> bool {
+    fn filter(&mut self, change: FilterChange, cx: &App) -> bool {
         match change {
+            FilterChange::Flag("filter-duplicates", value) => {
+                self.doubled = value.then(|| doubled(self.provider.tracks(cx)));
+                true
+            }
             FilterChange::Range("filter-duration", value) => {
                 self.sieve.duration = Some(value);
                 true
@@ -622,6 +641,7 @@ impl TableSource for TrackSource {
             }
             FilterChange::Reset => {
                 self.sieve = Default::default();
+                self.doubled = None;
                 true
             }
             _ => false,
@@ -629,7 +649,7 @@ impl TableSource for TrackSource {
     }
 
     fn filtered(&self, _cx: &App) -> bool {
-        self.sieve.active()
+        self.sieve.active() || self.doubled.is_some()
     }
 
     fn playing(&self, row: usize, cx: &App) -> bool {
@@ -744,6 +764,32 @@ impl TableSource for TrackSource {
     fn group(&self, field: TrackField, row: usize, cx: &App) -> Option<SharedString> {
         sort::group(self.provider.tracks(cx), field, row)
     }
+}
+
+/// What makes two files the same song: the title and the first artist, with case, spacing and
+/// punctuation left out.
+fn duplicate_key(track: &Track) -> String {
+    let first = track.artists.split(',').next().unwrap_or_default();
+    format!("{}|{}", folded(&track.name), folded(first))
+}
+
+fn folded(text: &str) -> String {
+    text.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+/// The songs among `tracks` found in more than one file.
+fn doubled(tracks: &[Track]) -> HashSet<String> {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    for track in tracks {
+        *seen.entry(duplicate_key(track)).or_default() += 1;
+    }
+    seen.into_iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|(key, _)| key)
+        .collect()
 }
 
 /// What the Format column says of a file: its codec, then the bit depth of a lossless one or the

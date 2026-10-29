@@ -123,6 +123,7 @@ column-format = Format
 format-value = { $codec } · { $quality }
 filter-lossless = Lossless only
 filter-incomplete = Missing cover, album or artist
+filter-duplicates = Duplicates only
 column-added-by = Added by
 column-modified = Modified
 column-length = Length
