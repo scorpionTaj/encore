@@ -65,14 +65,16 @@ impl StatsView {
             .eyebrow(i18n::lookup(chosen.key(), None))
             .when_some(meta, |hero, meta| hero.meta(meta))
             .actions(
-                Picker::new(
-                    PERIOD_PICKER,
-                    &self.popovers,
-                    i18n::lookup(chosen.key(), None),
-                )
-                .width(Picker::NARROW)
-                .tooltip("stats-period")
-                .items(periods),
+                div().flex().items_center().child(
+                    Picker::new(
+                        PERIOD_PICKER,
+                        &self.popovers,
+                        i18n::lookup(chosen.key(), None),
+                    )
+                    .width(Picker::NARROW)
+                    .tooltip("stats-period")
+                    .items(periods),
+                ),
             )
             .into_any_element()
     }
