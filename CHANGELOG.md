@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0]
+
 ### Added
 
 - A Stats page with how much you listened and your top songs and artists, by week, month, year
@@ -16,7 +18,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Radio stations that say which song is on show it under the station's name.
 - Filter your songs to the ones missing a cover, album or artist, or to duplicates found in more
   than one file.
-
 - Songs you add to or remove from your music folders show up in the library by themselves. Turn it
   off with Watch for new music in Settings, Library, Music folders.
 
