@@ -27,6 +27,14 @@ nav-playlists = Playlists
 nav-artists = Artists
 nav-local = Your Library
 nav-radio = Radio
+nav-folders = Folders
+folders-up = Up
+folders-empty = No songs in this folder
+count-folders =
+    { $count ->
+        [one] 1 folder
+       *[other] { $count } folders
+    }
 nav-stats = Stats
 stats-week = Last 7 days
 stats-month = Last 30 days

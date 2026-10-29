@@ -27,6 +27,14 @@ nav-playlists = Playlists
 nav-artists = Artistes
 nav-local = Musique locale
 nav-radio = Radio
+nav-folders = Dossiers
+folders-up = Remonter
+folders-empty = Aucun titre dans ce dossier
+count-folders =
+    { $count ->
+        [one] 1 dossier
+       *[other] { $count } dossiers
+    }
 nav-stats = Statistiques
 stats-week = 7 derniers jours
 stats-month = 30 derniers jours

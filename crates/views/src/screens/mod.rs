@@ -1,6 +1,7 @@
 pub(crate) mod artist;
 pub(crate) mod detail;
 pub(crate) mod equalizer;
+pub(crate) mod folders;
 pub(crate) mod history;
 pub(crate) mod home;
 pub(crate) mod library;

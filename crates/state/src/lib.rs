@@ -4,6 +4,7 @@ mod cover;
 mod detail;
 mod discord;
 mod equalizer;
+mod folders;
 mod history;
 mod home;
 mod library;
@@ -40,6 +41,7 @@ pub use artist::{ArtistDetail, ArtistDetailEvent};
 pub use cover::Cover;
 pub use detail::{Collection, Detail, Header};
 pub use equalizer::{DeviceRule, Equalizer, RuleDevice, Sound};
+pub use folders::{Folders, Subfolder};
 pub use history::{History, HistoryState};
 pub use home::Home;
 pub use library::{
@@ -190,6 +192,7 @@ pub struct Encore {
     pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
     pub scan: Entity<Scan>,
+    pub folders: Entity<Folders>,
     pub stats: Entity<Stats>,
     pub watch: Entity<FolderWatch>,
     pub settings: Entity<AppSettings>,
@@ -251,6 +254,7 @@ pub fn init(
         )
     });
     let scan = cx.new(|cx| Scan::new(session.clone(), cx));
+    let folders = cx.new(|cx| Folders::new(library.clone(), settings.clone(), cx));
     let stats = cx.new(|cx| Stats::new(history.clone(), database.clone(), io.clone(), cx));
     let watch = cx.new(|cx| FolderWatch::new(session.clone(), settings.clone(), cx));
     let lyrics = cx.new(|cx| {
@@ -297,6 +301,7 @@ pub fn init(
         links,
         requirements,
         scan,
+        folders,
         stats,
         watch,
         settings,

@@ -27,7 +27,7 @@ const PINS: &str = "sidebar-pins";
 /// The sidebar's navigation rows in order: the entry that can hide each, its icon and where it goes.
 /// Settings has no entry, so it is always shown, and it opens on the settings page last visited
 /// rather than on the one named here.
-pub(crate) const NAV: [(Option<NavEntry>, &str, Destination); 7] = [
+pub(crate) const NAV: [(Option<NavEntry>, &str, Destination); 8] = [
     (Some(NavEntry::Home), "icons/house.svg", Destination::Home),
     (
         Some(NavEntry::Search),
@@ -44,6 +44,11 @@ pub(crate) const NAV: [(Option<NavEntry>, &str, Destination); 7] = [
         Some(NavEntry::History),
         "icons/rotate-ccw-clock.svg",
         Destination::History,
+    ),
+    (
+        Some(NavEntry::Folders),
+        "icons/folder.svg",
+        Destination::Folders,
     ),
     (
         Some(NavEntry::Stats),

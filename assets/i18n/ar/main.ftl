@@ -27,6 +27,15 @@ nav-playlists = قوائم التشغيل
 nav-artists = الفنانون
 nav-local = مكتبتك
 nav-radio = الراديو
+nav-folders = المجلدات
+folders-up = للأعلى
+folders-empty = لا توجد أغانٍ في هذا المجلد
+count-folders =
+    { $count ->
+        [one] مجلد واحد
+        [two] مجلدان
+       *[other] { $count } مجلدات
+    }
 nav-stats = الإحصائيات
 stats-week = آخر 7 أيام
 stats-month = آخر 30 يومًا

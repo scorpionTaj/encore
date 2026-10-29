@@ -22,16 +22,18 @@ pub enum NavEntry {
     Local,
     Radio,
     Stats,
+    Folders,
     Pins,
 }
 
 impl NavEntry {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Home,
         Self::Search,
         Self::Radio,
         Self::History,
         Self::Stats,
+        Self::Folders,
         Self::Local,
         Self::Pins,
     ];
@@ -44,6 +46,7 @@ impl NavEntry {
             Self::Local => "local",
             Self::Radio => "radio",
             Self::Stats => "stats",
+            Self::Folders => "folders",
             Self::Pins => "sidebar-pins",
         }
     }
@@ -56,6 +59,7 @@ impl NavEntry {
             Self::Local => "nav-local",
             Self::Radio => "nav-radio",
             Self::Stats => "nav-stats",
+            Self::Folders => "nav-folders",
             Self::Pins => "nav-pinned",
         }
     }
@@ -72,10 +76,11 @@ pub enum Screen {
     Artists,
     Radio,
     Stats,
+    Folders,
 }
 
 impl Screen {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Home,
         Self::Search,
         Self::Songs,
@@ -85,6 +90,7 @@ impl Screen {
         Self::Radio,
         Self::History,
         Self::Stats,
+        Self::Folders,
     ];
 
     pub fn id(self) -> &'static str {
@@ -98,6 +104,7 @@ impl Screen {
             Self::Artists => "artists",
             Self::Radio => "radio",
             Self::Stats => "stats",
+            Self::Folders => "folders",
         }
     }
 
@@ -112,6 +119,7 @@ impl Screen {
             Self::Artists => "nav-artists",
             Self::Radio => "nav-radio",
             Self::Stats => "nav-stats",
+            Self::Folders => "nav-folders",
         }
     }
 
@@ -130,6 +138,7 @@ impl Screen {
             Self::Artists => Destination::Local(LibraryTab::Artists),
             Self::Radio => Destination::Radio,
             Self::Stats => Destination::Stats,
+            Self::Folders => Destination::Folders,
         }
     }
 }
@@ -327,6 +336,8 @@ pub enum Destination {
     Radio,
     /// What was listened to most.
     Stats,
+    /// The library as folders on disk.
+    Folders,
     Search,
     Settings(SettingsPage),
     /// The equalizer's own settings page, opened from Sound.
