@@ -28,8 +28,20 @@ jobs:
       - uses: gradle/actions/wrapper-validation@v4
       - uses: gradle/actions/setup-gradle@v4
 
+      # signed with the release key when the secrets reach this run, so the artifact installs over
+      # a released copy; pull requests from forks get the debug key instead
       - name: build the APK
-        run: ./gradlew --no-daemon assembleRelease
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ENCORE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ENCORE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ENCORE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/encore.jks"
+            export ENCORE_KEYSTORE="$RUNNER_TEMP/encore.jks"
+          fi
+          ./gradlew --no-daemon assembleRelease
 
       - uses: actions/upload-artifact@v4
         with:

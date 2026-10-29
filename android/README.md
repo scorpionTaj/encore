@@ -41,4 +41,9 @@ Then add `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`encore`) and `ANDROI
 Keep the keystore backed up outside the repository: a release signed with any other key cannot
 update installed copies.
 
-`.github/workflows/android.yml` builds the APK on pushes and pull requests that touch `android/`.
+To add the APK to a release that went out without one, run the release workflow by hand with that
+tag (Actions, release, Run workflow, or `gh workflow run release.yml -f tag=v1.5.0`). It builds
+the APK from the default branch, checks its version matches the tag, and attaches it.
+
+`.github/workflows/android.yml` builds the APK on pushes and pull requests that touch `android/`,
+signed with the release key when the secrets are available, and keeps it as a run artifact.
