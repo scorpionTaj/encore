@@ -94,6 +94,7 @@ impl RadioView {
                     .flex()
                     .items_center()
                     .gap_2()
+                    .children(self.record_button(cx))
                     .child(
                         Picker::new(COUNTRY_PICKER, &self.popovers, country_name(&chosen))
                             .width(Picker::NARROW)
@@ -113,6 +114,40 @@ impl RadioView {
                     ),
             )
             .into_any_element()
+    }
+
+    /// Records the station playing, or stops the recording under way. Shown only while a station
+    /// plays or one is being recorded.
+    fn record_button(&self, cx: &App) -> Option<Button> {
+        let recording = self.radio.read(cx).recording();
+        let playing = self.playback.read(cx).track().and_then(|track| {
+            let stream = music::radio::stream_of(track.id.as_deref()?)?.to_owned();
+            Some((stream, track.name.clone()))
+        });
+        let radio = self.radio.clone();
+        match (recording, playing) {
+            (Some(_), _) => Some(
+                Button::new("radio-record")
+                    .destructive()
+                    .icon("icons/record-stop.svg")
+                    .label(t!("radio-record-stop"))
+                    .on_click(move |_, _, cx| {
+                        radio.update(cx, |radio, cx| radio.stop_recording(cx));
+                    }),
+            ),
+            (None, Some((stream, name))) => Some(
+                Button::new("radio-record")
+                    .outline()
+                    .icon("icons/record.svg")
+                    .label(t!("radio-record"))
+                    .on_click(move |_, _, cx| {
+                        let stamp = jiff::Zoned::now().strftime("%Y-%m-%d %H.%M.%S");
+                        let stem = format!("{name} {stamp}");
+                        radio.update(cx, |radio, cx| radio.start_recording(&stream, &stem, cx));
+                    }),
+            ),
+            (None, None) => None,
+        }
     }
 
     /// One station's card. Its play button shows the station's own state while it is the one on.

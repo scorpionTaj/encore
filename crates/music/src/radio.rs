@@ -5,6 +5,9 @@
 //! history row that names a station needs nothing else to play it again.
 
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -204,6 +207,91 @@ pub fn is_hls(stream: &str) -> bool {
         .split('?')
         .next()
         .is_some_and(|path| path.to_ascii_lowercase().ends_with(".m3u8"))
+}
+
+/// The station being recorded, the file its audio goes to, and where that file is.
+struct Recording {
+    stream: String,
+    file: File,
+    path: PathBuf,
+}
+
+static RECORDING: Mutex<Option<Recording>> = Mutex::new(None);
+/// The kind of audio each station opened so far said it sends, which names a recording's file.
+static KINDS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+
+/// Notes the kind of audio `stream` sends.
+pub(crate) fn sends(stream: &str, mime: Option<&str>) {
+    let (Ok(mut kinds), Some(mime)) = (KINDS.lock(), mime) else {
+        return;
+    };
+    kinds
+        .get_or_insert_with(HashMap::new)
+        .insert(stream.to_owned(), mime.to_owned());
+}
+
+/// Starts writing what the station on `stream` plays into a new file in `folder` named `stem`,
+/// with the extension of the audio it sends. The audio is kept as the station sends it, so
+/// nothing is re-encoded. Returns where the file is.
+pub fn start_recording(stream: &str, stem: &str, folder: &Path) -> Result<PathBuf> {
+    let mime = KINDS
+        .lock()
+        .ok()
+        .and_then(|kinds| kinds.as_ref()?.get(stream).cloned())
+        .unwrap_or_default();
+    let extension = match mime.as_str() {
+        "audio/aac" | "audio/aacp" | "audio/x-aac" | "audio/mp4" => "aac",
+        "audio/ogg" | "application/ogg" => "ogg",
+        _ => "mp3",
+    };
+    std::fs::create_dir_all(folder).context("cannot make the recordings folder")?;
+    let stem: String = stem
+        .chars()
+        .map(|c| match c {
+            '/' | ':' | '\\' => '-',
+            c => c,
+        })
+        .collect();
+    let path = folder.join(format!("{}.{extension}", stem.trim()));
+    let file = File::create(&path).context("cannot make the recording file")?;
+    if let Ok(mut recording) = RECORDING.lock() {
+        *recording = Some(Recording {
+            stream: stream.to_owned(),
+            file,
+            path: path.clone(),
+        });
+    }
+    Ok(path)
+}
+
+/// Stops the recording and returns where it was saved.
+pub fn stop_recording() -> Option<PathBuf> {
+    let recording = RECORDING.lock().ok()?.take()?;
+    Some(recording.path)
+}
+
+/// The station being recorded, by stream address.
+pub fn recording() -> Option<String> {
+    let recording = RECORDING.lock().ok()?;
+    recording.as_ref().map(|recording| recording.stream.clone())
+}
+
+/// Adds audio read from `stream` to the recording, when that is the station being recorded. A
+/// write that fails ends the recording.
+pub(crate) fn record(stream: &str, audio: &[u8]) {
+    let Ok(mut recording) = RECORDING.lock() else {
+        return;
+    };
+    let Some(current) = recording
+        .as_mut()
+        .filter(|current| current.stream == stream)
+    else {
+        return;
+    };
+    if let Err(error) = current.file.write_all(audio) {
+        log::warn!("radio: cannot write the recording: {error}");
+        *recording = None;
+    }
 }
 
 /// The song a station said it is playing, with the stream it said it on. Only the station

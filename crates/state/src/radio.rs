@@ -3,7 +3,7 @@ use std::rc::Rc;
 use gpui::{Context, Entity, Task};
 use music::radio::{self, Station};
 
-use crate::{AppSettings, Io, join};
+use crate::{AppSettings, Io, Outcome, Toasts, join};
 
 /// Where the station list stands.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,6 +71,37 @@ impl Radio {
             .update(cx, |settings, cx| settings.toggle_radio_favorite(id, cx));
         let stations = self.ordered(self.stations.to_vec(), cx);
         self.stations = Rc::new(stations);
+        cx.notify();
+    }
+
+    /// The station being recorded, by stream address.
+    pub fn recording(&self) -> Option<String> {
+        radio::recording()
+    }
+
+    /// Records the station on `stream` into `Music/Encore Recordings`, in a file named `stem`.
+    /// The music folders' watch adds it to the library once it is there.
+    pub fn start_recording(&mut self, stream: &str, stem: &str, cx: &mut Context<Self>) {
+        let folder = dirs::audio_dir()
+            .or_else(|| dirs::home_dir().map(|home| home.join("Music")))
+            .unwrap_or_default()
+            .join("Encore Recordings");
+        if let Err(error) = radio::start_recording(stream, stem, &folder) {
+            log::warn!("radio: cannot start recording: {error:#}");
+            Toasts::show(Outcome::Failed, "toast-recording-failed", cx);
+        }
+        cx.notify();
+    }
+
+    /// Stops the recording and says where it was saved.
+    pub fn stop_recording(&mut self, cx: &mut Context<Self>) {
+        if let Some(path) = radio::stop_recording() {
+            let name = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Toasts::about(Outcome::Done, "toast-recording-saved", name, cx);
+        }
         cx.notify();
     }
 

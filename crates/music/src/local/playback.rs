@@ -102,7 +102,10 @@ impl Fetch for Local {
                 .stream
                 .as_ref()
                 .and_then(|held| held.lock().ok()?.take());
-            return match opened.map_or_else(|| connect(stream), Ok).and_then(listen) {
+            return match opened
+                .map_or_else(|| connect(stream), Ok)
+                .and_then(|live| listen(live, stream))
+            {
                 Ok(decoder) => Some(decoder),
                 Err(error) => {
                     log::warn!("playback: cannot play the station {stream}: {error:#}");
@@ -226,17 +229,26 @@ impl Read for Live {
 /// then lands on that frame, not inside the tag, where a cover picture can pass for a frame
 /// header. A live stream only goes forward, and `read` counts how far it has.
 enum Audio {
-    File { file: File, skip: u64 },
-    Stream { live: Live, read: u64 },
+    File {
+        file: File,
+        skip: u64,
+    },
+    Stream {
+        live: Live,
+        read: u64,
+        /// The station's address, so a recording of it gets what is read.
+        stream: String,
+    },
 }
 
 impl Read for Audio {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             Self::File { file, .. } => file.read(buf),
-            Self::Stream { live, read } => {
+            Self::Stream { live, read, stream } => {
                 let count = live.read(buf)?;
                 *read += count as u64;
+                radio::record(stream, &buf[..count]);
                 Ok(count)
             }
         }
@@ -297,9 +309,14 @@ fn connect(stream: &str) -> Result<Live> {
 }
 
 /// Builds a decoder over a station's stream, guided by the type the station says it sends.
-fn listen(live: Live) -> Result<rodio::Decoder<BufReader<Audio>>> {
+fn listen(live: Live, stream: &str) -> Result<rodio::Decoder<BufReader<Audio>>> {
     let mime = live.mime();
-    let reader = BufReader::new(Audio::Stream { live, read: 0 });
+    radio::sends(stream, mime.as_deref());
+    let reader = BufReader::new(Audio::Stream {
+        live,
+        read: 0,
+        stream: stream.to_owned(),
+    });
     let mut builder = rodio::Decoder::builder()
         .with_symphonia_decoder::<Aac>()
         .with_data(reader)
