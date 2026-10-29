@@ -37,6 +37,14 @@ data class Song(
     val sampleRate: Int?,
     /** Where MediaStore has the column (see [hasAudioFormatColumns]). */
     val bitDepth: Int?,
+    val year: Int?,
+    /** From Android 11. */
+    val genre: String?,
+    val composer: String?,
+    /** The folder under shared storage and the file name, such as "Music/Album/01 Song.flac". */
+    val path: String,
+    /** Seconds since the epoch. */
+    val dateAdded: Long,
 ) {
     val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
@@ -99,6 +107,12 @@ data class Library(
 ) {
     private val byId = songs.associateBy { it.id }
 
+    /** Songs found in more than one file: the same title and artist, ignoring case. */
+    val duplicates: Set<Long> by lazy {
+        songs.groupBy { it.title.lowercase().trim() to it.artist.lowercase().trim() }
+            .values.filter { it.size > 1 }.flatten().mapTo(mutableSetOf()) { it.id }
+    }
+
     /** The song behind a player media id, or null for radio and unknown items. */
     fun song(mediaId: String?): Song? =
         mediaId?.removePrefix(SONG_PREFIX)?.takeIf { it != mediaId }?.toLongOrNull()?.let(byId::get)
@@ -128,7 +142,15 @@ data class Library(
                 add(MediaStore.Audio.Media.DURATION)
                 add(MediaStore.Audio.Media.TRACK)
                 add(MediaStore.Audio.Media.MIME_TYPE)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) add(MediaStore.Audio.Media.BITRATE)
+                add(MediaStore.Audio.Media.YEAR)
+                add(MediaStore.Audio.Media.COMPOSER)
+                add(MediaStore.Audio.Media.RELATIVE_PATH)
+                add(MediaStore.Audio.Media.DISPLAY_NAME)
+                add(MediaStore.Audio.Media.DATE_ADDED)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    add(MediaStore.Audio.Media.BITRATE)
+                    add(MediaStore.Audio.Media.GENRE)
+                }
                 if (hasAudioFormatColumns()) {
                     add(MediaStore.Audio.Media.SAMPLERATE)
                     add(MediaStore.Audio.Media.BITS_PER_SAMPLE)
@@ -158,6 +180,12 @@ data class Library(
                                 bitrate = c.long(MediaStore.Audio.Media.BITRATE)?.toInt()?.takeIf { it > 0 },
                                 sampleRate = c.long(MediaStore.Audio.Media.SAMPLERATE)?.toInt()?.takeIf { it > 0 },
                                 bitDepth = c.long(MediaStore.Audio.Media.BITS_PER_SAMPLE)?.toInt()?.takeIf { it > 0 },
+                                year = c.long(MediaStore.Audio.Media.YEAR)?.toInt()?.takeIf { it > 0 },
+                                genre = c.string(MediaStore.Audio.Media.GENRE)?.takeIf { it.isNotBlank() },
+                                composer = c.string(MediaStore.Audio.Media.COMPOSER)?.takeIf { it.isNotBlank() },
+                                path = c.string(MediaStore.Audio.Media.RELATIVE_PATH).orEmpty() +
+                                    c.string(MediaStore.Audio.Media.DISPLAY_NAME).orEmpty(),
+                                dateAdded = c.long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
                             ),
                         )
                     }

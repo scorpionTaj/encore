@@ -22,9 +22,10 @@ import dev.scorpiontaj.encore.MainActivity
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.library.UNKNOWN
 import dev.scorpiontaj.encore.playback.PlaybackService
+import dev.scorpiontaj.encore.playback.nextRepeatMode
 
 /**
- * The 5x1 home-screen player. PlaybackService pushes every track and play-state change through
+ * The 5x1 home-screen player with shuffle and repeat on either side of the transport. PlaybackService pushes every track and play-state change through
  * [publish]; the buttons send broadcasts back here, which reach the player through a short-lived
  * MediaController.
  */
@@ -48,6 +49,8 @@ class EncoreWidget : AppWidgetProvider() {
                 ACTION_PREVIOUS -> controller?.seekToPrevious()
                 ACTION_PLAY_PAUSE -> controller?.let { Util.handlePlayPauseButtonAction(it) }
                 ACTION_NEXT -> controller?.seekToNext()
+                ACTION_SHUFFLE -> controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
+                ACTION_REPEAT -> controller?.let { it.repeatMode = nextRepeatMode(it.repeatMode) }
             }
             // Holding the binding briefly lets the service promote itself to the foreground
             // before the controller lets go of it.
@@ -59,13 +62,22 @@ class EncoreWidget : AppWidgetProvider() {
     }
 
     /** What the widget shows: null while nothing is loaded in the player. */
-    private data class Snapshot(val title: String, val artist: String?, val playing: Boolean, val art: Bitmap?)
+    private data class Snapshot(
+        val title: String,
+        val artist: String?,
+        val playing: Boolean,
+        val shuffle: Boolean,
+        val repeatMode: Int,
+        val art: Bitmap?,
+    )
 
     companion object {
         private const val ACTION_PREVIOUS = "dev.scorpiontaj.encore.widget.PREVIOUS"
         private const val ACTION_PLAY_PAUSE = "dev.scorpiontaj.encore.widget.PLAY_PAUSE"
         private const val ACTION_NEXT = "dev.scorpiontaj.encore.widget.NEXT"
-        private val COMMANDS = setOf(ACTION_PREVIOUS, ACTION_PLAY_PAUSE, ACTION_NEXT)
+        private const val ACTION_SHUFFLE = "dev.scorpiontaj.encore.widget.SHUFFLE"
+        private const val ACTION_REPEAT = "dev.scorpiontaj.encore.widget.REPEAT"
+        private val COMMANDS = setOf(ACTION_PREVIOUS, ACTION_PLAY_PAUSE, ACTION_NEXT, ACTION_SHUFFLE, ACTION_REPEAT)
         private const val RELEASE_DELAY_MS = 1_000L
         private const val ART_SIZE_PX = 192
 
@@ -83,6 +95,8 @@ class EncoreWidget : AppWidgetProvider() {
                     artist = metadata.artist?.toString()?.takeUnless { a -> a == UNKNOWN }
                         ?: metadata.station?.let { _ -> context.getString(R.string.radio_station) },
                     playing = !Util.shouldShowPlayButton(it),
+                    shuffle = it.shuffleModeEnabled,
+                    repeatMode = it.repeatMode,
                     art = artwork(metadata.artworkData),
                 )
             }
@@ -123,6 +137,28 @@ class EncoreWidget : AppWidgetProvider() {
                     R.id.widget_play_pause,
                     context.getString(if (playing) R.string.action_pause else R.string.action_play),
                 )
+                val shuffle = snapshot?.shuffle == true
+                val repeatMode = snapshot?.repeatMode ?: Player.REPEAT_MODE_OFF
+                setInt(R.id.widget_shuffle, "setColorFilter", context.getColor(toggleColor(shuffle)))
+                setContentDescription(
+                    R.id.widget_shuffle,
+                    context.getString(if (shuffle) R.string.shuffle_on else R.string.shuffle_off),
+                )
+                setImageViewResource(
+                    R.id.widget_repeat,
+                    if (repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_repeat_one else R.drawable.ic_repeat,
+                )
+                setInt(R.id.widget_repeat, "setColorFilter", context.getColor(toggleColor(repeatMode != Player.REPEAT_MODE_OFF)))
+                setContentDescription(
+                    R.id.widget_repeat,
+                    context.getString(
+                        when (repeatMode) {
+                            Player.REPEAT_MODE_ONE -> R.string.repeat_one
+                            Player.REPEAT_MODE_ALL -> R.string.repeat_all
+                            else -> R.string.repeat_off
+                        },
+                    ),
+                )
                 val open = PendingIntent.getActivity(
                     context,
                     0,
@@ -135,7 +171,11 @@ class EncoreWidget : AppWidgetProvider() {
                 setOnClickPendingIntent(R.id.widget_previous, snapshot?.let { command(context, ACTION_PREVIOUS) } ?: open)
                 setOnClickPendingIntent(R.id.widget_play_pause, snapshot?.let { command(context, ACTION_PLAY_PAUSE) } ?: open)
                 setOnClickPendingIntent(R.id.widget_next, snapshot?.let { command(context, ACTION_NEXT) } ?: open)
+                setOnClickPendingIntent(R.id.widget_shuffle, snapshot?.let { command(context, ACTION_SHUFFLE) } ?: open)
+                setOnClickPendingIntent(R.id.widget_repeat, snapshot?.let { command(context, ACTION_REPEAT) } ?: open)
             }
+
+        private fun toggleColor(on: Boolean): Int = if (on) R.color.accent else R.color.widget_text_secondary
 
         private fun command(context: Context, action: String): PendingIntent = PendingIntent.getBroadcast(
             context,

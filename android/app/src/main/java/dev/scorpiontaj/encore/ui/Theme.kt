@@ -1,5 +1,6 @@
 package dev.scorpiontaj.encore.ui
 
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.LruCache
 import android.util.Size
@@ -33,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import dev.scorpiontaj.encore.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 /** Encore's brand violet, shared with the desktop app and the launcher icon. */
 private val Accent = Color(0xFF5B3DF5)
@@ -105,3 +108,54 @@ fun Artwork(uri: Uri?, modifier: Modifier = Modifier, size: Dp = 48.dp, bitmap: 
 }
 
 private const val THUMBNAIL_PX = 320
+
+/** Station logos already fetched, keyed by URL. A logo that would not load is cached as [NoArt]. */
+private val logos = LruCache<String, Any>(128)
+
+/** A station's logo fetched from [url], with the radio glyph while it loads or when it has none. */
+@Composable
+fun StationArtwork(url: String?, modifier: Modifier = Modifier, size: Dp = 48.dp) {
+    val loaded by produceState(initialValue = url?.let { logos.get(it) as? ImageBitmap }, url) {
+        if (url.isNullOrBlank() || logos.get(url) != null) return@produceState
+        val image = withContext(Dispatchers.IO) { runCatching { fetchLogo(url) }.getOrNull() }
+        logos.put(url, image ?: NoArt)
+        value = image
+    }
+    Box(
+        modifier
+            .size(size)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        when (val shown = loaded) {
+            null -> Icon(
+                painterResource(R.drawable.ic_radio),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+            else -> Image(shown, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        }
+    }
+}
+
+private fun fetchLogo(url: String): ImageBitmap? {
+    val connection = URL(url).openConnection() as HttpURLConnection
+    return try {
+        connection.connectTimeout = LOGO_TIMEOUT_MS
+        connection.readTimeout = LOGO_TIMEOUT_MS
+        connection.instanceFollowRedirects = true
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
+        val bytes = connection.inputStream.use { it.readBytes() }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= THUMBNAIL_PX) sample *= 2
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+            ?.asImageBitmap()
+    } finally {
+        connection.disconnect()
+    }
+}
+
+private const val LOGO_TIMEOUT_MS = 8_000

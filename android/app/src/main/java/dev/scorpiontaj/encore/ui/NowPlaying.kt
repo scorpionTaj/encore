@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.library.Library
+import dev.scorpiontaj.encore.playback.LyricsState
 import dev.scorpiontaj.encore.playback.PlayerState
 import dev.scorpiontaj.encore.playback.PlayerViewModel
 import kotlinx.coroutines.delay
@@ -74,7 +77,12 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Artwork(library?.song(state.mediaId)?.uri, size = 44.dp, bitmap = state.artwork)
+                val song = library?.song(state.mediaId)
+                val artworkUri = state.metadata.artworkUri?.toString()
+                when {
+                    song == null && artworkUri != null -> StationArtwork(artworkUri, size = 44.dp)
+                    else -> Artwork(song?.uri, size = 44.dp, bitmap = state.artwork)
+                }
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(title(state), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
@@ -97,12 +105,14 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
 /** Full-screen player: cover, format, seek bar, transport, shuffle, repeat and the queue. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NowPlayingScreen(state: PlayerState, library: Library?, vm: PlayerViewModel, onClose: () -> Unit) {
+fun NowPlayingScreen(state: PlayerState, library: Library?, lyrics: LyricsState, vm: PlayerViewModel, onClose: () -> Unit) {
     var showQueue by remember { mutableStateOf(false) }
+    var showLyrics by rememberSaveable { mutableStateOf(false) }
     val song = library?.song(state.mediaId)
     val position = rememberPosition(state, vm)
     var scrubbing by remember { mutableStateOf(false) }
     var scrub by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(showLyrics, song) { if (showLyrics) vm.loadLyrics(song) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -122,13 +132,31 @@ fun NowPlayingScreen(state: PlayerState, library: Library?, vm: PlayerViewModel,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                 )
+                if (song != null) {
+                    IconButton(onClick = { showLyrics = !showLyrics }) {
+                        Icon(
+                            painterResource(R.drawable.ic_lyrics),
+                            stringResource(if (showLyrics) R.string.lyrics_hide else R.string.lyrics_show),
+                            tint = toggleTint(showLyrics),
+                        )
+                    }
+                }
                 IconButton(onClick = { showQueue = true }) {
                     Icon(painterResource(R.drawable.ic_queue_music), stringResource(R.string.action_queue))
                 }
             }
-            Spacer(Modifier.weight(1f))
-            Box(Modifier.widthIn(max = 420.dp)) {
-                Artwork(song?.uri, size = androidx.compose.ui.unit.Dp.Unspecified, bitmap = state.artwork)
+            when (showLyrics && song != null) {
+                true -> LyricsView(lyrics, position, Modifier.weight(3f).fillMaxWidth()) { vm.seekTo(it) }
+                false -> {
+                    Spacer(Modifier.weight(1f))
+                    Box(Modifier.widthIn(max = 420.dp)) {
+                        val artworkUri = state.metadata.artworkUri?.toString()
+                        when {
+                            song == null && artworkUri != null -> StationArtwork(artworkUri, size = 280.dp)
+                            else -> Artwork(song?.uri, size = androidx.compose.ui.unit.Dp.Unspecified, bitmap = state.artwork)
+                        }
+                    }
+                }
             }
             Spacer(Modifier.height(28.dp))
             Text(
@@ -250,6 +278,39 @@ fun NowPlayingScreen(state: PlayerState, library: Library?, vm: PlayerViewModel,
     }
 }
 
+/** Lyrics for the playing song; synced lines follow the playback position and seek on tap. */
+@Composable
+private fun LyricsView(state: LyricsState, positionMs: Long, modifier: Modifier, onSeek: (Long) -> Unit) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        when (state) {
+            LyricsState.Idle, LyricsState.Loading -> CircularProgressIndicator()
+            LyricsState.Missing -> Text(stringResource(R.string.lyrics_missing), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            is LyricsState.Found -> {
+                val lines = state.lyrics.lines
+                val active = if (state.lyrics.synced) lines.indexOfLast { it.startMs <= positionMs } else -1
+                val list = rememberLazyListState()
+                LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem((active - 2).coerceAtLeast(0)) }
+                LazyColumn(state = list, modifier = Modifier.fillMaxSize()) {
+                    itemsIndexed(lines) { index, line ->
+                        Text(
+                            line.text,
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = line.startMs >= 0) { onSeek(line.startMs) }
+                                .padding(vertical = 6.dp),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = when {
+                                !state.lyrics.synced || index == active -> MaterialTheme.colorScheme.onSurface
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun PlayPauseButton(playing: Boolean, onClick: () -> Unit, filled: Boolean) {
     val icon = painterResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play)
@@ -291,14 +352,6 @@ private fun subtitle(state: PlayerState): String {
     val metadata = state.metadata
     return metadata.artist?.toString()?.orUnknown(stringResource(R.string.unknown_artist))
         ?: stringResource(if (metadata.station != null) R.string.radio_station else R.string.unknown_artist)
-}
-
-private fun duration(ms: Long): String {
-    val total = ms / 1000
-    val hours = total / 3600
-    val minutes = (total % 3600) / 60
-    val seconds = total % 60
-    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
 
 private const val POSITION_POLL_MS = 500L

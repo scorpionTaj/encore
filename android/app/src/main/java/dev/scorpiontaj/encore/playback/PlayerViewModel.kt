@@ -2,11 +2,15 @@ package dev.scorpiontaj.encore.playback
 
 import android.app.Application
 import android.content.ComponentName
+import android.content.Intent
 import android.database.ContentObserver
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.provider.Settings
+import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
@@ -18,10 +22,18 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import dev.scorpiontaj.encore.library.History
 import dev.scorpiontaj.encore.library.Library
+import dev.scorpiontaj.encore.library.Lrclib
+import dev.scorpiontaj.encore.library.Lyrics
+import dev.scorpiontaj.encore.library.Period
 import dev.scorpiontaj.encore.library.Song
+import dev.scorpiontaj.encore.library.Summary
 import dev.scorpiontaj.encore.radio.RadioBrowser
+import dev.scorpiontaj.encore.radio.RadioPrefs
 import dev.scorpiontaj.encore.radio.Station
+import dev.scorpiontaj.encore.update.Release
+import dev.scorpiontaj.encore.update.Updates
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -55,19 +67,60 @@ sealed interface RadioState {
     data class Loaded(val stations: List<Station>) : RadioState
 }
 
-/** Holds the library, the radio list and the connection to [PlaybackService]. */
+sealed interface LyricsState {
+    data object Idle : LyricsState
+    data object Loading : LyricsState
+    data object Missing : LyricsState
+    data class Found(val mediaId: String, val lyrics: Lyrics) : LyricsState
+}
+
+sealed interface UpdateState {
+    data object Quiet : UpdateState
+    data object Checking : UpdateState
+    data object Current : UpdateState
+    data class Offered(val release: Release) : UpdateState
+    data object Downloading : UpdateState
+    data object Failed : UpdateState
+}
+
+/** Holds the library, radio, stats, lyrics, updates and the connection to [PlaybackService]. */
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
+    private val radioPrefs = RadioPrefs(app)
+    private val history = History(app)
+
     private val _library = MutableStateFlow<Library?>(null)
     val library: StateFlow<Library?> = _library.asStateFlow()
 
     private val _radio = MutableStateFlow<RadioState>(RadioState.Idle)
     val radio: StateFlow<RadioState> = _radio.asStateFlow()
 
+    private val _country = MutableStateFlow(radioPrefs.country)
+    val country: StateFlow<String> = _country.asStateFlow()
+
+    private val _favourites = MutableStateFlow(radioPrefs.favourites)
+    val favourites: StateFlow<Set<String>> = _favourites.asStateFlow()
+
     private val _player = MutableStateFlow(PlayerState())
     val player: StateFlow<PlayerState> = _player.asStateFlow()
 
+    private val _period = MutableStateFlow(Period.Month)
+    val period: StateFlow<Period> = _period.asStateFlow()
+
+    private val _summary = MutableStateFlow<Summary?>(null)
+    val summary: StateFlow<Summary?> = _summary.asStateFlow()
+
+    private val _lyrics = MutableStateFlow<LyricsState>(LyricsState.Idle)
+    val lyrics: StateFlow<LyricsState> = _lyrics.asStateFlow()
+
+    private val _update = MutableStateFlow<UpdateState>(UpdateState.Quiet)
+    val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    val equalizer: StateFlow<EqualizerState> = Sound.state
+
     private var controller: MediaController? = null
     private var libraryJob: Job? = null
+    private var radioJob: Job? = null
+    private var lyricsJob: Job? = null
     private var artworkData: ByteArray? = null
     private var artwork: ImageBitmap? = null
 
@@ -92,6 +145,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             sync(connected)
         }
         app.contentResolver.registerContentObserver(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, observer)
+        checkForUpdates(asked = false)
     }
 
     /** Current playback position, read on demand since it changes continuously. */
@@ -102,16 +156,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         libraryJob = viewModelScope.launch {
             if (debounce) delay(LIBRARY_DEBOUNCE_MS)
             val resolver = getApplication<Application>().contentResolver
-            _library.value = withContext(Dispatchers.IO) { runCatching { Library.load(resolver) }.getOrNull() }
-                ?: Library(emptyList(), emptyList(), emptyList(), emptyList())
+            _library.value = withContext(Dispatchers.IO) {
+                runCatching { Library.load(resolver) }.onFailure { Log.w(TAG, "library: cannot read MediaStore", it) }.getOrNull()
+            } ?: Library(emptyList(), emptyList(), emptyList(), emptyList())
         }
     }
+
+    // Radio
 
     fun loadRadio() {
         if (_radio.value is RadioState.Loading || _radio.value is RadioState.Loaded) return
         _radio.value = RadioState.Loading
-        viewModelScope.launch {
-            _radio.value = runCatching { RadioBrowser.moroccanStations() }
+        radioJob?.cancel()
+        radioJob = viewModelScope.launch {
+            _radio.value = runCatching { RadioBrowser.stations(_country.value) }
+                .onFailure { Log.w(TAG, "radio: cannot read the station list", it) }
                 .fold(onSuccess = { RadioState.Loaded(it) }, onFailure = { RadioState.Failed })
         }
     }
@@ -120,6 +179,95 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _radio.value = RadioState.Idle
         loadRadio()
     }
+
+    fun pickCountry(code: String) {
+        if (code == _country.value) return
+        radioPrefs.country = code
+        _country.value = code
+        retryRadio()
+    }
+
+    fun toggleFavourite(station: Station) {
+        val updated = _favourites.value.let { if (station.uuid in it) it - station.uuid else it + station.uuid }
+        radioPrefs.favourites = updated
+        _favourites.value = updated
+    }
+
+    // Stats
+
+    fun loadStats(period: Period = _period.value) {
+        _period.value = period
+        viewModelScope.launch {
+            _summary.value = withContext(Dispatchers.IO) { runCatching { history.summary(period) }.getOrNull() }
+        }
+    }
+
+    // Lyrics
+
+    /** Looks up lyrics for [song] unless they are already shown or on their way. */
+    fun loadLyrics(song: Song?) {
+        val mediaId = song?.toMediaItem()?.mediaId
+        val current = _lyrics.value
+        if (current is LyricsState.Found && current.mediaId == mediaId) return
+        lyricsJob?.cancel()
+        if (song == null) {
+            _lyrics.value = LyricsState.Missing
+            return
+        }
+        _lyrics.value = LyricsState.Loading
+        lyricsJob = viewModelScope.launch {
+            val found = runCatching { Lrclib.find(song) }.onFailure { Log.w(TAG, "lyrics: lookup failed", it) }.getOrNull()
+            _lyrics.value = found?.let { LyricsState.Found(mediaId!!, it) } ?: LyricsState.Missing
+        }
+    }
+
+    // Updates
+
+    fun checkForUpdates(asked: Boolean) {
+        if (_update.value is UpdateState.Downloading) return
+        if (asked) _update.value = UpdateState.Checking
+        viewModelScope.launch {
+            val release = runCatching { Updates.latest() }.onFailure { Log.w(TAG, "update: check failed", it) }
+            _update.value = when {
+                release.getOrNull() != null -> UpdateState.Offered(release.getOrThrow()!!)
+                !asked -> UpdateState.Quiet
+                release.isFailure -> UpdateState.Failed
+                else -> UpdateState.Current
+            }
+        }
+    }
+
+    fun dismissUpdate() {
+        _update.value = UpdateState.Quiet
+    }
+
+    /**
+     * Downloads and installs the offered release. Android first needs permission to install
+     * packages from Encore; without it this opens that setting and leaves the offer up.
+     */
+    fun installUpdate() {
+        val offered = _update.value as? UpdateState.Offered ?: return
+        val app = getApplication<Application>()
+        if (!app.packageManager.canRequestPackageInstalls()) {
+            app.startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            return
+        }
+        _update.value = UpdateState.Downloading
+        viewModelScope.launch {
+            runCatching {
+                val apk = Updates.download(app, offered.release)
+                Updates.install(app, apk)
+            }.onFailure {
+                Log.w(TAG, "update: install failed", it)
+                _update.value = UpdateState.Failed
+            }.onSuccess { _update.value = offered }
+        }
+    }
+
+    // Playback
 
     fun play(songs: List<Song>, start: Int = 0, shuffle: Boolean = false) {
         val c = controller ?: return
@@ -166,12 +314,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cycleRepeat() {
-        val c = controller ?: return
-        c.repeatMode = when (c.repeatMode) {
-            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-            else -> Player.REPEAT_MODE_OFF
-        }
+        controller?.let { it.repeatMode = nextRepeatMode(it.repeatMode) }
     }
 
     fun skipTo(index: Int) {
@@ -181,6 +324,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeFromQueue(index: Int) = controller?.removeMediaItem(index)
+
+    // Equalizer
+
+    fun setEqualizerEnabled(enabled: Boolean) = Sound.setEnabled(getApplication(), enabled)
+
+    fun setBandLevel(band: Int, levelMb: Int) = Sound.setLevel(getApplication(), band, levelMb)
+
+    fun useEqualizerPreset(preset: Int) = Sound.usePreset(getApplication(), preset)
 
     @androidx.annotation.OptIn(UnstableApi::class)
     private fun sync(player: Player) {
@@ -217,9 +368,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             release()
         }
         controller = null
+        history.close()
     }
 
     private companion object {
+        const val TAG = "encore"
         const val LIBRARY_DEBOUNCE_MS = 750L
         const val ARTWORK_MAX_PX = 1024
     }
