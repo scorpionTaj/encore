@@ -353,6 +353,11 @@ struct Values {
     /// Whether the music folders are watched, so songs added or removed there are picked up
     /// without a rescan.
     watch_folders: bool,
+    /// The country the radio page lists, by ISO 3166 code.
+    radio_country: String,
+    /// The radio stations marked as favourites, by Radio Browser id, listed first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    radio_favorites: Vec<String>,
     close_to_tray: bool,
     tray_icon: bool,
     stay_awake: bool,
@@ -525,6 +530,8 @@ impl Default for Values {
             adaptive_menu: false,
             check_updates: true,
             watch_folders: true,
+            radio_country: music::radio::HOME_COUNTRY.to_owned(),
+            radio_favorites: Vec::new(),
             close_to_tray: true,
             tray_icon: true,
             stay_awake: true,
@@ -958,6 +965,17 @@ impl AppSettings {
 
     pub fn watch_folders(&self) -> bool {
         self.values.watch_folders
+    }
+
+    pub fn radio_country(&self) -> &str {
+        &self.values.radio_country
+    }
+
+    pub fn radio_favorite(&self, id: &str) -> bool {
+        self.values
+            .radio_favorites
+            .iter()
+            .any(|favorite| favorite == id)
     }
 
     pub fn close_to_tray(&self) -> bool {
@@ -1421,6 +1439,23 @@ impl AppSettings {
 
     pub fn set_watch_folders(&mut self, watch: bool, cx: &mut Context<Self>) {
         self.values.watch_folders = watch;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_radio_country(&mut self, country: &str, cx: &mut Context<Self>) {
+        self.values.radio_country = country.to_owned();
+        self.schedule_save(cx);
+    }
+
+    /// Marks the station `id` as a favourite, or takes the mark off when it has one.
+    pub fn toggle_radio_favorite(&mut self, id: &str, cx: &mut Context<Self>) {
+        let favorites = &mut self.values.radio_favorites;
+        match favorites.iter().position(|favorite| favorite == id) {
+            Some(index) => {
+                favorites.remove(index);
+            }
+            None => favorites.push(id.to_owned()),
+        }
         self.schedule_save(cx);
     }
 

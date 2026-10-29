@@ -6,9 +6,9 @@ use gpui::{
     AnyElement, App, Context, Entity, Pixels, Render, ScrollHandle, SharedString, Window, div,
 };
 use i18n::t;
-use music::radio::Station;
+use music::radio::{COUNTRIES, Station};
 use state::{Playback, Radio, RadioState};
-use ui::{ActiveTheme as _, Button, Card, Scrollbar, Scroller, vacant};
+use ui::{ActiveTheme as _, Button, Card, MenuItem, Picker, Popovers, Scrollbar, Scroller, vacant};
 
 use crate::chrome::{Searchable, Toolbar, Tooled};
 use crate::screens::library::deck_gap;
@@ -16,13 +16,18 @@ use crate::shared::album_grid::CardGrid;
 use crate::shared::cells;
 use crate::shared::hero::{HeroMetaStrip, PageHero};
 
-/// The Moroccan radio stations as a grid of cards. Pressing a card plays its station, and the
-/// toolbar search narrows the grid by name and genre.
+/// The popover key of the country picker.
+const COUNTRY_PICKER: &str = "radio-country";
+
+/// The radio stations of one country as a grid of cards, favourites first. Pressing a card plays
+/// its station, its heart marks it a favourite, and the toolbar search narrows the grid by name
+/// and genre.
 pub(crate) struct RadioView {
     radio: Entity<Radio>,
     playback: Entity<Playback>,
     scrollbar: Entity<Scrollbar>,
     toolbar: Entity<Toolbar>,
+    popovers: Popovers,
     /// The search, lowercased and trimmed. Empty shows every station.
     query: String,
 }
@@ -43,6 +48,7 @@ impl RadioView {
             playback,
             scrollbar,
             toolbar,
+            popovers: Popovers::default(),
             query: String::new(),
         }
     }
@@ -67,23 +73,44 @@ impl RadioView {
     }
 
     fn header(&self, count: usize, cx: &mut Context<Self>) -> AnyElement {
-        let loading = matches!(self.radio.read(cx).state(), RadioState::Loading);
+        let radio = self.radio.read(cx);
+        let loading = matches!(radio.state(), RadioState::Loading);
+        let chosen = radio.country(cx).to_owned();
+        let countries = COUNTRIES.map(|code| {
+            let radio = self.radio.clone();
+            MenuItem::new(code, country_name(code))
+                .selected(code == chosen)
+                .on_click(move |_, _, cx| {
+                    radio.update(cx, |radio, cx| radio.set_country(code, cx));
+                })
+        });
         PageHero::new("radio-hero", t!("nav-radio"))
             .fallback("icons/radio.svg")
             .accent()
-            .eyebrow(t!("radio-country"))
+            .eyebrow(country_name(&chosen))
             .meta(HeroMetaStrip::new().text(t!("count-stations", count = count)))
             .actions(
-                div().flex().items_center().child(
-                    Button::new("radio-reload")
-                        .outline()
-                        .icon("icons/refresh-cw.svg")
-                        .label(t!("radio-reload"))
-                        .disabled(loading)
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.radio.update(cx, |radio, cx| radio.reload(cx));
-                        })),
-                ),
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        Picker::new(COUNTRY_PICKER, &self.popovers, country_name(&chosen))
+                            .width(Picker::NARROW)
+                            .tooltip("radio-country-pick")
+                            .disabled(loading)
+                            .items(countries),
+                    )
+                    .child(
+                        Button::new("radio-reload")
+                            .outline()
+                            .icon("icons/refresh-cw.svg")
+                            .label(t!("radio-reload"))
+                            .disabled(loading)
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.radio.update(cx, |radio, cx| radio.reload(cx));
+                            })),
+                    ),
             )
             .into_any_element()
     }
@@ -95,6 +122,23 @@ impl RadioView {
         let current = playback.track().and_then(|playing| playing.id.clone()) == track.id;
         let playing = current && playback.wants_playing();
         let genres = station.genres();
+        let favorite = self.radio.read(cx).favorite(&station.id, cx);
+        let marked = self.radio.clone();
+        let id = station.id.clone();
+        let heart = Button::new(("radio-favorite", index))
+            .ghost()
+            .small()
+            .icon(match favorite {
+                true => "icons/heart-filled.svg",
+                false => "icons/heart.svg",
+            })
+            .tooltip(match favorite {
+                true => "radio-favorite-remove",
+                false => "radio-favorite-add",
+            })
+            .on_click(move |_, _, cx| {
+                marked.update(cx, |radio, cx| radio.toggle_favorite(&id, cx));
+            });
         let played = self.playback.clone();
         let pressed = self.playback.clone();
         let chosen = track.clone();
@@ -110,6 +154,10 @@ impl RadioView {
             card.meta(SharedString::from(genres))
         })
         .chosen(current)
+        .map(|card| match favorite {
+            true => card.trailing(heart),
+            false => card.action(heart),
+        })
         .play(playing, move |_, _, cx| match current {
             true => played.update(cx, |playback, cx| playback.toggle_play(cx)),
             false => played.update(cx, |playback, cx| {
@@ -206,4 +254,9 @@ impl Tooled for RadioView {
     fn tools(&self, _cx: &App) -> Vec<AnyElement> {
         Vec::new()
     }
+}
+
+/// A country's name in the interface language, from its ISO 3166 code.
+fn country_name(code: &str) -> SharedString {
+    i18n::lookup(&format!("country-{}", code.to_ascii_lowercase()), None)
 }

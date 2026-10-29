@@ -266,7 +266,7 @@ pub fn init(
     let signal = cx.new(|cx| Signal::new(playback.clone(), outputs.clone(), equalizer.clone(), cx));
     let wake = cx.new(|cx| Wake::new(settings.clone(), playback.clone(), io.clone(), cx));
     let updates = cx.new(|cx| Updates::new(settings.clone(), io.clone(), cx));
-    let radio = cx.new(|_| Radio::new(io.clone()));
+    let radio = cx.new(|_| Radio::new(settings.clone(), io.clone()));
     let links = cx.new(|cx| Links::new(settings.clone(), cx));
     discord::attach(
         playback.clone(),

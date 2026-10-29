@@ -1,5 +1,5 @@
-//! Moroccan internet radio: the stations Radio Browser lists for Morocco, and a station as a
-//! track the engine can play.
+//! Internet radio: the stations Radio Browser lists for a country, Morocco first, and a station
+//! as a track the engine can play.
 //!
 //! A station's track id carries its stream address after [`RADIO_PREFIX`], so a queue or a
 //! history row that names a station needs nothing else to play it again.
@@ -14,10 +14,16 @@ use crate::Track;
 
 pub const RADIO_PREFIX: &str = "radio:";
 
-/// Radio Browser's search for Moroccan stations that its checks found working, most played
-/// first.
+/// Radio Browser's search for one country's stations that its checks found working, most played
+/// first. The country's code follows.
 const STATIONS: &str = "https://all.api.radio-browser.info/json/stations/search\
-                        ?countrycode=MA&hidebroken=true&order=clickcount&reverse=true&limit=300";
+                        ?hidebroken=true&order=clickcount&reverse=true&limit=300&countrycode=";
+/// The countries the radio page offers, by ISO 3166 code, Morocco first.
+pub const COUNTRIES: [&str; 16] = [
+    "MA", "DZ", "TN", "LY", "MR", "EG", "SA", "AE", "QA", "LB", "FR", "BE", "ES", "GB", "US", "CA",
+];
+/// The country the radio page opens on until another is picked.
+pub const HOME_COUNTRY: &str = "MA";
 /// Stations heard in Morocco that Radio Browser files under another country: Monte Carlo
 /// Doualiya, Urban Hit Maroc and 4U Classic Rock.
 const ABROAD: &str = "https://all.api.radio-browser.info/json/stations/byuuid?uuids=\
@@ -204,16 +210,24 @@ pub fn stream_of(id: &str) -> Option<&str> {
     id.strip_prefix(RADIO_PREFIX)
 }
 
-/// The Moroccan stations that play, most listened to first and the ones filed abroad last, each
-/// listed once. Only the Moroccan list is required: the stations abroad are left out when they
-/// cannot be read.
-pub async fn stations(http: &reqwest::Client) -> Result<Vec<Station>> {
-    let (listed, abroad) = tokio::join!(fetch(http, STATIONS), fetch(http, ABROAD));
-    let mut listed = listed?;
-    match abroad {
-        Ok(abroad) => listed.extend(abroad),
-        Err(error) => log::warn!("radio: cannot read the stations abroad: {error:#}"),
-    }
+/// The stations of `country` that play, most listened to first, each listed once. Morocco also
+/// gets the stations heard there that Radio Browser files abroad, last; only its own list is
+/// required, so those are left out when they cannot be read.
+pub async fn stations(http: &reqwest::Client, country: &str) -> Result<Vec<Station>> {
+    let url = format!("{STATIONS}{country}");
+    let mut listed = match country == HOME_COUNTRY {
+        true => {
+            let (listed, abroad) = tokio::join!(fetch(http, &url), fetch(http, ABROAD));
+            let mut listed = listed?;
+            match abroad {
+                Ok(abroad) => listed.extend(abroad),
+                Err(error) => log::warn!("radio: cannot read the stations abroad: {error:#}"),
+            }
+            listed
+        }
+        false => fetch(http, &url).await?,
+    };
+    listed.retain(|station| !station.name.trim().is_empty());
     Ok(playable(listed))
 }
 
