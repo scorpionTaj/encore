@@ -157,6 +157,12 @@ impl Lyrics {
         music::lyrics::active(lines, self.playback.read(cx).position())
     }
 
+    /// Reads the playing song's lyrics again, as after its `.lrc` file was edited.
+    pub fn reread(&mut self, cx: &mut Context<Self>) {
+        self.following = None;
+        self.follow(cx);
+    }
+
     fn follow(&mut self, cx: &mut Context<Self>) {
         let shown = self.playback.read(cx).shown_track(cx);
         let Some(track) = shown.as_ref() else {

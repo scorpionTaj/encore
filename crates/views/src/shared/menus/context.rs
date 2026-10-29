@@ -7,6 +7,7 @@ use state::{Addition, Detail, Encore, History, Library, Origin, Outcome, Playbac
 use ui::{Menu, MenuItem, MenuSearch, Pin, PinKind, Scrollbar, SubmenuState};
 
 use crate::shared::confirm::Confirm;
+use crate::shared::lyrics_editor::LyricsEditor;
 use crate::shared::pins::Pinned as _;
 use crate::shared::playlist_editor::{Edit, PlaylistEditor};
 use crate::shared::tag_editor::TagEditor;
@@ -464,6 +465,12 @@ impl ItemMenu {
                 .icon("icons/pencil.svg")
                 .on_click(move |_, window, cx| TagEditor::open(track.clone(), window, cx))
         });
+        let edit_lyrics = (!many && imported).then(|| {
+            let track = track.clone();
+            MenuItem::new("edit-lyrics", t!("menu-edit-lyrics"))
+                .icon("icons/scroll.svg")
+                .on_click(move |_, window, cx| LyricsEditor::open(track.clone(), window, cx))
+        });
 
         let delete_files = imported.then(|| {
             let ids = ids.clone();
@@ -502,6 +509,7 @@ impl ItemMenu {
                 details
                     .into_iter()
                     .chain(edit)
+                    .chain(edit_lyrics)
                     .chain(copy)
                     .chain(delete_files)
                     .collect(),

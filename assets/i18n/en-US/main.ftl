@@ -1084,6 +1084,16 @@ lyrics-follow = Follow the song again
 lyrics-source = Lyrics from { $source }
 lyrics-source-local = Lyrics from the local file
 lyrics-writers = Written by { $writers }
+menu-edit-lyrics = Edit lyrics
+lyrics-edit-title = Edit lyrics
+lyrics-edit-help = Play the song and press a line's time as it starts to sync it. Saving writes an .lrc file beside the song.
+lyrics-line-hint = Lyrics line
+lyrics-line-label = Line { $number }
+lyrics-stamp = Set to the playing position
+lyrics-add-line = Add a line below
+lyrics-remove-line = Remove this line
+toast-lyrics-saved = Lyrics saved for { $name }
+toast-lyrics-save-failed = Could not save the lyrics
 
 update-available = Encore { $version } is out
 update-detail = You are on { $running }. Read what changed, or update now.

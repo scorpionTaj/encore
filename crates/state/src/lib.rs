@@ -11,6 +11,7 @@ mod library;
 mod links;
 mod logging;
 mod lyrics;
+pub mod lyrics_file;
 mod mosaic;
 mod network;
 mod outputs;

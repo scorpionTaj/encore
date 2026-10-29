@@ -1082,6 +1082,16 @@ lyrics-follow = متابعة الأغنية مرة أخرى
 lyrics-source = الكلمات من { $source }
 lyrics-source-local = الكلمات من الملف المحلي
 lyrics-writers = كتابة { $writers }
+menu-edit-lyrics = تعديل الكلمات
+lyrics-edit-title = تعديل الكلمات
+lyrics-edit-help = شغّل الأغنية واضغط على وقت السطر عند بدايته لمزامنته. يكتب الحفظ ملف ‎.lrc بجانب الأغنية.
+lyrics-line-hint = سطر من الكلمات
+lyrics-line-label = السطر { $number }
+lyrics-stamp = ضبط على موضع التشغيل
+lyrics-add-line = إضافة سطر أسفله
+lyrics-remove-line = حذف هذا السطر
+toast-lyrics-saved = حُفظت كلمات { $name }
+toast-lyrics-save-failed = تعذّر حفظ الكلمات
 
 update-available = صدر Encore { $version }
 update-detail = إصدارك الحالي { $running }. اطّلع على التغييرات أو حدّث الآن.

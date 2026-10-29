@@ -1078,6 +1078,16 @@ lyrics-follow = Suivre à nouveau le titre
 lyrics-source = Paroles fournies par { $source }
 lyrics-source-local = Paroles du fichier local
 lyrics-writers = Écrit par { $writers }
+menu-edit-lyrics = Modifier les paroles
+lyrics-edit-title = Modifier les paroles
+lyrics-edit-help = Lancez le titre et appuyez sur l'heure d'une ligne quand elle commence pour la synchroniser. L'enregistrement écrit un fichier .lrc à côté du titre.
+lyrics-line-hint = Ligne de paroles
+lyrics-line-label = Ligne { $number }
+lyrics-stamp = Caler sur la position de lecture
+lyrics-add-line = Ajouter une ligne en dessous
+lyrics-remove-line = Supprimer cette ligne
+toast-lyrics-saved = Paroles enregistrées pour { $name }
+toast-lyrics-save-failed = Impossible d'enregistrer les paroles
 
 update-available = Encore { $version } est disponible
 update-detail = Vous êtes en { $running }. Voyez ce qui a changé, ou mettez à jour maintenant.
