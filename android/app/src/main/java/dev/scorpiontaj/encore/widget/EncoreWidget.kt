@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
@@ -81,7 +82,12 @@ class EncoreWidget : AppWidgetProvider() {
         private const val RELEASE_DELAY_MS = 1_000L
         private const val ART_SIZE_PX = 192
 
+        private const val PROGRESS_MAX = 1000
+
         @Volatile private var current: Snapshot? = null
+
+        /** How far through the song the bar is, out of [PROGRESS_MAX]; null hides it, as for live radio. */
+        @Volatile private var progress: Int? = null
         private var artKey = 0
         private var art: Bitmap? = null
 
@@ -100,11 +106,37 @@ class EncoreWidget : AppWidgetProvider() {
                     art = artwork(metadata.artworkData),
                 )
             }
-            if (snapshot == current) return
+            if (snapshot == current) return publishProgress(context, player)
             current = snapshot
+            progress = progressOf(player)
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, EncoreWidget::class.java))
             if (ids.isNotEmpty()) manager.updateAppWidget(ids, render(context, snapshot))
+        }
+
+        /**
+         * Moves only the progress bar, for PlaybackService's once-a-second tick while playing.
+         * Sends nothing when the bar would not visibly move.
+         */
+        fun publishProgress(context: Context, player: Player?) {
+            val value = progressOf(player)
+            if (value == progress) return
+            progress = value
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, EncoreWidget::class.java))
+            if (ids.isEmpty()) return
+            manager.partiallyUpdateAppWidget(ids, RemoteViews(context.packageName, R.layout.widget).apply { showProgress(value) })
+        }
+
+        private fun progressOf(player: Player?): Int? {
+            val p = player?.takeIf { it.mediaItemCount > 0 && it.isCurrentMediaItemSeekable } ?: return null
+            val duration = p.duration.takeIf { it > 0 } ?: return null
+            return (p.currentPosition * PROGRESS_MAX / duration).toInt().coerceIn(0, PROGRESS_MAX)
+        }
+
+        private fun RemoteViews.showProgress(value: Int?) {
+            setViewVisibility(R.id.widget_progress, if (value == null) View.INVISIBLE else View.VISIBLE)
+            setProgressBar(R.id.widget_progress, PROGRESS_MAX, value ?: 0, false)
         }
 
         /** Decodes embedded cover art once per distinct image, scaled to fit a RemoteViews bitmap. */
@@ -125,6 +157,7 @@ class EncoreWidget : AppWidgetProvider() {
 
         private fun render(context: Context, snapshot: Snapshot?): RemoteViews =
             RemoteViews(context.packageName, R.layout.widget).apply {
+                showProgress(snapshot?.let { progress })
                 setTextViewText(R.id.widget_title, snapshot?.title ?: context.getString(R.string.app_name))
                 setTextViewText(R.id.widget_artist, snapshot?.artist ?: context.getString(R.string.widget_idle))
                 when (val bitmap = snapshot?.art) {

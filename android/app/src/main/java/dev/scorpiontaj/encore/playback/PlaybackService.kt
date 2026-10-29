@@ -2,6 +2,8 @@ package dev.scorpiontaj.encore.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -38,6 +40,16 @@ class PlaybackService : MediaSessionService() {
     private var listenedMs = 0L
     private var playingSince = 0L
 
+    /** Moves the widget's progress bar once a second while playing. */
+    private val ticker = Handler(Looper.getMainLooper())
+    private val tick = object : Runnable {
+        override fun run() {
+            val player = session?.player ?: return
+            EncoreWidget.publishProgress(this@PlaybackService, player)
+            if (player.isPlaying) ticker.postDelayed(this, PROGRESS_TICK_MS)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         val player = ExoPlayer.Builder(this)
@@ -53,11 +65,14 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.containsAny(*WIDGET_EVENTS)) EncoreWidget.publish(this@PlaybackService, player)
+                if (events.contains(Player.EVENT_POSITION_DISCONTINUITY)) EncoreWidget.publishProgress(this@PlaybackService, player)
             }
 
             override fun onAudioSessionIdChanged(audioSessionId: Int) = Sound.attach(this@PlaybackService, audioSessionId)
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                ticker.removeCallbacks(tick)
+                tick.run()
                 val now = SystemClock.elapsedRealtime()
                 if (isPlaying) {
                     playingSince = now
@@ -101,6 +116,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        ticker.removeCallbacks(tick)
         session?.player?.let { commitListen(it.duration) }
         Sound.release()
         writer.shutdown()
@@ -153,6 +169,7 @@ class PlaybackService : MediaSessionService() {
 
     private companion object {
         const val MIN_LISTEN_MS = 30_000L
+        const val PROGRESS_TICK_MS = 1_000L
         val WIDGET_EVENTS = intArrayOf(
             Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
             Player.EVENT_REPEAT_MODE_CHANGED,
