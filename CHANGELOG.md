@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Smart playlists: songs gather by rules on title, artist, album, genre, format, length or when
+  they were added, and follow the library as it changes.
+- Browse your library by its folders on disk from the Folders page.
+- Shuffle by album, in Settings, Playback.
+- Record the radio station playing to a file in Music, Encore Recordings.
+- Edit a song's lyrics and sync each line to the music, saved as an .lrc file beside the song.
+
 ## [1.5.0]
 
 ### Added
