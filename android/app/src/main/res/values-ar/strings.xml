@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_songs">الأغاني</string>
+    <string name="tab_albums">الألبومات</string>
+    <string name="tab_artists">الفنانون</string>
+    <string name="tab_playlists">قوائم التشغيل</string>
+    <string name="tab_radio">الراديو</string>
+
+    <string name="permission_title">يحتاج Encore إلى الوصول إلى موسيقاك</string>
+    <string name="permission_body">اسمح بالوصول إلى الملفات الصوتية ليتمكن Encore من إنشاء مكتبتك.</string>
+    <string name="permission_grant">السماح بالوصول</string>
+
+    <string name="library_loading">جارٍ قراءة مكتبتك…</string>
+    <string name="library_empty">لم يتم العثور على موسيقى في هذا الجهاز.</string>
+    <string name="playlists_empty">لا توجد قوائم تشغيل بعد.</string>
+    <string name="unknown_artist">فنان غير معروف</string>
+    <string name="unknown_album">ألبوم غير معروف</string>
+    <plurals name="songs_count">
+        <item quantity="zero">لا أغاني</item>
+        <item quantity="one">أغنية واحدة</item>
+        <item quantity="two">أغنيتان</item>
+        <item quantity="few">%d أغانٍ</item>
+        <item quantity="many">%d أغنية</item>
+        <item quantity="other">%d أغنية</item>
+    </plurals>
+
+    <string name="action_play">تشغيل</string>
+    <string name="action_pause">إيقاف مؤقت</string>
+    <string name="action_next">التالي</string>
+    <string name="action_previous">السابق</string>
+    <string name="action_play_all">تشغيل الكل</string>
+    <string name="action_shuffle_all">تشغيل عشوائي</string>
+    <string name="action_play_next">تشغيل التالي</string>
+    <string name="action_add_to_queue">إضافة إلى قائمة الانتظار</string>
+    <string name="action_more">خيارات أخرى</string>
+    <string name="action_back">رجوع</string>
+    <string name="action_close">إغلاق</string>
+    <string name="action_queue">قائمة الانتظار</string>
+    <string name="action_remove">إزالة من قائمة الانتظار</string>
+    <string name="shuffle_on">التشغيل العشوائي مفعّل</string>
+    <string name="shuffle_off">التشغيل العشوائي متوقف</string>
+    <string name="repeat_off">التكرار متوقف</string>
+    <string name="repeat_all">تكرار الكل</string>
+    <string name="repeat_one">تكرار الأغنية</string>
+
+    <string name="now_playing">قيد التشغيل</string>
+    <string name="queue_title">التالي</string>
+    <string name="queue_empty">قائمة الانتظار فارغة.</string>
+
+    <string name="radio_loading">جارٍ تحميل المحطات المغربية…</string>
+    <string name="radio_error">تعذّر تحميل المحطات.</string>
+    <string name="radio_retry">إعادة المحاولة</string>
+    <string name="radio_empty">لم يتم العثور على محطات.</string>
+    <string name="radio_live">مباشر</string>
+    <string name="radio_station">محطة راديو</string>
+
+    <string name="quality_lossless">بدون فقدان</string>
+    <string name="quality_bitrate">%1$d كيلوبت/ث</string>
+    <string name="quality_hires">%1$d بت · %2$s كيلوهرتز</string>
+
+    <string name="widget_idle">اضغط للفتح</string>
+    <string name="widget_description">قيد التشغيل، مع السابق والتشغيل والتالي</string>
+
+    <string name="filter_all">الكل</string>
+    <string name="filter_no_album">بدون ألبوم</string>
+    <string name="filter_no_artist">بدون فنان</string>
+    <string name="filter_duplicates">المكررة</string>
+    <string name="filter_empty">لا توجد أغانٍ تطابق هذا الفلتر.</string>
+    <string name="sort_title">العنوان</string>
+    <string name="sort_artist">الفنان</string>
+    <string name="sort_album">الألبوم</string>
+    <string name="sort_added">تاريخ الإضافة</string>
+    <string name="action_sort">ترتيب</string>
+    <string name="radio_country">البلد: %1$s</string>
+    <string name="radio_favourite">إضافة إلى المفضلة</string>
+    <string name="radio_unfavourite">إزالة من المفضلة</string>
+    <string name="action_details">التفاصيل</string>
+    <string name="details_title">العنوان</string>
+    <string name="details_artist">الفنان</string>
+    <string name="details_album">الألبوم</string>
+    <string name="details_album_artist">فنان الألبوم</string>
+    <string name="details_year">السنة</string>
+    <string name="details_genre">النوع</string>
+    <string name="details_composer">الملحن</string>
+    <string name="details_track">المقطع</string>
+    <string name="details_length">المدة</string>
+    <string name="details_format">الصيغة</string>
+    <string name="details_file">الملف</string>
+    <string name="action_search">بحث</string>
+    <string name="search_hint">أغانٍ، ألبومات، فنانون، محطات</string>
+    <string name="search_prompt">ابحث في مكتبتك والراديو.</string>
+    <string name="search_empty">لم يتم العثور على شيء.</string>
+    <string name="page_stats">الإحصائيات</string>
+    <string name="page_settings">الإعدادات</string>
+    <string name="stats_week">أسبوع</string>
+    <string name="stats_month">شهر</string>
+    <string name="stats_year">سنة</string>
+    <string name="stats_all">كل الأوقات</string>
+    <string name="stats_empty">شغّل بعض الموسيقى وستظهر إحصائياتك هنا.</string>
+    <string name="stats_top_songs">الأغاني الأكثر استماعًا</string>
+    <string name="stats_top_artists">الفنانون الأكثر استماعًا</string>
+    <string name="settings_updates">التحديثات</string>
+    <string name="settings_version">الإصدار %1$s</string>
+    <string name="update_checking">جارٍ البحث عن تحديثات…</string>
+    <string name="update_current">Encore محدّث.</string>
+    <string name="update_failed">تعذّر التحديث. حاول لاحقًا.</string>
+    <string name="update_downloading">جارٍ تنزيل التحديث…</string>
+    <string name="update_available">الإصدار %1$s من Encore متاح</string>
+    <string name="update_check">البحث عن تحديثات</string>
+    <string name="update_install">تحديث</string>
+    <string name="update_later">لاحقًا</string>
+    <string name="settings_equalizer">المعادل الصوتي</string>
+    <string name="equalizer_unavailable">لا يوفر هذا الجهاز معادلًا صوتيًا.</string>
+    <string name="equalizer_enabled">استخدام المعادل الصوتي</string>
+    <string name="equalizer_band">%1$s · %2$+.1f ديسيبل</string>
+    <string name="settings_about">حول</string>
+    <string name="settings_about_body">يشغّل Encore الموسيقى الموجودة على هاتفك والراديو عبر الإنترنت، ويشارك إصداراته وسجل تغييراته مع Encore لنظام Mac.</string>
+    <string name="settings_source">الشيفرة المصدرية على GitHub</string>
+    <string name="lyrics_show">إظهار الكلمات</string>
+    <string name="lyrics_hide">إخفاء الكلمات</string>
+    <string name="lyrics_missing">لم يتم العثور على كلمات لهذه الأغنية.</string>
+    <plurals name="stats_plays">
+        <item quantity="zero">%d مرة</item>
+        <item quantity="one">مرة واحدة</item>
+        <item quantity="two">مرتان</item>
+        <item quantity="few">%d مرات</item>
+        <item quantity="many">%d مرة</item>
+        <item quantity="other">%d مرة</item>
+    </plurals>
+    <plurals name="stats_minutes">
+        <item quantity="zero">%d دقيقة</item>
+        <item quantity="one">دقيقة واحدة</item>
+        <item quantity="two">دقيقتان</item>
+        <item quantity="few">%d دقائق</item>
+        <item quantity="many">%d دقيقة</item>
+        <item quantity="other">%d دقيقة</item>
+    </plurals>
+    <plurals name="stats_hours">
+        <item quantity="zero">%d ساعة</item>
+        <item quantity="one">ساعة واحدة</item>
+        <item quantity="two">ساعتان</item>
+        <item quantity="few">%d ساعات</item>
+        <item quantity="many">%d ساعة</item>
+        <item quantity="other">%d ساعة</item>
+    </plurals>
+</resources>
