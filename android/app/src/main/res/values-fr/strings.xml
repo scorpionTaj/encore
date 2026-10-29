@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tab_songs">Titres</string>
+    <string name="tab_albums">Albums</string>
+    <string name="tab_artists">Artistes</string>
+    <string name="tab_playlists">Playlists</string>
+    <string name="tab_radio">Radio</string>
+
+    <string name="permission_title">Encore a besoin d’accéder à votre musique</string>
+    <string name="permission_body">Autorisez l’accès aux fichiers audio pour qu’Encore construise votre bibliothèque.</string>
+    <string name="permission_grant">Autoriser l’accès</string>
+
+    <string name="library_loading">Lecture de votre bibliothèque…</string>
+    <string name="library_empty">Aucune musique trouvée sur cet appareil.</string>
+    <string name="playlists_empty">Aucune playlist pour l’instant.</string>
+    <string name="unknown_artist">Artiste inconnu</string>
+    <string name="unknown_album">Album inconnu</string>
+    <plurals name="songs_count">
+        <item quantity="one">%d titre</item>
+        <item quantity="many">%d titres</item>
+        <item quantity="other">%d titres</item>
+    </plurals>
+
+    <string name="action_play">Lecture</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_next">Suivant</string>
+    <string name="action_previous">Précédent</string>
+    <string name="action_play_all">Tout lire</string>
+    <string name="action_shuffle_all">Aléatoire</string>
+    <string name="action_play_next">Lire ensuite</string>
+    <string name="action_add_to_queue">Ajouter à la file</string>
+    <string name="action_more">Plus d’options</string>
+    <string name="action_back">Retour</string>
+    <string name="action_close">Fermer</string>
+    <string name="action_queue">File d’attente</string>
+    <string name="action_remove">Retirer de la file</string>
+    <string name="shuffle_on">Aléatoire activé</string>
+    <string name="shuffle_off">Aléatoire désactivé</string>
+    <string name="repeat_off">Répétition désactivée</string>
+    <string name="repeat_all">Tout répéter</string>
+    <string name="repeat_one">Répéter le titre</string>
+
+    <string name="now_playing">En cours de lecture</string>
+    <string name="queue_title">À suivre</string>
+    <string name="queue_empty">La file d’attente est vide.</string>
+
+    <string name="radio_loading">Chargement des stations marocaines…</string>
+    <string name="radio_error">Impossible de charger les stations.</string>
+    <string name="radio_retry">Réessayer</string>
+    <string name="radio_empty">Aucune station trouvée.</string>
+    <string name="radio_live">En direct</string>
+    <string name="radio_station">Station de radio</string>
+
+    <string name="quality_lossless">Sans perte</string>
+    <string name="quality_bitrate">%1$d kbit/s</string>
+    <string name="quality_hires">%1$d bits · %2$s kHz</string>
+
+    <string name="widget_idle">Touchez pour ouvrir</string>
+    <string name="widget_description">Lecture en cours, avec précédent, lecture et suivant</string>
+</resources>

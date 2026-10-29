@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Encore</string>
+
+    <string name="tab_songs">Songs</string>
+    <string name="tab_albums">Albums</string>
+    <string name="tab_artists">Artists</string>
+    <string name="tab_playlists">Playlists</string>
+    <string name="tab_radio">Radio</string>
+
+    <string name="permission_title">Encore needs access to your music</string>
+    <string name="permission_body">Allow access to audio files so Encore can build your library.</string>
+    <string name="permission_grant">Allow access</string>
+
+    <string name="library_loading">Reading your library…</string>
+    <string name="library_empty">No music found on this device.</string>
+    <string name="playlists_empty">No playlists yet.</string>
+    <string name="unknown_artist">Unknown artist</string>
+    <string name="unknown_album">Unknown album</string>
+    <plurals name="songs_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+
+    <string name="action_play">Play</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_next">Next</string>
+    <string name="action_previous">Previous</string>
+    <string name="action_play_all">Play all</string>
+    <string name="action_shuffle_all">Shuffle</string>
+    <string name="action_play_next">Play next</string>
+    <string name="action_add_to_queue">Add to queue</string>
+    <string name="action_more">More options</string>
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_queue">Queue</string>
+    <string name="action_remove">Remove from queue</string>
+    <string name="shuffle_on">Shuffle on</string>
+    <string name="shuffle_off">Shuffle off</string>
+    <string name="repeat_off">Repeat off</string>
+    <string name="repeat_all">Repeat all</string>
+    <string name="repeat_one">Repeat one</string>
+
+    <string name="now_playing">Now playing</string>
+    <string name="queue_title">Up next</string>
+    <string name="queue_empty">The queue is empty.</string>
+
+    <string name="radio_loading">Loading Moroccan stations…</string>
+    <string name="radio_error">Could not load stations.</string>
+    <string name="radio_retry">Retry</string>
+    <string name="radio_empty">No stations found.</string>
+    <string name="radio_live">Live</string>
+    <string name="radio_station">Radio station</string>
+
+    <string name="quality_lossless">Lossless</string>
+    <string name="quality_bitrate">%1$d kbps</string>
+    <string name="quality_hires">%1$d-bit · %2$s kHz</string>
+
+    <string name="widget_idle">Tap to open</string>
+    <string name="widget_description">Now playing, with previous, play and next</string>
+</resources>
