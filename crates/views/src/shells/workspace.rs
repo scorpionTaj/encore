@@ -18,6 +18,7 @@ use crate::shared::confirm::Confirm;
 use crate::shared::lyrics_editor::LyricsEditor;
 use crate::shared::menus::CardMenu;
 use crate::shared::playlist_editor::PlaylistEditor;
+use crate::shared::smart_editor::SmartEditor;
 use crate::shared::tag_editor::TagEditor;
 use crate::shells::Shell;
 
@@ -29,6 +30,7 @@ pub(crate) struct Workspace {
     playlist_editor: Entity<PlaylistEditor>,
     tag_editor: Entity<TagEditor>,
     lyrics_editor: Entity<LyricsEditor>,
+    smart_editor: Entity<SmartEditor>,
     confirm: Entity<Confirm>,
     card_menu: Entity<CardMenu>,
     toasts: Entity<ToastStack>,
@@ -66,6 +68,7 @@ impl Workspace {
             playlist_editor: PlaylistEditor::entity(cx),
             tag_editor: TagEditor::entity(cx),
             lyrics_editor: LyricsEditor::entity(cx),
+            smart_editor: SmartEditor::entity(cx),
             confirm: Confirm::entity(cx),
             card_menu: CardMenu::entity(cx),
             toasts: cx.new(ToastStack::new),
@@ -371,6 +374,7 @@ impl Render for Workspace {
             .child(self.playlist_editor.clone())
             .child(self.tag_editor.clone())
             .child(self.lyrics_editor.clone())
+            .child(self.smart_editor.clone())
             .child(self.confirm.clone())
     }
 }

@@ -360,6 +360,9 @@ struct Values {
     /// The radio stations marked as favourites, by Radio Browser id, listed first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     radio_favorites: Vec<String>,
+    /// The smart playlists, each a name and the rules its songs pass.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    smart_playlists: Vec<crate::SmartPlaylist>,
     close_to_tray: bool,
     tray_icon: bool,
     stay_awake: bool,
@@ -535,6 +538,7 @@ impl Default for Values {
             watch_folders: true,
             radio_country: music::radio::HOME_COUNTRY.to_owned(),
             radio_favorites: Vec::new(),
+            smart_playlists: Vec::new(),
             close_to_tray: true,
             tray_icon: true,
             stay_awake: true,
@@ -968,6 +972,27 @@ impl AppSettings {
 
     pub fn watch_folders(&self) -> bool {
         self.values.watch_folders
+    }
+
+    pub fn smart_playlists(&self) -> &[crate::SmartPlaylist] {
+        &self.values.smart_playlists
+    }
+
+    /// Stores `playlist`, in place of the one with its id or after the others.
+    pub fn save_smart_playlist(&mut self, playlist: crate::SmartPlaylist, cx: &mut Context<Self>) {
+        let playlists = &mut self.values.smart_playlists;
+        match playlists.iter_mut().find(|saved| saved.id == playlist.id) {
+            Some(saved) => *saved = playlist,
+            None => playlists.push(playlist),
+        }
+        self.schedule_save(cx);
+    }
+
+    pub fn delete_smart_playlist(&mut self, id: &str, cx: &mut Context<Self>) {
+        self.values
+            .smart_playlists
+            .retain(|playlist| playlist.id != id);
+        self.schedule_save(cx);
     }
 
     pub fn radio_country(&self) -> &str {

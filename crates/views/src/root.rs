@@ -17,6 +17,7 @@ use crate::chrome::{Busy, ThemeInvite, TitleBar, TitleBarEvent, TitleBarOptions,
 use crate::screens::folders::FoldersView;
 use crate::screens::search::SearchView;
 use crate::screens::settings::SettingsHeader;
+use crate::screens::smart::SmartView;
 use crate::screens::stats::StatsView;
 use crate::shared::ambient::{self, Ambient};
 use crate::shared::tracks::{LIBRARY_COLUMNS, album_columns};
@@ -43,6 +44,7 @@ struct Screens {
     radio: Entity<RadioView>,
     stats: Entity<StatsView>,
     folders: Entity<FoldersView>,
+    smart: Entity<SmartView>,
     /// The settings pages' view, whose search the settings header draws.
     settings: Entity<SettingsView>,
     /// The search field and page tabs floating over every settings page.
@@ -156,6 +158,8 @@ impl Root {
         let stats = cx.new(|cx| StatsView::new(stats, cx));
         let folders = Encore::global(cx).folders.clone();
         let folders = cx.new(|cx| FoldersView::new(folders, playback.clone(), window, cx));
+        let smart = Encore::global(cx).smart.clone();
+        let smart = cx.new(|cx| SmartView::new(smart, playback.clone(), window, cx));
 
         let settings = cx.new(|cx| SettingsView::new(session.clone(), playback.clone(), cx));
         let equalizer = Encore::global(cx).equalizer.clone();
@@ -270,6 +274,7 @@ impl Root {
                 radio,
                 stats,
                 folders,
+                smart,
                 settings,
                 settings_header,
                 equalizer,
@@ -536,6 +541,7 @@ impl Root {
             Destination::Search
             | Destination::Stats
             | Destination::Folders
+            | Destination::Smart
             | Destination::Settings(_)
             | Destination::Equalizer
             | Destination::Fullscreen => return None,
@@ -579,7 +585,7 @@ impl Root {
                 let radio = Encore::global(cx).radio.clone();
                 radio.update(cx, |radio, cx| radio.reload(cx));
             }
-            Destination::Stats | Destination::Folders => {}
+            Destination::Stats | Destination::Folders | Destination::Smart => {}
             Destination::Search
             | Destination::Settings(_)
             | Destination::Equalizer
@@ -780,6 +786,11 @@ impl Root {
                 artist.into()
             }
             Destination::Search => self.screens.search.clone().into(),
+            Destination::Smart => {
+                let smart = self.screens.smart.clone();
+                toolbar = Some(smart.read(cx).toolbar());
+                smart.into()
+            }
             Destination::Folders => {
                 let folders = self.screens.folders.clone();
                 toolbar = Some(folders.read(cx).toolbar());

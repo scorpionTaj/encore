@@ -28,6 +28,7 @@ mod session;
 mod settings;
 mod sheets;
 mod signal;
+mod smart;
 mod snapshot;
 mod song;
 mod stats;
@@ -70,6 +71,7 @@ pub use settings::{
     window_placement,
 };
 pub use signal::{Change, Equalizing, FLOAT_BITS, Following, Signal, SignalPath};
+pub use smart::{Rule, RuleField, RuleOp, SmartPlaylist, SmartPlaylists};
 pub use song::SongDetail;
 pub use stats::{Period, Stats, Summary, TopArtist, TopSong};
 pub use tags::{TagState, Tags};
@@ -193,6 +195,7 @@ pub struct Encore {
     pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
     pub scan: Entity<Scan>,
+    pub smart: Entity<SmartPlaylists>,
     pub folders: Entity<Folders>,
     pub stats: Entity<Stats>,
     pub watch: Entity<FolderWatch>,
@@ -255,6 +258,7 @@ pub fn init(
         )
     });
     let scan = cx.new(|cx| Scan::new(session.clone(), cx));
+    let smart = cx.new(|cx| SmartPlaylists::new(library.clone(), settings.clone(), cx));
     let folders = cx.new(|cx| Folders::new(library.clone(), settings.clone(), cx));
     let stats = cx.new(|cx| Stats::new(history.clone(), database.clone(), io.clone(), cx));
     let watch = cx.new(|cx| FolderWatch::new(session.clone(), settings.clone(), cx));
@@ -302,6 +306,7 @@ pub fn init(
         links,
         requirements,
         scan,
+        smart,
         folders,
         stats,
         watch,

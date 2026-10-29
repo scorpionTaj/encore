@@ -269,6 +269,7 @@ fn open_window(cx: &mut App) {
         watch: _,
         stats: _,
         folders: _,
+        smart: _,
         requirements: _,
         scan: _,
         settings: _,

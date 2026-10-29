@@ -23,17 +23,19 @@ pub enum NavEntry {
     Radio,
     Stats,
     Folders,
+    Smart,
     Pins,
 }
 
 impl NavEntry {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Home,
         Self::Search,
         Self::Radio,
         Self::History,
         Self::Stats,
         Self::Folders,
+        Self::Smart,
         Self::Local,
         Self::Pins,
     ];
@@ -47,6 +49,7 @@ impl NavEntry {
             Self::Radio => "radio",
             Self::Stats => "stats",
             Self::Folders => "folders",
+            Self::Smart => "smart",
             Self::Pins => "sidebar-pins",
         }
     }
@@ -60,6 +63,7 @@ impl NavEntry {
             Self::Radio => "nav-radio",
             Self::Stats => "nav-stats",
             Self::Folders => "nav-folders",
+            Self::Smart => "nav-smart",
             Self::Pins => "nav-pinned",
         }
     }
@@ -77,10 +81,11 @@ pub enum Screen {
     Radio,
     Stats,
     Folders,
+    Smart,
 }
 
 impl Screen {
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Home,
         Self::Search,
         Self::Songs,
@@ -91,6 +96,7 @@ impl Screen {
         Self::History,
         Self::Stats,
         Self::Folders,
+        Self::Smart,
     ];
 
     pub fn id(self) -> &'static str {
@@ -105,6 +111,7 @@ impl Screen {
             Self::Radio => "radio",
             Self::Stats => "stats",
             Self::Folders => "folders",
+            Self::Smart => "smart",
         }
     }
 
@@ -120,6 +127,7 @@ impl Screen {
             Self::Radio => "nav-radio",
             Self::Stats => "nav-stats",
             Self::Folders => "nav-folders",
+            Self::Smart => "nav-smart",
         }
     }
 
@@ -139,6 +147,7 @@ impl Screen {
             Self::Radio => Destination::Radio,
             Self::Stats => Destination::Stats,
             Self::Folders => Destination::Folders,
+            Self::Smart => Destination::Smart,
         }
     }
 }
@@ -338,6 +347,8 @@ pub enum Destination {
     Stats,
     /// The library as folders on disk.
     Folders,
+    /// The smart playlists, one at a time.
+    Smart,
     Search,
     Settings(SettingsPage),
     /// The equalizer's own settings page, opened from Sound.

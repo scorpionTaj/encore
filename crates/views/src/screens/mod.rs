@@ -8,5 +8,6 @@ pub(crate) mod library;
 pub(crate) mod radio;
 pub(crate) mod search;
 pub(crate) mod settings;
+pub(crate) mod smart;
 pub(crate) mod song;
 pub(crate) mod stats;
