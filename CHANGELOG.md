@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Encore for Android: play the music on your phone by song, album, artist and playlist, with a
+  queue, shuffle and repeat.
+- A 5×1 home-screen widget on Android with the cover, shuffle, previous, play, next and repeat.
+- Radio on Android from Morocco and the other countries, with favourites and the song each
+  station is playing.
+- Listening stats, synced lyrics, an equalizer, search, song details and the library filters on
+  Android.
+- Encore for Android updates itself from the same releases as the Mac app.
+
 ## [1.5.0]
 
 ### Added

@@ -40,6 +40,12 @@ Encore runs on Apple Silicon Macs (M1 and later) with macOS 11 or newer.
 
 After that, Encore tells you when a new release is out and installs it for you.
 
+### Android
+
+Encore for Android runs on 64-bit ARM phones with Android 10 or newer. Download
+`Encore-<version>-android-arm64.apk` from the same release and open it, allowing your browser or
+file manager to install apps when Android asks. It also updates itself from these releases.
+
 ## Building
 
 You need Rust (the version pinned in `rust-toolchain.toml` installs itself through
