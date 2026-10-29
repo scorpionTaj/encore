@@ -108,6 +108,7 @@ column-date-modified = Date de modification
 column-format = Format
 format-value = { $codec } · { $quality }
 filter-lossless = Sans perte uniquement
+filter-incomplete = Sans pochette, album ou artiste
 column-added-by = Ajouté par
 column-modified = Modifié
 column-length = Durée

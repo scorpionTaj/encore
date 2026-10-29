@@ -109,6 +109,7 @@ column-date-modified = تاريخ التعديل
 column-format = الصيغة
 format-value = { $codec } · { $quality }
 filter-lossless = بدون فقدان فقط
+filter-incomplete = بلا غلاف أو ألبوم أو فنان
 column-added-by = أضافه
 column-modified = آخر تعديل
 column-length = المدة

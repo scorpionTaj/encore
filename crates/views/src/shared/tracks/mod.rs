@@ -585,6 +585,11 @@ impl TableSource for TrackSource {
                 label: t!("filter-lossless"),
                 on: self.sieve.lossless,
             }));
+            axes.push(Filter::Flag(FlagAxis {
+                key: "filter-incomplete",
+                label: t!("filter-incomplete"),
+                on: self.sieve.incomplete,
+            }));
         }
         axes
     }
@@ -609,6 +614,10 @@ impl TableSource for TrackSource {
             }
             FilterChange::Flag("filter-lossless", value) => {
                 self.sieve.lossless = value;
+                true
+            }
+            FilterChange::Flag("filter-incomplete", value) => {
+                self.sieve.incomplete = value;
                 true
             }
             FilterChange::Reset => {

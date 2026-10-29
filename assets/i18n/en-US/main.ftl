@@ -108,6 +108,7 @@ column-date-modified = Date modified
 column-format = Format
 format-value = { $codec } · { $quality }
 filter-lossless = Lossless only
+filter-incomplete = Missing cover, album or artist
 column-added-by = Added by
 column-modified = Modified
 column-length = Length

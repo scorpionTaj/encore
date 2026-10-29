@@ -10,6 +10,8 @@ pub(crate) struct TrackSieve {
     pub favorites: bool,
     /// Keep only lossless files: FLAC, ALAC and uncompressed audio.
     pub lossless: bool,
+    /// Keep only songs missing a cover, an album or an artist, the ones worth a tag edit.
+    pub incomplete: bool,
 }
 
 impl TrackSieve {
@@ -19,6 +21,7 @@ impl TrackSieve {
             || self.playable
             || self.favorites
             || self.lossless
+            || self.incomplete
     }
 
     pub(super) fn keeps(&self, track: &Track) -> bool {
@@ -26,6 +29,9 @@ impl TrackSieve {
             return false;
         }
         if self.lossless && !track.encoding.is_some_and(super::lossless) {
+            return false;
+        }
+        if self.incomplete && !incomplete(track) {
             return false;
         }
         if self.playable && !track.playable {
@@ -39,6 +45,11 @@ impl TrackSieve {
             None => true,
         }
     }
+}
+
+/// Whether `track` lacks a cover, an album or an artist.
+fn incomplete(track: &Track) -> bool {
+    track.cover.is_none() || track.album.trim().is_empty() || track.artists.trim().is_empty()
 }
 
 #[cfg(test)]
@@ -69,6 +80,7 @@ mod tests {
             playable: true,
             favorites: false,
             lossless: false,
+            incomplete: false,
         };
 
         assert!(sieve.keeps(&track(120, false, true)));
