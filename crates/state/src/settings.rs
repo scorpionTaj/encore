@@ -350,6 +350,9 @@ struct Values {
     adaptive_menu: bool,
     /// Whether Encore asks GitHub at startup for a newer release.
     check_updates: bool,
+    /// Whether the music folders are watched, so songs added or removed there are picked up
+    /// without a rescan.
+    watch_folders: bool,
     close_to_tray: bool,
     tray_icon: bool,
     stay_awake: bool,
@@ -521,6 +524,7 @@ impl Default for Values {
             romanization_scripts: RomanizationScripts::default(),
             adaptive_menu: false,
             check_updates: true,
+            watch_folders: true,
             close_to_tray: true,
             tray_icon: true,
             stay_awake: true,
@@ -950,6 +954,10 @@ impl AppSettings {
 
     pub fn check_updates(&self) -> bool {
         self.values.check_updates
+    }
+
+    pub fn watch_folders(&self) -> bool {
+        self.values.watch_folders
     }
 
     pub fn close_to_tray(&self) -> bool {
@@ -1408,6 +1416,11 @@ impl AppSettings {
 
     pub fn set_check_updates(&mut self, check_updates: bool, cx: &mut Context<Self>) {
         self.values.check_updates = check_updates;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_watch_folders(&mut self, watch: bool, cx: &mut Context<Self>) {
+        self.values.watch_folders = watch;
         self.schedule_save(cx);
     }
 

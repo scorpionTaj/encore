@@ -32,6 +32,7 @@ use time::{Month, OffsetDateTime};
 
 pub use audio::Meter;
 pub use equalizer::Equalizer;
+pub use local::is_audio_file;
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
     Contributor, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed, Lyrics, LyricsHit,

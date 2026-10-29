@@ -266,6 +266,7 @@ fn open_window(cx: &mut App) {
         queue,
         radio: _,
         links: _,
+        watch: _,
         requirements: _,
         scan: _,
         settings: _,

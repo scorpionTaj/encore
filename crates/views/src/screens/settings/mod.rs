@@ -54,6 +54,7 @@ const TYPEFACES: &str = "typefaces";
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Slot {
     Folders,
+    WatchFolders,
     Theme,
     Adaptive,
     CommunityThemes,
@@ -689,6 +690,10 @@ impl SettingsView {
                 t!("settings-discord-anonymous-detail"),
             ),
             Slot::Version => (t!("settings-version"), t!("settings-version-detail")),
+            Slot::WatchFolders => (
+                t!("settings-watch-folders"),
+                t!("settings-watch-folders-detail"),
+            ),
             Slot::Updates => (
                 t!("settings-check-updates"),
                 t!("settings-check-updates-detail"),
@@ -709,6 +714,7 @@ impl SettingsView {
             Slot::Tray => self.tray_row(cx),
             Slot::TrayIcon => self.tray_icon_row(cx),
             Slot::Folders => self.folders(cx),
+            Slot::WatchFolders => self.watch_folders_row(cx),
             Slot::Theme | Slot::Icons | Slot::Corners => div().into_any_element(),
             Slot::Adaptive => self.adaptive_row(cx),
             Slot::CommunityThemes => self.community_themes_row(cx),

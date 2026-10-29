@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Songs you add to or remove from your music folders show up in the library by themselves. Turn it
+  off with Watch for new music in Settings, Library, Music folders.
+
 ## [1.4.0]
 
 ### Added

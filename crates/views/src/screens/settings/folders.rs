@@ -4,14 +4,30 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, SharedString, div};
 use i18n::t;
 use state::{Encore, Scan};
-use ui::{ActiveTheme as _, Button, Text};
+use ui::{ActiveTheme as _, Button, Switch, Text};
 
 use super::{Group, SettingsView, Slot};
 use crate::shared::{local, text};
 
 impl SettingsView {
     pub(super) fn music_folders_groups(&self) -> Vec<Group> {
-        vec![Group::untitled().rows([Slot::Folders])]
+        vec![Group::untitled().rows([Slot::Folders, Slot::WatchFolders])]
+    }
+
+    /// The switch that has Encore follow the music folders and pick up songs added or removed
+    /// there by itself.
+    pub(super) fn watch_folders_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).watch_folders();
+
+        self.row(
+            t!("settings-watch-folders"),
+            Switch::new("watch-folders", on)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_watch_folders(!on, cx));
+                }))
+                .into_any_element(),
+        )
     }
 
     /// The music folders page's list: one row per watched folder with its remove button, then

@@ -32,6 +32,7 @@ mod tags;
 mod toast;
 mod updates;
 mod wake;
+mod watch;
 mod window_shape;
 
 pub use artist::{ArtistDetail, ArtistDetailEvent};
@@ -70,6 +71,7 @@ pub use tags::{TagState, Tags};
 pub use toast::{Outcome, Target, Toast, ToastAction, Toasts};
 pub use updates::{Release, UpdateState, Updates, updates_itself};
 pub use wake::Wake;
+pub use watch::FolderWatch;
 pub use window_shape::{apply_window_rounding, install_rounded_window_hook};
 
 use std::future::Future;
@@ -186,6 +188,7 @@ pub struct Encore {
     pub radio: Entity<Radio>,
     pub requirements: Entity<Requirements>,
     pub scan: Entity<Scan>,
+    pub watch: Entity<FolderWatch>,
     pub settings: Entity<AppSettings>,
     pub signal: Entity<Signal>,
     pub updates: Entity<Updates>,
@@ -245,6 +248,7 @@ pub fn init(
         )
     });
     let scan = cx.new(|cx| Scan::new(session.clone(), cx));
+    let watch = cx.new(|cx| FolderWatch::new(session.clone(), settings.clone(), cx));
     let lyrics = cx.new(|cx| {
         Lyrics::new(
             playback.clone(),
@@ -289,6 +293,7 @@ pub fn init(
         links,
         requirements,
         scan,
+        watch,
         settings,
         signal,
         updates,

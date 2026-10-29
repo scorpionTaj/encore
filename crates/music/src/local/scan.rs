@@ -614,7 +614,8 @@ fn folder_name(dir: &Path) -> String {
         .unwrap_or_else(|| dir.display().to_string())
 }
 
-fn is_audio_file(path: &Path) -> bool {
+/// Whether `path` names a file the scan reads, judged by its extension alone.
+pub fn is_audio_file(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
