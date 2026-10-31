@@ -19,6 +19,8 @@ data class SettingsState(
     val normalize: Boolean = true,
     /** Shuffle keeps each album's songs together, in order, and shuffles the albums. */
     val shuffleByAlbum: Boolean = false,
+    /** Folders, such as "Music/Voice notes/", whose songs, and their subfolders' songs, stay out of the library. */
+    val hiddenFolders: Set<String> = emptySet(),
 )
 
 /**
@@ -38,6 +40,7 @@ object Settings {
             dynamicColor = prefs.getBoolean(DYNAMIC_COLOR, false),
             normalize = prefs.getBoolean(NORMALIZE, true),
             shuffleByAlbum = prefs.getBoolean(SHUFFLE_BY_ALBUM, false),
+            hiddenFolders = prefs.getStringSet(HIDDEN_FOLDERS, emptySet()).orEmpty().toSet(),
         )
     }
 
@@ -49,6 +52,7 @@ object Settings {
             putBoolean(DYNAMIC_COLOR, next.dynamicColor)
             putBoolean(NORMALIZE, next.normalize)
             putBoolean(SHUFFLE_BY_ALBUM, next.shuffleByAlbum)
+            putStringSet(HIDDEN_FOLDERS, next.hiddenFolders)
         }
     }
 
@@ -56,4 +60,5 @@ object Settings {
     private const val DYNAMIC_COLOR = "dynamic_color"
     private const val NORMALIZE = "normalize"
     private const val SHUFFLE_BY_ALBUM = "shuffle_by_album"
+    private const val HIDDEN_FOLDERS = "hidden_folders"
 }

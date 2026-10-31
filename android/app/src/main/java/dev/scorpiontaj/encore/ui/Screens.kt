@@ -232,6 +232,7 @@ fun SettingsScreen(
     onEqualizerEnabled: (Boolean) -> Unit,
     onBandLevel: (Int, Int) -> Unit,
     onPreset: (Int) -> Unit,
+    onShowFolder: (String) -> Unit,
 ) {
     val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize()) {
@@ -244,6 +245,25 @@ fun SettingsScreen(
         item {
             SwitchRow(stringResource(R.string.settings_shuffle_by_album), stringResource(R.string.settings_shuffle_by_album_body), settings.shuffleByAlbum) { on ->
                 onSettings { it.copy(shuffleByAlbum = on) }
+            }
+        }
+        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
+        item { SectionTitle(stringResource(R.string.settings_hidden_folders)) }
+        if (settings.hiddenFolders.isEmpty()) {
+            item {
+                Text(
+                    stringResource(R.string.settings_hidden_folders_empty),
+                    Modifier.padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(settings.hiddenFolders.sortedWith(String.CASE_INSENSITIVE_ORDER), key = { "hidden:$it" }) { path ->
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(path, Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 2)
+                TextButton(onClick = { onShowFolder(path) }) { Text(stringResource(R.string.folder_show)) }
             }
         }
         item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
@@ -433,7 +453,14 @@ private const val MAX_NOTES = 5
 
 /** The library by its folders on disk: subfolders first, then the songs in the open folder. */
 @Composable
-fun FoldersScreen(library: Library, folder: String, current: String?, actions: SongActions, onFolder: (String) -> Unit) {
+fun FoldersScreen(
+    library: Library,
+    folder: String,
+    current: String?,
+    actions: SongActions,
+    onFolder: (String) -> Unit,
+    onHide: (String) -> Unit,
+) {
     val subfolders = remember(library, folder) {
         library.songs.map { it.folder }.filter { it.startsWith(folder) && it != folder }
             .map { folder + it.removePrefix(folder).substringBefore('/') + "/" }
@@ -468,6 +495,20 @@ fun FoldersScreen(library: Library, folder: String, current: String?, actions: S
                     }
                 },
                 onClick = { onFolder(path) },
+                trailing = {
+                    var menu by remember { mutableStateOf(false) }
+                    Box {
+                        androidx.compose.material3.IconButton(onClick = { menu = true }) {
+                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                        }
+                        androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(stringResource(R.string.folder_hide)) },
+                                onClick = { menu = false; onHide(path) },
+                            )
+                        }
+                    }
+                },
             )
         }
         if (songs.isNotEmpty()) {

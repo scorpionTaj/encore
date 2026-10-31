@@ -187,7 +187,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             if (debounce) delay(LIBRARY_DEBOUNCE_MS)
             val resolver = getApplication<Application>().contentResolver
             _library.value = withContext(Dispatchers.IO) {
-                runCatching { Library.load(resolver) }.onFailure { Log.w(TAG, "library: cannot read MediaStore", it) }.getOrNull()
+                runCatching { Library.load(resolver, Settings.state.value.hiddenFolders) }.onFailure { Log.w(TAG, "library: cannot read MediaStore", it) }.getOrNull()
             } ?: Library(emptyList(), emptyList(), emptyList(), emptyList())
             _missingCovers.value = null
         }
@@ -210,6 +210,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // Settings, sleep timer and recording
 
     fun updateSettings(change: (SettingsState) -> SettingsState) = Settings.update(change)
+
+    /** Keeps [folder]'s songs, and its subfolders' songs, out of every list until shown again. */
+    fun hideFolder(folder: String) {
+        Settings.update { it.copy(hiddenFolders = it.hiddenFolders + folder) }
+        loadLibrary()
+    }
+
+    fun showFolder(folder: String) {
+        Settings.update { it.copy(hiddenFolders = it.hiddenFolders - folder) }
+        loadLibrary()
+    }
 
     fun sleepAfter(minutes: Int) = Sleep.after(minutes)
 

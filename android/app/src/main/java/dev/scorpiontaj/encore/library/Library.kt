@@ -123,9 +123,12 @@ data class Library(
         mediaId?.removePrefix(SONG_PREFIX)?.takeIf { it != mediaId }?.toLongOrNull()?.let(byId::get)
 
     companion object {
-        /** Reads the library. Blocking: call it off the main thread, after audio permission is granted. */
-        fun load(resolver: ContentResolver): Library {
-            val songs = songs(resolver)
+        /**
+         * Reads the library, leaving out songs under any of [hidden] folders. Blocking: call it off
+         * the main thread, after audio permission is granted.
+         */
+        fun load(resolver: ContentResolver, hidden: Set<String> = emptySet()): Library {
+            val songs = songs(resolver).filterNot { song -> hidden.any { song.folder.startsWith(it) } }
             val albums = songs.groupBy { it.albumId }.map { (id, tracks) ->
                 val sorted = tracks.sortedBy { it.track }
                 Album(id, sorted.first().album, sorted.first().albumArtist, sorted)
