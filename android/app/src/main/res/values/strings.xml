@@ -184,4 +184,9 @@
         <item quantity="one">Stops in %d minute</item>
         <item quantity="other">Stops in %d minutes</item>
     </plurals>
+
+    <string name="folder_hide">Hide folder</string>
+    <string name="folder_show">Show</string>
+    <string name="settings_hidden_folders">Hidden folders</string>
+    <string name="settings_hidden_folders_empty">Hide a folder from its menu on the Folders page to keep its songs out of your library.</string>
 </resources>

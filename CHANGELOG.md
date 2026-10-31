@@ -16,6 +16,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Record the radio station playing on Android to Music, Encore Recordings.
 - Open audio files in Encore for Android from other apps.
 - Pick a light, dark or system theme on Android, or use your wallpaper's colours.
+- Hide folders on Android from the Folders page to keep their songs out of your library, and show
+  them again from Settings.
 
 ## [1.6.0]
 

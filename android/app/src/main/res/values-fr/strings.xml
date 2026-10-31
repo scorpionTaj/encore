@@ -188,4 +188,9 @@
         <item quantity="many">S’arrête dans %d minutes</item>
         <item quantity="other">S’arrête dans %d minutes</item>
     </plurals>
+
+    <string name="folder_hide">Masquer le dossier</string>
+    <string name="folder_show">Afficher</string>
+    <string name="settings_hidden_folders">Dossiers masqués</string>
+    <string name="settings_hidden_folders_empty">Masquez un dossier depuis son menu dans la page Dossiers pour retirer ses titres de votre bibliothèque.</string>
 </resources>

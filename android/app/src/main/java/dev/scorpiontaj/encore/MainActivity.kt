@@ -303,7 +303,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         }
                         page == Page.Folders -> when (lib) {
                             null -> Loading(stringResource(R.string.library_loading))
-                            else -> FoldersScreen(lib, folder, current, actions) { folder = it }
+                            else -> FoldersScreen(lib, folder, current, actions, onFolder = { folder = it }, onHide = vm::hideFolder)
                         }
                         page == Page.Settings -> SettingsScreen(
                             settings = settings,
@@ -315,6 +315,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             onEqualizerEnabled = vm::setEqualizerEnabled,
                             onBandLevel = vm::setBandLevel,
                             onPreset = vm::useEqualizerPreset,
+                            onShowFolder = vm::showFolder,
                         )
                         Tab.entries[tab] == Tab.Radio -> RadioScreen(
                             state = radio,

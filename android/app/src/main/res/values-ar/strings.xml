@@ -206,4 +206,9 @@
         <item quantity="many">يتوقف خلال %d دقيقة</item>
         <item quantity="other">يتوقف خلال %d دقيقة</item>
     </plurals>
+
+    <string name="folder_hide">إخفاء المجلد</string>
+    <string name="folder_show">إظهار</string>
+    <string name="settings_hidden_folders">المجلدات المخفية</string>
+    <string name="settings_hidden_folders_empty">أخفِ مجلدًا من قائمته في صفحة المجلدات لإبعاد أغانيه عن مكتبتك.</string>
 </resources>
