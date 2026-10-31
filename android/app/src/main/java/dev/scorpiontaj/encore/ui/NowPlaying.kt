@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -44,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,6 +57,11 @@ import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.playback.LyricsState
 import dev.scorpiontaj.encore.playback.PlayerState
 import dev.scorpiontaj.encore.playback.PlayerViewModel
+import dev.scorpiontaj.encore.playback.SleepState
+import dev.scorpiontaj.encore.radio.Recorder
+import dev.scorpiontaj.encore.radio.Recording
+import dev.scorpiontaj.encore.radio.stationOf
+import android.os.SystemClock
 import kotlinx.coroutines.delay
 
 /** The bar above the tabs while something is loaded: tap it to open [NowPlayingScreen]. */
@@ -105,7 +113,17 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
 /** Full-screen player: cover, format, seek bar, transport, shuffle, repeat and the queue. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NowPlayingScreen(state: PlayerState, library: Library?, lyrics: LyricsState, vm: PlayerViewModel, onClose: () -> Unit) {
+fun NowPlayingScreen(
+    state: PlayerState,
+    library: Library?,
+    lyrics: LyricsState,
+    sleep: SleepState,
+    recording: Recording?,
+    vm: PlayerViewModel,
+    onClose: () -> Unit,
+) {
+    val station = remember(state.mediaId, state.queue, state.index) { stationOf(state.queue.getOrNull(state.index)) }
+    var sleepMenu by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var showLyrics by rememberSaveable { mutableStateOf(false) }
     val song = library?.song(state.mediaId)
@@ -139,6 +157,41 @@ fun NowPlayingScreen(state: PlayerState, library: Library?, lyrics: LyricsState,
                             stringResource(if (showLyrics) R.string.lyrics_hide else R.string.lyrics_show),
                             tint = toggleTint(showLyrics),
                         )
+                    }
+                }
+                if (station != null && Recorder.canRecord(station)) {
+                    val recordingThis = recording?.station?.uuid == station.uuid
+                    IconButton(onClick = { if (recordingThis) vm.stopRecording() else vm.startRecording(station) }) {
+                        Icon(
+                            painterResource(if (recordingThis) R.drawable.ic_stop else R.drawable.ic_record),
+                            stringResource(if (recordingThis) R.string.record_stop else R.string.record_start),
+                            tint = if (recordingThis) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Box {
+                    IconButton(onClick = { sleepMenu = true }) {
+                        Icon(painterResource(R.drawable.ic_bedtime), stringResource(R.string.sleep_timer), tint = toggleTint(sleep != SleepState.Off))
+                    }
+                    DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
+                        SLEEP_MINUTES.forEach { minutes ->
+                            DropdownMenuItem(
+                                text = { Text(pluralStringResource(R.plurals.sleep_minutes, minutes, minutes)) },
+                                onClick = { sleepMenu = false; vm.sleepAfter(minutes) },
+                            )
+                        }
+                        if (state.durationMs > 0) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sleep_end_of_song)) },
+                                onClick = { sleepMenu = false; vm.sleepAtEndOfSong() },
+                            )
+                        }
+                        if (sleep != SleepState.Off) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sleep_off)) },
+                                onClick = { sleepMenu = false; vm.cancelSleep() },
+                            )
+                        }
                     }
                 }
                 IconButton(onClick = { showQueue = true }) {
@@ -240,6 +293,7 @@ fun NowPlayingScreen(state: PlayerState, library: Library?, lyrics: LyricsState,
                     Icon(painterResource(icon), stringResource(label), tint = toggleTint(state.repeatMode != Player.REPEAT_MODE_OFF))
                 }
             }
+            StatusLine(sleep, recording)
             Spacer(Modifier.weight(1f))
         }
     }
@@ -275,6 +329,29 @@ fun NowPlayingScreen(state: PlayerState, library: Library?, lyrics: LyricsState,
                 }
             }
         }
+    }
+}
+
+/** What is running in the background: the sleep timer's countdown and a radio recording. */
+@Composable
+private fun StatusLine(sleep: SleepState, recording: Recording?) {
+    var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(sleep, recording) {
+        while (sleep is SleepState.At || recording != null) {
+            now = SystemClock.elapsedRealtime()
+            delay(1_000)
+        }
+    }
+    val lines = listOfNotNull(
+        when (sleep) {
+            is SleepState.At -> ((sleep.atMs - now) / 60_000 + 1).toInt().let { pluralStringResource(R.plurals.sleep_stops_in, it, it) }
+            SleepState.EndOfSong -> stringResource(R.string.sleep_stops_after_song)
+            SleepState.Off -> null
+        },
+        recording?.let { stringResource(R.string.record_running, duration(now - it.sinceMs)) },
+    )
+    lines.forEach {
+        Text(it, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -355,3 +432,4 @@ private fun subtitle(state: PlayerState): String {
 }
 
 private const val POSITION_POLL_MS = 500L
+private val SLEEP_MINUTES = listOf(15, 30, 45, 60, 90)

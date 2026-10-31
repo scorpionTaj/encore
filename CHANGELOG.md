@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Sort Android songs by date modified, and see when a song was added and modified in its details.
+- Smart playlists, a Folders page, recently played and the No cover filter on Android.
+- A sleep timer on Android, stopping after a set time or at the end of the song.
+- Loudness normalisation from ReplayGain tags and shuffle by album on Android.
+- Record the radio station playing on Android to Music, Encore Recordings.
+- Open audio files in Encore for Android from other apps.
+- Pick a light, dark or system theme on Android, or use your wallpaper's colours.
+
 ## [1.6.0]
 
 ### Added

@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import android.provider.Settings
 import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -27,11 +26,18 @@ import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.library.Lrclib
 import dev.scorpiontaj.encore.library.Lyrics
 import dev.scorpiontaj.encore.library.Period
+import dev.scorpiontaj.encore.library.SmartPlaylist
+import dev.scorpiontaj.encore.library.SmartPlaylistStore
+import dev.scorpiontaj.encore.library.TopSong
 import dev.scorpiontaj.encore.library.Song
 import dev.scorpiontaj.encore.library.Summary
 import dev.scorpiontaj.encore.radio.RadioBrowser
 import dev.scorpiontaj.encore.radio.RadioPrefs
+import dev.scorpiontaj.encore.radio.Recorder
+import dev.scorpiontaj.encore.radio.Recording
 import dev.scorpiontaj.encore.radio.Station
+import dev.scorpiontaj.encore.settings.Settings
+import dev.scorpiontaj.encore.settings.SettingsState
 import dev.scorpiontaj.encore.update.Release
 import dev.scorpiontaj.encore.update.Updates
 import kotlinx.coroutines.Dispatchers
@@ -87,6 +93,26 @@ sealed interface UpdateState {
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val radioPrefs = RadioPrefs(app)
     private val history = History(app)
+    private val smartStore = SmartPlaylistStore(app)
+
+    init {
+        Settings.init(app)
+    }
+
+    val settings: StateFlow<SettingsState> = Settings.state
+    val sleep: StateFlow<SleepState> = Sleep.state
+    val recording: StateFlow<Recording?> = Recorder.state
+
+    private val _smartPlaylists = MutableStateFlow(smartStore.load())
+    val smartPlaylists: StateFlow<List<SmartPlaylist>> = _smartPlaylists.asStateFlow()
+
+    private val _recent = MutableStateFlow<List<TopSong>?>(null)
+    val recent: StateFlow<List<TopSong>?> = _recent.asStateFlow()
+
+    /** Ids of library songs with no embedded cover, worked out when the No cover filter is first used. */
+    private val _missingCovers = MutableStateFlow<Set<Long>?>(null)
+    val missingCovers: StateFlow<Set<Long>?> = _missingCovers.asStateFlow()
+    private var coversJob: Job? = null
 
     private val _library = MutableStateFlow<Library?>(null)
     val library: StateFlow<Library?> = _library.asStateFlow()
@@ -118,6 +144,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val equalizer: StateFlow<EqualizerState> = Sound.state
 
     private var controller: MediaController? = null
+
+    /** A file opened before the controller connected, played once it does. */
+    private var pendingUri: Uri? = null
     private var libraryJob: Job? = null
     private var radioJob: Job? = null
     private var lyricsJob: Job? = null
@@ -143,6 +172,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             controller = connected
             connected.addListener(listener)
             sync(connected)
+            pendingUri?.let { pendingUri = null; playUri(it) }
         }
         app.contentResolver.registerContentObserver(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, observer)
         checkForUpdates(asked = false)
@@ -159,6 +189,57 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             _library.value = withContext(Dispatchers.IO) {
                 runCatching { Library.load(resolver) }.onFailure { Log.w(TAG, "library: cannot read MediaStore", it) }.getOrNull()
             } ?: Library(emptyList(), emptyList(), emptyList(), emptyList())
+            _missingCovers.value = null
+        }
+    }
+
+    /** Finds the songs without a cover by asking MediaStore for each song's thumbnail. */
+    fun findMissingCovers() {
+        val songs = _library.value?.songs ?: return
+        if (coversJob?.isActive == true || _missingCovers.value != null) return
+        val resolver = getApplication<Application>().contentResolver
+        coversJob = viewModelScope.launch {
+            _missingCovers.value = withContext(Dispatchers.IO) {
+                songs.filter { song ->
+                    runCatching { resolver.loadThumbnail(song.uri, android.util.Size(32, 32), null).recycle() }.isFailure
+                }.mapTo(mutableSetOf()) { it.id }
+            }
+        }
+    }
+
+    // Settings, sleep timer and recording
+
+    fun updateSettings(change: (SettingsState) -> SettingsState) = Settings.update(change)
+
+    fun sleepAfter(minutes: Int) = Sleep.after(minutes)
+
+    fun sleepAtEndOfSong() = Sleep.atEndOfSong()
+
+    fun cancelSleep() = Sleep.cancel()
+
+    fun startRecording(station: Station) = Recorder.start(getApplication(), station)
+
+    fun stopRecording() = Recorder.stop()
+
+    // Smart playlists
+
+    fun saveSmartPlaylist(playlist: SmartPlaylist) {
+        val updated = _smartPlaylists.value.filterNot { it.id == playlist.id } + playlist
+        smartStore.save(updated)
+        _smartPlaylists.value = updated
+    }
+
+    fun deleteSmartPlaylist(playlist: SmartPlaylist) {
+        val updated = _smartPlaylists.value.filterNot { it.id == playlist.id }
+        smartStore.save(updated)
+        _smartPlaylists.value = updated
+    }
+
+    // History
+
+    fun loadRecent() {
+        viewModelScope.launch {
+            _recent.value = withContext(Dispatchers.IO) { runCatching { history.recent() }.getOrDefault(emptyList()) }
         }
     }
 
@@ -250,7 +331,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val app = getApplication<Application>()
         if (!app.packageManager.canRequestPackageInstalls()) {
             app.startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
+                Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             return
@@ -272,9 +353,42 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun play(songs: List<Song>, start: Int = 0, shuffle: Boolean = false) {
         val c = controller ?: return
         if (songs.isEmpty()) return
+        if (shuffle && Settings.state.value.shuffleByAlbum) {
+            // Albums in a random order, each album's songs together and in track order.
+            val byAlbum = songs.groupBy { it.albumId }.values.shuffled().flatMap { album -> album.sortedBy { it.track } }
+            c.shuffleModeEnabled = false
+            c.setMediaItems(byAlbum.map(Song::toMediaItem), 0, 0)
+            c.prepare()
+            c.play()
+            return
+        }
         c.shuffleModeEnabled = shuffle
         val first = if (shuffle) songs.indices.random() else start
         c.setMediaItems(songs.map(Song::toMediaItem), first, 0)
+        c.prepare()
+        c.play()
+    }
+
+    /** Plays an audio file another app opened Encore with. */
+    fun playUri(uri: Uri) {
+        val c = controller ?: run {
+            pendingUri = uri
+            return
+        }
+        val resolver = getApplication<Application>().contentResolver
+        fun read(column: String) = runCatching {
+            resolver.query(uri, arrayOf(column), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+        }.getOrNull()
+        // The tag title MediaStore read, else the file name without its extension.
+        val name = read(MediaStore.MediaColumns.TITLE)
+            ?: read(android.provider.OpenableColumns.DISPLAY_NAME)?.substringBeforeLast('.')
+        val item = MediaItem.Builder()
+            .setMediaId("uri:$uri")
+            .setUri(uri)
+            .setRequestMetadata(MediaItem.RequestMetadata.Builder().setMediaUri(uri).build())
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(name).build())
+            .build()
+        c.setMediaItem(item)
         c.prepare()
         c.play()
     }

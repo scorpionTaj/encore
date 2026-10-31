@@ -3,11 +3,14 @@ package dev.scorpiontaj.encore
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -22,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -30,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,14 +54,20 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.scorpiontaj.encore.library.Album
 import dev.scorpiontaj.encore.library.Artist
+import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.library.Playlist
+import dev.scorpiontaj.encore.library.SmartPlaylist
 import dev.scorpiontaj.encore.library.Song
 import dev.scorpiontaj.encore.playback.PlayerViewModel
+import dev.scorpiontaj.encore.playback.RadioState
 import dev.scorpiontaj.encore.playback.UpdateState
 import dev.scorpiontaj.encore.ui.AlbumsScreen
 import dev.scorpiontaj.encore.ui.ArtistsScreen
 import dev.scorpiontaj.encore.ui.CollectionScreen
 import dev.scorpiontaj.encore.ui.EncoreTheme
+import dev.scorpiontaj.encore.ui.isDark
+import dev.scorpiontaj.encore.ui.FoldersScreen
+import dev.scorpiontaj.encore.ui.HistoryScreen
 import dev.scorpiontaj.encore.ui.Loading
 import dev.scorpiontaj.encore.ui.MiniPlayer
 import dev.scorpiontaj.encore.ui.NowPlayingScreen
@@ -63,6 +75,7 @@ import dev.scorpiontaj.encore.ui.PlaylistsScreen
 import dev.scorpiontaj.encore.ui.RadioScreen
 import dev.scorpiontaj.encore.ui.SearchScreen
 import dev.scorpiontaj.encore.ui.SettingsScreen
+import dev.scorpiontaj.encore.ui.SmartPlaylistDialog
 import dev.scorpiontaj.encore.ui.SongDetailsDialog
 import dev.scorpiontaj.encore.ui.StatsScreen
 import dev.scorpiontaj.encore.ui.UpdateCard
@@ -76,7 +89,32 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { EncoreTheme { EncoreApp(vm) } }
+        openFrom(intent)
+        setContent {
+            val settings by vm.settings.collectAsStateWithLifecycle()
+            // Status and navigation bar icons follow the app's theme, not only the system's.
+            val dark = isDark(settings)
+            DisposableEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                )
+                onDispose {}
+            }
+            EncoreTheme(settings) { EncoreApp(vm) }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openFrom(intent)
+    }
+
+    /** Plays an audio file another app asked Encore to open. */
+    private fun openFrom(intent: Intent?) {
+        val uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return
+        vm.playUri(uri)
+        setIntent(Intent(this, MainActivity::class.java))
     }
 }
 
@@ -94,6 +132,7 @@ private sealed interface Detail {
     data class OfAlbum(val album: Album) : Detail
     data class OfArtist(val artist: Artist) : Detail
     data class OfPlaylist(val playlist: Playlist) : Detail
+    data class OfSmart(val playlist: SmartPlaylist) : Detail
 }
 
 private val AUDIO_PERMISSION =
@@ -101,10 +140,12 @@ private val AUDIO_PERMISSION =
     else Manifest.permission.READ_EXTERNAL_STORAGE
 
 /** A page opened from the top bar, shown over the tabs until Back. */
-private enum class Page(val title: Int) {
-    Search(R.string.action_search),
-    Stats(R.string.page_stats),
-    Settings(R.string.page_settings),
+private enum class Page(val title: Int, val icon: Int) {
+    Search(R.string.action_search, R.drawable.ic_search),
+    Stats(R.string.page_stats, R.drawable.ic_bar_chart),
+    History(R.string.page_history, R.drawable.ic_history),
+    Folders(R.string.page_folders, R.drawable.ic_folder),
+    Settings(R.string.page_settings, R.drawable.ic_settings),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,6 +166,16 @@ private fun EncoreApp(vm: PlayerViewModel) {
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val update by vm.update.collectAsStateWithLifecycle()
     val equalizer by vm.equalizer.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val sleep by vm.sleep.collectAsStateWithLifecycle()
+    val recording by vm.recording.collectAsStateWithLifecycle()
+    val smart by vm.smartPlaylists.collectAsStateWithLifecycle()
+    val recent by vm.recent.collectAsStateWithLifecycle()
+    val missingCovers by vm.missingCovers.collectAsStateWithLifecycle()
+    var folder by rememberSaveable { mutableStateOf("") }
+    var editing by remember { mutableStateOf<SmartPlaylist?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    var overflow by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
     var detail by remember { mutableStateOf<Detail?>(null) }
@@ -136,9 +187,17 @@ private fun EncoreApp(vm: PlayerViewModel) {
 
     LaunchedEffect(granted) { if (granted && vm.library.value == null) vm.loadLibrary() }
     LaunchedEffect(tab, page) { if (Tab.entries[tab] == Tab.Radio || page == Page.Search) vm.loadRadio() }
-    LaunchedEffect(page) { if (page == Page.Stats) vm.loadStats() }
+    LaunchedEffect(page) {
+        if (page == Page.Stats) vm.loadStats()
+        if (page == Page.History) vm.loadRecent()
+    }
     BackHandler(enabled = detail != null && !nowPlaying) { detail = null }
-    BackHandler(enabled = page != null && detail == null && !nowPlaying) { page = null }
+    BackHandler(enabled = page == Page.Folders && folder.isNotEmpty() && detail == null && !nowPlaying) {
+        folder = folder.removeSuffix("/").substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
+    }
+    BackHandler(enabled = page != null && detail == null && !nowPlaying && !(page == Page.Folders && folder.isNotEmpty())) {
+        page = null
+    }
     BackHandler(enabled = nowPlaying) { nowPlaying = false }
 
     Box(Modifier.fillMaxSize()) {
@@ -167,11 +226,23 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             IconButton(onClick = { page = Page.Search }) {
                                 Icon(painterResource(R.drawable.ic_search), stringResource(R.string.action_search))
                             }
-                            IconButton(onClick = { page = Page.Stats }) {
-                                Icon(painterResource(R.drawable.ic_bar_chart), stringResource(R.string.page_stats))
-                            }
-                            IconButton(onClick = { page = Page.Settings }) {
-                                Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.page_settings))
+                            Box {
+                                IconButton(onClick = { overflow = true }) {
+                                    Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                                }
+                                DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                                    Page.entries.filter { it != Page.Search }.forEach { entry ->
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(entry.title)) },
+                                            leadingIcon = { Icon(painterResource(entry.icon), null) },
+                                            onClick = {
+                                                overflow = false
+                                                if (entry == Page.Folders) folder = ""
+                                                page = entry
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     },
@@ -205,7 +276,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                 }
                 Box(Modifier.weight(1f)) {
                     when {
-                        open != null -> DetailScreen(open, current, actions)
+                        open != null -> DetailScreen(open, lib, current, actions)
                         page == Page.Search -> SearchScreen(
                             library = lib,
                             radio = radio,
@@ -226,7 +297,17 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             onSong = { id -> lib?.song(id)?.let { vm.play(listOf(it)) } },
                             onArtist = { openArtist(it) },
                         )
+                        page == Page.History -> HistoryScreen(recent, lib, current) { id ->
+                            lib?.song(id)?.let { vm.play(listOf(it)) }
+                                ?: (radio as? RadioState.Loaded)?.stations?.firstOrNull { it.mediaId == id }?.let(vm::play)
+                        }
+                        page == Page.Folders -> when (lib) {
+                            null -> Loading(stringResource(R.string.library_loading))
+                            else -> FoldersScreen(lib, folder, current, actions) { folder = it }
+                        }
                         page == Page.Settings -> SettingsScreen(
+                            settings = settings,
+                            onSettings = vm::updateSettings,
                             update = update,
                             equalizer = equalizer,
                             onCheckUpdates = { vm.checkForUpdates(asked = true) },
@@ -249,10 +330,19 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         !granted -> PermissionPrompt { request.launch(AUDIO_PERMISSION) }
                         lib == null -> Loading(stringResource(R.string.library_loading))
                         else -> when (Tab.entries[tab]) {
-                            Tab.Songs -> SongsScreen(lib.songs, lib.duplicates, current, actions)
+                            Tab.Songs -> SongsScreen(lib.songs, lib.duplicates, missingCovers, current, actions, vm::findMissingCovers)
                             Tab.Albums -> AlbumsScreen(lib.albums) { detail = Detail.OfAlbum(it) }
                             Tab.Artists -> ArtistsScreen(lib.artists) { detail = Detail.OfArtist(it) }
-                            Tab.Playlists -> PlaylistsScreen(lib.playlists) { detail = Detail.OfPlaylist(it) }
+                            Tab.Playlists -> PlaylistsScreen(
+                                playlists = lib.playlists,
+                                smart = smart,
+                                library = lib,
+                                onOpen = { detail = Detail.OfPlaylist(it) },
+                                onOpenSmart = { detail = Detail.OfSmart(it) },
+                                onNewSmart = { creating = true },
+                                onEditSmart = { editing = it },
+                                onDeleteSmart = vm::deleteSmartPlaylist,
+                            )
                             Tab.Radio -> Unit
                         }
                     }
@@ -265,15 +355,28 @@ private fun EncoreApp(vm: PlayerViewModel) {
             enter = slideInVertically { it },
             exit = slideOutVertically { it },
         ) {
-            NowPlayingScreen(player, library, lyrics, vm) { nowPlaying = false }
+            NowPlayingScreen(player, library, lyrics, sleep, recording, vm) { nowPlaying = false }
         }
 
         details?.let { SongDetailsDialog(it) { details = null } }
+        if (creating || editing != null) {
+            SmartPlaylistDialog(
+                initial = editing,
+                onSave = { playlist ->
+                    vm.saveSmartPlaylist(playlist)
+                    // keep an open smart playlist showing its new rules
+                    (detail as? Detail.OfSmart)?.takeIf { it.playlist.id == playlist.id }?.let { detail = Detail.OfSmart(playlist) }
+                    creating = false
+                    editing = null
+                },
+                onDismiss = { creating = false; editing = null },
+            )
+        }
     }
 }
 
 @Composable
-private fun DetailScreen(detail: Detail, current: String?, actions: SongActions) {
+private fun DetailScreen(detail: Detail, library: Library?, current: String?, actions: SongActions) {
     val unknownArtist = stringResource(R.string.unknown_artist)
     when (detail) {
         is Detail.OfAlbum -> CollectionScreen(
@@ -291,6 +394,10 @@ private fun DetailScreen(detail: Detail, current: String?, actions: SongActions)
             actions,
         )
         is Detail.OfPlaylist -> CollectionScreen(detail.playlist.name, "", detail.playlist.songs, current, actions)
+        is Detail.OfSmart -> {
+            val songs = remember(detail.playlist, library) { library?.let(detail.playlist::songs).orEmpty() }
+            CollectionScreen(detail.playlist.name, stringResource(R.string.smart_label), songs, current, actions)
+        }
     }
 }
 

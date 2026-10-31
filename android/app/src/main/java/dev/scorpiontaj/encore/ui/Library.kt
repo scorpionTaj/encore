@@ -59,8 +59,10 @@ import androidx.compose.ui.unit.dp
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.library.Album
 import dev.scorpiontaj.encore.library.Artist
+import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.library.Playlist
 import dev.scorpiontaj.encore.library.SONG_PREFIX
+import dev.scorpiontaj.encore.library.SmartPlaylist
 import dev.scorpiontaj.encore.library.Song
 import dev.scorpiontaj.encore.library.UNKNOWN
 import dev.scorpiontaj.encore.playback.PlayerViewModel
@@ -93,6 +95,7 @@ private enum class SongFilter(val label: Int) {
     Lossless(R.string.quality_lossless),
     NoAlbum(R.string.filter_no_album),
     NoArtist(R.string.filter_no_artist),
+    NoCover(R.string.filter_no_cover),
     Duplicates(R.string.filter_duplicates),
 }
 
@@ -101,21 +104,31 @@ private enum class SongSort(val label: Int) {
     Artist(R.string.sort_artist),
     Album(R.string.sort_album),
     Added(R.string.sort_added),
+    Modified(R.string.sort_modified),
 }
 
 @Composable
-fun SongsScreen(songs: List<Song>, duplicates: Set<Long>, current: String?, actions: SongActions) {
+fun SongsScreen(
+    songs: List<Song>,
+    duplicates: Set<Long>,
+    missingCovers: Set<Long>?,
+    current: String?,
+    actions: SongActions,
+    onFindMissingCovers: () -> Unit,
+) {
     if (songs.isEmpty()) return Message(stringResource(R.string.library_empty))
     var filter by rememberSaveable { mutableStateOf(SongFilter.All) }
+    LaunchedEffect(filter) { if (filter == SongFilter.NoCover) onFindMissingCovers() }
     var sort by rememberSaveable { mutableStateOf(SongSort.Title) }
     var sortMenu by remember { mutableStateOf(false) }
-    val shown = remember(songs, duplicates, filter, sort) {
+    val shown = remember(songs, duplicates, missingCovers, filter, sort) {
         songs.filter {
             when (filter) {
                 SongFilter.All -> true
                 SongFilter.Lossless -> it.lossless
                 SongFilter.NoAlbum -> it.album == UNKNOWN || it.album.isBlank()
                 SongFilter.NoArtist -> it.artist == UNKNOWN || it.artist.isBlank()
+                SongFilter.NoCover -> missingCovers?.contains(it.id) == true
                 SongFilter.Duplicates -> it.id in duplicates
             }
         }.let { list ->
@@ -124,6 +137,7 @@ fun SongsScreen(songs: List<Song>, duplicates: Set<Long>, current: String?, acti
                 SongSort.Artist -> list.sortedWith(compareBy({ it.artist.lowercase() }, { it.album.lowercase() }, { it.track }))
                 SongSort.Album -> list.sortedWith(compareBy({ it.album.lowercase() }, { it.track }))
                 SongSort.Added -> list.sortedByDescending { it.dateAdded }
+                SongSort.Modified -> list.sortedByDescending { it.dateModified }
             }
         }
     }
@@ -161,7 +175,9 @@ fun SongsScreen(songs: List<Song>, duplicates: Set<Long>, current: String?, acti
                 }
             }
         }
-        if (shown.isEmpty()) {
+        if (filter == SongFilter.NoCover && missingCovers == null) {
+            item { Loading(stringResource(R.string.filter_checking_covers)) }
+        } else if (shown.isEmpty()) {
             item { Message(stringResource(R.string.filter_empty)) }
         } else {
             playAllHeader(shown, actions)
@@ -228,10 +244,62 @@ fun ArtistRow(artist: Artist, onOpen: () -> Unit) {
     )
 }
 
+/** Smart playlists first, with a button to make one, then the playlists MediaStore knows. */
 @Composable
-fun PlaylistsScreen(playlists: List<Playlist>, onOpen: (Playlist) -> Unit) {
-    if (playlists.isEmpty()) return Message(stringResource(R.string.playlists_empty))
+fun PlaylistsScreen(
+    playlists: List<Playlist>,
+    smart: List<SmartPlaylist>,
+    library: Library,
+    onOpen: (Playlist) -> Unit,
+    onOpenSmart: (SmartPlaylist) -> Unit,
+    onNewSmart: () -> Unit,
+    onEditSmart: (SmartPlaylist) -> Unit,
+    onDeleteSmart: (SmartPlaylist) -> Unit,
+) {
     LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            FilledTonalButton(onClick = onNewSmart, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.smart_new))
+            }
+        }
+        items(smart, key = { "smart:${it.id}" }) { playlist ->
+            val songs = remember(playlist, library) { playlist.songs(library) }
+            var menu by remember { mutableStateOf(false) }
+            ListRow(
+                title = playlist.name,
+                subtitle = pluralStringResource(R.plurals.songs_count, songs.size, songs.size),
+                leading = {
+                    Surface(Modifier.size(48.dp), RoundedCornerShape(8.dp), MaterialTheme.colorScheme.primaryContainer) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(painterResource(R.drawable.ic_auto_awesome), null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+                },
+                onClick = { onOpenSmart(playlist) },
+                trailing = {
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_edit)) },
+                                onClick = { menu = false; onEditSmart(playlist) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.action_delete)) },
+                                onClick = { menu = false; onDeleteSmart(playlist) },
+                            )
+                        }
+                    }
+                },
+            )
+        }
+        if (playlists.isEmpty() && smart.isEmpty()) {
+            item { Message(stringResource(R.string.playlists_empty)) }
+        }
         items(playlists, key = { it.id }) { playlist ->
             ListRow(
                 title = playlist.name,
@@ -388,6 +456,8 @@ fun SongDetailsDialog(song: Song, onDismiss: () -> Unit) {
         (song.track % 1000).takeIf { it > 0 }?.let { R.string.details_track to it.toString() },
         R.string.details_length to duration(song.durationMs),
         R.string.details_format to qualityLine(song),
+        song.dateAdded.takeIf { it > 0 }?.let { R.string.details_added to date(it) },
+        song.dateModified.takeIf { it > 0 }?.let { R.string.details_modified to date(it) },
         R.string.details_file to song.path,
     )
     AlertDialog(
@@ -446,6 +516,11 @@ fun String.orUnknown(fallback: String): String = if (this == UNKNOWN || isBlank(
 
 /** A country's name in the app's language, from its ISO code. */
 fun countryName(code: String): String = Locale("", code).getDisplayCountry(Locale.getDefault()).ifEmpty { code }
+
+/** A MediaStore timestamp, in seconds, as a medium date and short time in the app's language. */
+fun date(seconds: Long): String =
+    java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
+        .format(java.util.Date(seconds * 1000))
 
 /** "3:07", or "1:02:45" past an hour. */
 fun duration(ms: Long): String {

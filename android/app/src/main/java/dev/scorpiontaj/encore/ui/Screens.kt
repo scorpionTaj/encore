@@ -2,6 +2,8 @@ package dev.scorpiontaj.encore.ui
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -49,12 +52,19 @@ import dev.scorpiontaj.encore.library.Album
 import dev.scorpiontaj.encore.library.Artist
 import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.library.Period
+import dev.scorpiontaj.encore.library.Rule
+import dev.scorpiontaj.encore.library.RuleField
+import dev.scorpiontaj.encore.library.RuleOp
+import dev.scorpiontaj.encore.library.SmartPlaylist
+import dev.scorpiontaj.encore.library.TopSong
 import dev.scorpiontaj.encore.library.SONG_PREFIX
 import dev.scorpiontaj.encore.library.Summary
 import dev.scorpiontaj.encore.playback.EqualizerState
 import dev.scorpiontaj.encore.playback.RadioState
 import dev.scorpiontaj.encore.playback.UpdateState
 import dev.scorpiontaj.encore.radio.Station
+import dev.scorpiontaj.encore.settings.SettingsState
+import dev.scorpiontaj.encore.settings.ThemeMode
 
 /** Search across songs, albums, artists and the loaded radio stations. */
 @Composable
@@ -213,6 +223,8 @@ fun StatsScreen(
 /** Updates, the equalizer and the app's version. */
 @Composable
 fun SettingsScreen(
+    settings: SettingsState,
+    onSettings: ((SettingsState) -> SettingsState) -> Unit,
     update: UpdateState,
     equalizer: EqualizerState,
     onCheckUpdates: () -> Unit,
@@ -223,6 +235,51 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize()) {
+        item { SectionTitle(stringResource(R.string.settings_playback)) }
+        item {
+            SwitchRow(stringResource(R.string.settings_normalize), stringResource(R.string.settings_normalize_body), settings.normalize) { on ->
+                onSettings { it.copy(normalize = on) }
+            }
+        }
+        item {
+            SwitchRow(stringResource(R.string.settings_shuffle_by_album), stringResource(R.string.settings_shuffle_by_album_body), settings.shuffleByAlbum) { on ->
+                onSettings { it.copy(shuffleByAlbum = on) }
+            }
+        }
+        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
+        item { SectionTitle(stringResource(R.string.settings_appearance)) }
+        item {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ThemeMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = settings.theme == mode,
+                        onClick = { onSettings { it.copy(theme = mode) } },
+                        label = {
+                            Text(
+                                stringResource(
+                                    when (mode) {
+                                        ThemeMode.System -> R.string.theme_system
+                                        ThemeMode.Light -> R.string.theme_light
+                                        ThemeMode.Dark -> R.string.theme_dark
+                                    },
+                                ),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            item {
+                SwitchRow(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_body), settings.dynamicColor) { on ->
+                    onSettings { it.copy(dynamicColor = on) }
+                }
+            }
+        }
+        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
         item { SectionTitle(stringResource(R.string.settings_updates)) }
         item {
             Column(Modifier.padding(horizontal = 16.dp)) {
@@ -325,6 +382,17 @@ fun UpdateCard(update: UpdateState.Offered, onInstall: () -> Unit, onDismiss: ()
 }
 
 @Composable
+private fun SwitchRow(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(title)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
 private fun SectionTitle(text: String) {
     Text(
         text,
@@ -362,3 +430,201 @@ private fun frequency(hz: Int): String = if (hz >= 1000) "${hz / 1000} kHz" else
 
 private const val MAX_SONGS = 50
 private const val MAX_NOTES = 5
+
+/** The library by its folders on disk: subfolders first, then the songs in the open folder. */
+@Composable
+fun FoldersScreen(library: Library, folder: String, current: String?, actions: SongActions, onFolder: (String) -> Unit) {
+    val subfolders = remember(library, folder) {
+        library.songs.map { it.folder }.filter { it.startsWith(folder) && it != folder }
+            .map { folder + it.removePrefix(folder).substringBefore('/') + "/" }
+            .groupingBy { it }.eachCount().toSortedMap(String.CASE_INSENSITIVE_ORDER)
+    }
+    val songs = remember(library, folder) { library.songs.filter { it.folder == folder } }
+    if (subfolders.isEmpty() && songs.isEmpty()) return Message(stringResource(R.string.library_empty))
+    LazyColumn(Modifier.fillMaxSize()) {
+        if (folder.isNotEmpty()) {
+            item {
+                Text(
+                    folder,
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(subfolders.entries.toList(), key = { "f${it.key}" }) { (path, count) ->
+            ListRow(
+                title = path.removeSuffix("/").substringAfterLast('/'),
+                subtitle = pluralStringResource(R.plurals.songs_count, count, count),
+                leading = {
+                    Surface(
+                        Modifier.size(48.dp),
+                        androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                },
+                onClick = { onFolder(path) },
+            )
+        }
+        if (songs.isNotEmpty()) {
+            playAllHeader(songs, actions)
+            songItems(songs, current, actions)
+        }
+    }
+}
+
+/** What was listened to most recently, newest first. */
+@Composable
+fun HistoryScreen(recent: List<TopSong>?, library: Library?, current: String?, onPlay: (String) -> Unit) {
+    when {
+        recent == null -> Loading(stringResource(R.string.library_loading))
+        recent.isEmpty() -> Message(stringResource(R.string.history_empty))
+        else -> LazyColumn(Modifier.fillMaxSize()) {
+            items(recent, key = { it.mediaId }) { entry ->
+                val song = library?.song(entry.mediaId)
+                ListRow(
+                    title = entry.title,
+                    subtitle = listOfNotNull(
+                        entry.artist ?: stringResource(R.string.radio_station).takeIf { song == null },
+                        pluralStringResource(R.plurals.stats_plays, entry.plays, entry.plays),
+                    ).joinToString(" · "),
+                    leading = { if (song != null) Artwork(song.uri) else StationArtwork(null) },
+                    highlighted = current == entry.mediaId,
+                    onClick = { onPlay(entry.mediaId) },
+                )
+            }
+        }
+    }
+}
+
+/** Makes or edits a smart playlist: a name, whether every rule or any rule must match, and the rules. */
+@Composable
+fun SmartPlaylistDialog(initial: SmartPlaylist?, onSave: (SmartPlaylist) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(initial?.name.orEmpty()) }
+    var matchAll by remember { mutableStateOf(initial?.matchAll ?: true) }
+    val rules = remember {
+        androidx.compose.runtime.mutableStateListOf<Rule>().apply {
+            addAll(initial?.rules ?: listOf(Rule(RuleField.Artist, RuleOp.Contains, "")))
+        }
+    }
+    val valid = name.isNotBlank() && rules.isNotEmpty() && rules.all { it.value.isNotBlank() }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (initial == null) R.string.smart_new else R.string.smart_edit)) },
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = {
+                    val trimmed = name.trim()
+                    onSave(initial?.copy(name = trimmed, rules = rules.toList(), matchAll = matchAll) ?: SmartPlaylist.new(trimmed, rules.toList(), matchAll))
+                },
+            ) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        text = {
+            LazyColumn {
+                item {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.smart_name)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                item {
+                    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = matchAll, onClick = { matchAll = true }, label = { Text(stringResource(R.string.smart_match_all)) })
+                        FilterChip(selected = !matchAll, onClick = { matchAll = false }, label = { Text(stringResource(R.string.smart_match_any)) })
+                    }
+                }
+                itemsIndexed(rules) { index, rule -> RuleEditor(rule, onChange = { rules[index] = it }, onRemove = { rules.removeAt(index) }) }
+                item {
+                    TextButton(onClick = { rules.add(Rule(RuleField.Title, RuleOp.Contains, "")) }) {
+                        Icon(painterResource(R.drawable.ic_add), null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.smart_add_rule))
+                    }
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun RuleEditor(rule: Rule, onChange: (Rule) -> Unit, onRemove: () -> Unit) {
+    Column(Modifier.padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Picker(stringResource(fieldLabel(rule.field)), RuleField.entries.map { it to stringResource(fieldLabel(it)) }) { field ->
+                onChange(Rule(field, Rule.opsFor(field).first(), if (field == rule.field) rule.value else ""))
+            }
+            Picker(stringResource(opLabel(rule.op)), Rule.opsFor(rule.field).map { it to stringResource(opLabel(it)) }) { op ->
+                onChange(rule.copy(op = op))
+            }
+            Spacer(Modifier.weight(1f))
+            androidx.compose.material3.IconButton(onClick = onRemove) {
+                Icon(painterResource(R.drawable.ic_close), stringResource(R.string.smart_remove_rule))
+            }
+        }
+        OutlinedTextField(
+            value = rule.value,
+            onValueChange = { onChange(rule.copy(value = it)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    stringResource(
+                        when (rule.field) {
+                            RuleField.Length -> R.string.smart_hint_minutes
+                            RuleField.Added -> R.string.smart_hint_days
+                            else -> R.string.smart_hint_text
+                        },
+                    ),
+                )
+            },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                keyboardType = if (rule.field == RuleField.Length || rule.field == RuleField.Added) {
+                    androidx.compose.ui.text.input.KeyboardType.Number
+                } else {
+                    androidx.compose.ui.text.input.KeyboardType.Text
+                },
+            ),
+        )
+    }
+}
+
+/** A small button showing [label] that opens a menu of [options]. */
+@Composable
+private fun <T> Picker(label: String, options: List<Pair<T, String>>, onPick: (T) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Box {
+        androidx.compose.material3.OutlinedButton(onClick = { open = true }) { Text(label, maxLines = 1) }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (value, text) ->
+                androidx.compose.material3.DropdownMenuItem(text = { Text(text) }, onClick = { open = false; onPick(value) })
+            }
+        }
+    }
+}
+
+private fun fieldLabel(field: RuleField): Int = when (field) {
+    RuleField.Title -> R.string.details_title
+    RuleField.Artist -> R.string.details_artist
+    RuleField.Album -> R.string.details_album
+    RuleField.Genre -> R.string.details_genre
+    RuleField.Format -> R.string.details_format
+    RuleField.Length -> R.string.details_length
+    RuleField.Added -> R.string.details_added
+}
+
+private fun opLabel(op: RuleOp): Int = when (op) {
+    RuleOp.Contains -> R.string.smart_contains
+    RuleOp.Is -> R.string.smart_is
+    RuleOp.AtLeast -> R.string.smart_at_least
+    RuleOp.AtMost -> R.string.smart_at_most
+    RuleOp.WithinDays -> R.string.smart_within_days
+}

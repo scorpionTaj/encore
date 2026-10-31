@@ -129,4 +129,59 @@
         <item quantity="one">%d hour</item>
         <item quantity="other">%d hours</item>
     </plurals>
+
+    <string name="filter_no_cover">No cover</string>
+    <string name="filter_checking_covers">Looking for songs without a cover…</string>
+    <string name="sort_modified">Date modified</string>
+    <string name="details_added">Date added</string>
+    <string name="details_modified">Date modified</string>
+    <string name="smart_new">New smart playlist</string>
+    <string name="smart_edit">Edit smart playlist</string>
+    <string name="smart_name">Name</string>
+    <string name="smart_match_all">Match every rule</string>
+    <string name="smart_match_any">Match any rule</string>
+    <string name="smart_add_rule">Add a rule</string>
+    <string name="smart_remove_rule">Remove rule</string>
+    <string name="smart_hint_minutes">Minutes</string>
+    <string name="smart_hint_days">Days</string>
+    <string name="smart_hint_text">Text</string>
+    <string name="smart_contains">contains</string>
+    <string name="smart_is">is</string>
+    <string name="smart_at_least">at least</string>
+    <string name="smart_at_most">at most</string>
+    <string name="smart_within_days">in the last</string>
+    <string name="smart_label">Smart playlist</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="page_history">Recently played</string>
+    <string name="page_folders">Folders</string>
+    <string name="history_empty">Nothing played yet.</string>
+    <string name="settings_playback">Playback</string>
+    <string name="settings_normalize">Loudness normalisation</string>
+    <string name="settings_normalize_body">Play songs at a similar volume using their ReplayGain tags.</string>
+    <string name="settings_shuffle_by_album">Shuffle by album</string>
+    <string name="settings_shuffle_by_album_body">Shuffle keeps each album together and in order.</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_dynamic_color">Wallpaper colours</string>
+    <string name="settings_dynamic_color_body">Use colours from your wallpaper instead of Encore violet.</string>
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_end_of_song">End of this song</string>
+    <string name="sleep_off">Turn off timer</string>
+    <string name="sleep_stops_after_song">Stops after this song</string>
+    <string name="record_start">Record this station</string>
+    <string name="record_stop">Stop recording</string>
+    <string name="record_running">Recording · %1$s</string>
+    <plurals name="sleep_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="sleep_stops_in">
+        <item quantity="one">Stops in %d minute</item>
+        <item quantity="other">Stops in %d minutes</item>
+    </plurals>
 </resources>

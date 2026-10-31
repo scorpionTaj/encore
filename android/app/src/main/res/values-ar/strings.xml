@@ -143,4 +143,67 @@
         <item quantity="many">%d ساعة</item>
         <item quantity="other">%d ساعة</item>
     </plurals>
+
+    <string name="filter_no_cover">بدون غلاف</string>
+    <string name="filter_checking_covers">جارٍ البحث عن أغانٍ بدون غلاف…</string>
+    <string name="sort_modified">تاريخ التعديل</string>
+    <string name="details_added">تاريخ الإضافة</string>
+    <string name="details_modified">تاريخ التعديل</string>
+    <string name="smart_new">قائمة تشغيل ذكية جديدة</string>
+    <string name="smart_edit">تعديل قائمة التشغيل الذكية</string>
+    <string name="smart_name">الاسم</string>
+    <string name="smart_match_all">تطابق كل القواعد</string>
+    <string name="smart_match_any">تطابق أي قاعدة</string>
+    <string name="smart_add_rule">إضافة قاعدة</string>
+    <string name="smart_remove_rule">إزالة القاعدة</string>
+    <string name="smart_hint_minutes">دقائق</string>
+    <string name="smart_hint_days">أيام</string>
+    <string name="smart_hint_text">نص</string>
+    <string name="smart_contains">يحتوي على</string>
+    <string name="smart_is">يساوي</string>
+    <string name="smart_at_least">على الأقل</string>
+    <string name="smart_at_most">على الأكثر</string>
+    <string name="smart_within_days">خلال آخر</string>
+    <string name="smart_label">قائمة تشغيل ذكية</string>
+    <string name="action_edit">تعديل</string>
+    <string name="action_delete">حذف</string>
+    <string name="action_save">حفظ</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="page_history">استمعت إليه مؤخرًا</string>
+    <string name="page_folders">المجلدات</string>
+    <string name="history_empty">لم يتم تشغيل أي شيء بعد.</string>
+    <string name="settings_playback">التشغيل</string>
+    <string name="settings_normalize">توحيد مستوى الصوت</string>
+    <string name="settings_normalize_body">تشغيل الأغاني بمستوى صوت متقارب باستخدام وسوم ReplayGain.</string>
+    <string name="settings_shuffle_by_album">تشغيل عشوائي حسب الألبوم</string>
+    <string name="settings_shuffle_by_album_body">يحافظ التشغيل العشوائي على أغاني كل ألبوم معًا وبترتيبها.</string>
+    <string name="settings_appearance">المظهر</string>
+    <string name="theme_system">النظام</string>
+    <string name="theme_light">فاتح</string>
+    <string name="theme_dark">داكن</string>
+    <string name="settings_dynamic_color">ألوان الخلفية</string>
+    <string name="settings_dynamic_color_body">استخدام ألوان خلفية الشاشة بدل بنفسجي Encore.</string>
+    <string name="sleep_timer">مؤقت النوم</string>
+    <string name="sleep_end_of_song">نهاية هذه الأغنية</string>
+    <string name="sleep_off">إيقاف المؤقت</string>
+    <string name="sleep_stops_after_song">يتوقف بعد هذه الأغنية</string>
+    <string name="record_start">تسجيل هذه المحطة</string>
+    <string name="record_stop">إيقاف التسجيل</string>
+    <string name="record_running">جارٍ التسجيل · %1$s</string>
+    <plurals name="sleep_minutes">
+        <item quantity="zero">%d دقيقة</item>
+        <item quantity="one">دقيقة واحدة</item>
+        <item quantity="two">دقيقتان</item>
+        <item quantity="few">%d دقائق</item>
+        <item quantity="many">%d دقيقة</item>
+        <item quantity="other">%d دقيقة</item>
+    </plurals>
+    <plurals name="sleep_stops_in">
+        <item quantity="zero">يتوقف خلال %d دقيقة</item>
+        <item quantity="one">يتوقف خلال دقيقة</item>
+        <item quantity="two">يتوقف خلال دقيقتين</item>
+        <item quantity="few">يتوقف خلال %d دقائق</item>
+        <item quantity="many">يتوقف خلال %d دقيقة</item>
+        <item quantity="other">يتوقف خلال %d دقيقة</item>
+    </plurals>
 </resources>
