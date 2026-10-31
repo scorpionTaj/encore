@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.7.0]
+
 ### Added
 
 - Sort Android songs by date modified, and see when a song was added and modified in its details.
