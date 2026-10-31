@@ -62,6 +62,15 @@ data class Station(
     }
 }
 
+/** The station behind a player item, rebuilt from what the item carries, or null for a song. */
+fun stationOf(item: MediaItem?): Station? {
+    val mediaId = item?.mediaId?.takeIf { it.startsWith(RADIO_PREFIX) } ?: return null
+    val url = (item.requestMetadata.mediaUri ?: item.localConfiguration?.uri)?.toString() ?: return null
+    val hls = item.requestMetadata.extras?.getString(EXTRA_MIME) == MimeTypes.APPLICATION_M3U8
+    val name = (item.mediaMetadata.station ?: item.mediaMetadata.title)?.toString().orEmpty()
+    return Station(mediaId.removePrefix(RADIO_PREFIX), name, url, if (hls) "HLS" else "", 0, hls, "", item.mediaMetadata.artworkUri?.toString().orEmpty())
+}
+
 /** Reads stations from the Radio Browser directory, the way the desktop Radio page does. */
 object RadioBrowser {
     /** The countries the Radio tab offers, by ISO 3166 code, Morocco first. */

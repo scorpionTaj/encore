@@ -2,6 +2,7 @@ package dev.scorpiontaj.encore.ui
 
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.util.LruCache
 import android.util.Size
 import androidx.compose.foundation.Image
@@ -16,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +35,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.scorpiontaj.encore.R
+import dev.scorpiontaj.encore.settings.SettingsState
+import dev.scorpiontaj.encore.settings.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -62,9 +67,26 @@ private val Dark = darkColorScheme(
     surface = Color(0xFF131218),
 )
 
+/** Whether the app draws dark, from the theme picked in Settings. */
 @Composable
-fun EncoreTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Dark else Light, content = content)
+fun isDark(settings: SettingsState): Boolean = when (settings.theme) {
+    ThemeMode.System -> isSystemInDarkTheme()
+    ThemeMode.Light -> false
+    ThemeMode.Dark -> true
+}
+
+/** Encore's violet scheme, or the wallpaper's colours when asked for on Android 12 and newer. */
+@Composable
+fun EncoreTheme(settings: SettingsState, content: @Composable () -> Unit) {
+    val dark = isDark(settings)
+    val context = LocalContext.current
+    val scheme = when {
+        settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        dark -> Dark
+        else -> Light
+    }
+    MaterialTheme(colorScheme = scheme, content = content)
 }
 
 /** Thumbnails already read, keyed by content URI. A missing cover is cached as [NoArt]. */

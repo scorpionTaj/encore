@@ -67,6 +67,15 @@ class History(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         )
     }
 
+    /** The last [limit] things listened to, newest first, each once. */
+    fun recent(limit: Int = RECENT): List<TopSong> = readableDatabase.rawQuery(
+        "SELECT media_id, title, artist, COUNT(*) FROM listens GROUP BY media_id " +
+            "ORDER BY MAX(played_at) DESC LIMIT $limit",
+        null,
+    ).use { c ->
+        buildList { while (c.moveToNext()) add(TopSong(c.getString(0), c.getString(1), c.getString(2), c.getInt(3))) }
+    }
+
     /** Totals over every listen, and the top songs and artists among library songs only. */
     fun summary(period: Period): Summary {
         val db = readableDatabase
@@ -96,5 +105,6 @@ class History(context: Context) : SQLiteOpenHelper(context.applicationContext, "
     private companion object {
         /** How many songs and artists each top list holds. */
         const val TOP = 10
+        const val RECENT = 50
     }
 }

@@ -10,8 +10,12 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Metadata
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.extractor.metadata.icy.IcyInfo
+import androidx.media3.extractor.metadata.id3.InternalFrame
+import androidx.media3.extractor.metadata.id3.TextInformationFrame
+import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -21,8 +25,15 @@ import dev.scorpiontaj.encore.MainActivity
 import dev.scorpiontaj.encore.library.History
 import dev.scorpiontaj.encore.library.resolved
 import dev.scorpiontaj.encore.radio.RADIO_PREFIX
+import dev.scorpiontaj.encore.settings.Settings
 import dev.scorpiontaj.encore.widget.EncoreWidget
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+import kotlin.math.pow
 
 /**
  * Owns the one player. Media3 posts the media notification and lock-screen controls from the
@@ -34,6 +45,7 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var history: History
     private val writer = Executors.newSingleThreadExecutor()
+    private val scope = MainScope()
 
     /** The item being listened to, and how long it has actually played. */
     private var listening: MediaItem? = null
@@ -60,8 +72,11 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+        Settings.init(this)
         history = History(this)
         Sound.attach(this, player.audioSessionId)
+        Sleep.attach(player)
+        scope.launch { Settings.state.map { it.normalize }.distinctUntilChanged().collect { applyLoudness(player) } }
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.containsAny(*WIDGET_EVENTS)) EncoreWidget.publish(this@PlaybackService, player)
@@ -95,6 +110,14 @@ class PlaybackService : MediaSessionService() {
             }
 
             override fun onMetadata(metadata: Metadata) = showStreamTitle(player, metadata)
+
+            override fun onTracksChanged(tracks: Tracks) = applyLoudness(player)
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                    Sleep.onPausedAtEndOfSong()
+                }
+            }
         })
         val activity = PendingIntent.getActivity(
             this,
@@ -117,6 +140,8 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         ticker.removeCallbacks(tick)
+        scope.cancel()
+        Sleep.detach()
         session?.player?.let { commitListen(it.duration) }
         Sound.release()
         writer.shutdown()
@@ -147,6 +172,33 @@ class PlaybackService : MediaSessionService() {
         writer.execute { runCatching { history.record(item.mediaId, title, artist, listened) } }
     }
 
+    /**
+     * Turns the volume down by the song's ReplayGain track gain, read from its ID3, Vorbis or MP4
+     * tags, when loudness normalisation is on. Songs without the tag, and radio, play as they are.
+     * Positive gains are not applied, since the player cannot go above full volume.
+     */
+    private fun applyLoudness(player: Player) {
+        val gainDb = if (Settings.state.value.normalize) replayGain(player.currentTracks) else null
+        player.volume = gainDb?.let { 10.0.pow(it / 20).toFloat().coerceIn(0f, 1f) } ?: 1f
+    }
+
+    private fun replayGain(tracks: Tracks): Double? {
+        val entries = tracks.groups.flatMap { group ->
+            (0 until group.length).mapNotNull { group.getTrackFormat(it).metadata }
+                .flatMap { metadata -> (0 until metadata.length()).map(metadata::get) }
+        }
+        val value = entries.firstNotNullOfOrNull { entry ->
+            when (entry) {
+                is TextInformationFrame -> entry.values.firstOrNull()
+                    .takeIf { entry.description.equals(REPLAYGAIN_TRACK_GAIN, ignoreCase = true) }
+                is VorbisComment -> entry.value.takeIf { entry.key.equals(REPLAYGAIN_TRACK_GAIN, ignoreCase = true) }
+                is InternalFrame -> entry.text.takeIf { entry.description.equals(REPLAYGAIN_TRACK_GAIN, ignoreCase = true) }
+                else -> null
+            }
+        } ?: return null
+        return value.trim().removeSuffix("dB").removeSuffix("db").trim().toDoubleOrNull()
+    }
+
     /** Puts a radio stream's ICY song title in the current item's artist, where every surface shows it. */
     private fun showStreamTitle(player: Player, metadata: Metadata) {
         val title = (0 until metadata.length()).map(metadata::get).filterIsInstance<IcyInfo>()
@@ -169,6 +221,7 @@ class PlaybackService : MediaSessionService() {
 
     private companion object {
         const val MIN_LISTEN_MS = 30_000L
+        const val REPLAYGAIN_TRACK_GAIN = "REPLAYGAIN_TRACK_GAIN"
         const val PROGRESS_TICK_MS = 1_000L
         val WIDGET_EVENTS = intArrayOf(
             Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,

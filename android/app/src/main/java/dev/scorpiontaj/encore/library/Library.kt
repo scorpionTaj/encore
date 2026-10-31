@@ -45,7 +45,12 @@ data class Song(
     val path: String,
     /** Seconds since the epoch. */
     val dateAdded: Long,
+    /** When the file last changed, in seconds since the epoch. */
+    val dateModified: Long,
 ) {
+    /** The folder holding the file, such as "Music/Album/", or "" when MediaStore gives none. */
+    val folder: String get() = path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
+
     val uri: Uri get() = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
 
     /** A short container or codec name, such as "FLAC" or "MP3". */
@@ -147,6 +152,7 @@ data class Library(
                 add(MediaStore.Audio.Media.RELATIVE_PATH)
                 add(MediaStore.Audio.Media.DISPLAY_NAME)
                 add(MediaStore.Audio.Media.DATE_ADDED)
+                add(MediaStore.Audio.Media.DATE_MODIFIED)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     add(MediaStore.Audio.Media.BITRATE)
                     add(MediaStore.Audio.Media.GENRE)
@@ -186,6 +192,7 @@ data class Library(
                                 path = c.string(MediaStore.Audio.Media.RELATIVE_PATH).orEmpty() +
                                     c.string(MediaStore.Audio.Media.DISPLAY_NAME).orEmpty(),
                                 dateAdded = c.long(MediaStore.Audio.Media.DATE_ADDED) ?: 0,
+                                dateModified = c.long(MediaStore.Audio.Media.DATE_MODIFIED) ?: 0,
                             ),
                         )
                     }
