@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.8.0]
+
 ### Added
 
 - Crossfade on Android: each song fades out and the next fades in, over 2 to 8 seconds.
