@@ -33,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -82,7 +81,7 @@ fun AddToPlaylistDialog(playlists: List<Playlist>, onPick: (Playlist) -> Unit, o
                     ListRow(
                         title = stringResource(R.string.playlist_new),
                         subtitle = "",
-                        leading = { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(24.dp)) },
+                        leading = { Icon(icon(R.drawable.ic_add), null, Modifier.size(24.dp)) },
                         onClick = onNew,
                     )
                 }
@@ -90,7 +89,7 @@ fun AddToPlaylistDialog(playlists: List<Playlist>, onPick: (Playlist) -> Unit, o
                     ListRow(
                         title = playlist.name,
                         subtitle = pluralStringResource(R.plurals.songs_count, playlist.songs.size, playlist.songs.size),
-                        leading = { Icon(painterResource(R.drawable.ic_queue_music), null, Modifier.size(24.dp)) },
+                        leading = { Icon(icon(R.drawable.ic_queue_music), null, Modifier.size(24.dp)) },
                         onClick = { onPick(playlist) },
                     )
                 }
@@ -154,7 +153,7 @@ fun LyricsEditor(
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).imePadding()) {
             Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(painterResource(R.drawable.ic_close), stringResource(R.string.action_close)) }
+                IconButton(onClick = onClose) { Icon(icon(R.drawable.ic_close), stringResource(R.string.action_close)) }
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.lyrics_edit), style = MaterialTheme.typography.titleMedium)
                     Text(song.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -183,13 +182,13 @@ fun LyricsEditor(
                             modifier = Modifier.weight(1f).padding(horizontal = 6.dp),
                         )
                         IconButton(onClick = { lines.removeAt(index) }) {
-                            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.lyrics_remove_line))
+                            Icon(icon(R.drawable.ic_close), stringResource(R.string.lyrics_remove_line))
                         }
                     }
                 }
                 item {
                     TextButton(onClick = { lines.add(LyricLine(-1, "")) }) {
-                        Icon(painterResource(R.drawable.ic_add), null)
+                        Icon(icon(R.drawable.ic_add), null)
                         Text(stringResource(R.string.lyrics_add_line), Modifier.padding(start = 4.dp))
                     }
                 }

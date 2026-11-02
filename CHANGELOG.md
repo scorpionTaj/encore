@@ -18,6 +18,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Lyrics on Android also come from NetEase, Kugou and Musixmatch when LRCLIB has none.
 - Open encore:// and sonora:// theme links on Android to preview and add a theme, pick from the
   desktop's bundled themes, and delete themes you added.
+- Encore for Android uses the desktop's icon packs (Lucide, Remix, Iconoir and Solar) and its Inter
+  font, picked in Settings, Appearance.
+- Settings on Android are grouped like the desktop's: General, Appearance, Now playing, Lyrics,
+  Playback, Equalizer, Library, Storage and About.
+- Pick Encore's language on Android, set the lyrics sources and their order, the lyrics size, a
+  blurred cover behind Now playing, and keeping the screen on.
+- Share a song or station, go to a song's album or artist, and delete a song from the device on
+  Android.
+- Encore for Android says what each action did, such as a song added to the queue or a playlist.
+- The Songs tab on Android remembers its sort and filter.
+- Screens on Android slide and fade into place; turn it off with Reduce motion.
 
 ## [1.7.0]
 

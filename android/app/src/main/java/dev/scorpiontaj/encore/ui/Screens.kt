@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -111,7 +110,7 @@ fun SearchScreen(
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus),
             placeholder = { Text(stringResource(R.string.search_hint)) },
-            leadingIcon = { Icon(painterResource(R.drawable.ic_search), null) },
+            leadingIcon = { Icon(icon(R.drawable.ic_search), null) },
             singleLine = true,
         )
         when {
@@ -222,232 +221,6 @@ fun StatsScreen(
     }
 }
 
-/** Updates, the equalizer and the app's version. */
-@Composable
-fun SettingsScreen(
-    settings: SettingsState,
-    onSettings: ((SettingsState) -> SettingsState) -> Unit,
-    update: UpdateState,
-    equalizer: EqualizerState,
-    onCheckUpdates: () -> Unit,
-    onInstallUpdate: () -> Unit,
-    onEqualizerEnabled: (Boolean) -> Unit,
-    onBandLevel: (Int, Int) -> Unit,
-    onPreset: (Int) -> Unit,
-    onShowFolder: (String) -> Unit,
-    themes: List<ThemeFile>,
-    onTheme: (String?) -> Unit,
-    onDeleteTheme: (ThemeFile) -> Unit,
-) {
-    val context = LocalContext.current
-    LazyColumn(Modifier.fillMaxSize()) {
-        item { SectionTitle(stringResource(R.string.settings_playback)) }
-        item {
-            SwitchRow(stringResource(R.string.settings_normalize), stringResource(R.string.settings_normalize_body), settings.normalize) { on ->
-                onSettings { it.copy(normalize = on) }
-            }
-        }
-        item {
-            SwitchRow(stringResource(R.string.settings_shuffle_by_album), stringResource(R.string.settings_shuffle_by_album_body), settings.shuffleByAlbum) { on ->
-                onSettings { it.copy(shuffleByAlbum = on) }
-            }
-        }
-        item {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                Text(stringResource(R.string.settings_crossfade))
-                Text(
-                    stringResource(R.string.settings_crossfade_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    dev.scorpiontaj.encore.settings.Settings.CROSSFADES.forEach { seconds ->
-                        FilterChip(
-                            selected = settings.crossfadeSeconds == seconds,
-                            onClick = { onSettings { it.copy(crossfadeSeconds = seconds) } },
-                            label = {
-                                Text(
-                                    if (seconds == 0) stringResource(R.string.crossfade_off)
-                                    else stringResource(R.string.crossfade_seconds, seconds),
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-        }
-        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
-        item { SectionTitle(stringResource(R.string.settings_hidden_folders)) }
-        if (settings.hiddenFolders.isEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.settings_hidden_folders_empty),
-                    Modifier.padding(horizontal = 16.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        items(settings.hiddenFolders.sortedWith(String.CASE_INSENSITIVE_ORDER), key = { "hidden:$it" }) { path ->
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(path, Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 2)
-                TextButton(onClick = { onShowFolder(path) }) { Text(stringResource(R.string.folder_show)) }
-            }
-        }
-        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
-        item { SectionTitle(stringResource(R.string.settings_appearance)) }
-        item {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ThemeMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = settings.theme == mode,
-                        onClick = { onSettings { it.copy(theme = mode) } },
-                        label = {
-                            Text(
-                                stringResource(
-                                    when (mode) {
-                                        ThemeMode.System -> R.string.theme_system
-                                        ThemeMode.Light -> R.string.theme_light
-                                        ThemeMode.Dark -> R.string.theme_dark
-                                    },
-                                ),
-                            )
-                        },
-                    )
-                }
-            }
-        }
-        item {
-            Text(
-                stringResource(R.string.settings_themes),
-                Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
-            )
-            Text(
-                stringResource(R.string.settings_themes_body),
-                Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        item {
-            ThemeRow(
-                name = stringResource(R.string.theme_encore),
-                author = "",
-                selected = settings.customTheme == null,
-                swatches = {},
-                onPick = { onTheme(null) },
-                onDelete = null,
-            )
-        }
-        items(themes, key = { "theme:${it.id}" }) { theme ->
-            ThemeRow(
-                name = theme.name,
-                author = theme.author,
-                selected = settings.customTheme == theme.id,
-                swatches = { ThemeSwatches(theme) },
-                onPick = { onTheme(theme.id) },
-                onDelete = if (theme.bundled) null else ({ onDeleteTheme(theme) }),
-            )
-        }
-        if (settings.customTheme == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            item {
-                SwitchRow(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_body), settings.dynamicColor) { on ->
-                    onSettings { it.copy(dynamicColor = on) }
-                }
-            }
-        }
-        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
-        item { SectionTitle(stringResource(R.string.settings_updates)) }
-        item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Text(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME))
-                Text(
-                    when (update) {
-                        UpdateState.Checking -> stringResource(R.string.update_checking)
-                        UpdateState.Current -> stringResource(R.string.update_current)
-                        UpdateState.Failed -> stringResource(R.string.update_failed)
-                        UpdateState.Downloading -> stringResource(R.string.update_downloading)
-                        is UpdateState.Offered -> stringResource(R.string.update_available, update.release.version)
-                        UpdateState.Quiet -> ""
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(Modifier.padding(top = 8.dp)) {
-                    Button(onClick = onCheckUpdates, enabled = update != UpdateState.Checking && update != UpdateState.Downloading) {
-                        Text(stringResource(R.string.update_check))
-                    }
-                    if (update is UpdateState.Offered) {
-                        Spacer(Modifier.width(8.dp))
-                        Button(onClick = onInstallUpdate) { Text(stringResource(R.string.update_install)) }
-                    }
-                }
-            }
-        }
-        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
-        item { SectionTitle(stringResource(R.string.settings_equalizer)) }
-        if (equalizer.bands.isEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.equalizer_unavailable),
-                    Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            item {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.equalizer_enabled), Modifier.weight(1f))
-                    Switch(checked = equalizer.enabled, onCheckedChange = onEqualizerEnabled)
-                }
-            }
-            if (equalizer.presets.isNotEmpty()) {
-                item {
-                    LazyRow(
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        itemsIndexed(equalizer.presets) { index, name ->
-                            FilterChip(selected = false, onClick = { onPreset(index) }, label = { Text(name) }, enabled = equalizer.enabled)
-                        }
-                    }
-                }
-            }
-            itemsIndexed(equalizer.bands) { index, band ->
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    Text(
-                        stringResource(R.string.equalizer_band, frequency(band.centerHz), band.levelMb / 100f),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    Slider(
-                        value = band.levelMb.toFloat(),
-                        onValueChange = { onBandLevel(index, it.toInt()) },
-                        valueRange = equalizer.minMb.toFloat()..equalizer.maxMb.toFloat(),
-                        enabled = equalizer.enabled,
-                    )
-                }
-            }
-        }
-        item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
-        item { SectionTitle(stringResource(R.string.settings_about)) }
-        item {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Text(stringResource(R.string.settings_about_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, "https://github.com/scorpionTaj/encore".toUri()))
-                }) { Text(stringResource(R.string.settings_source)) }
-            }
-        }
-    }
-}
-
 /** The card offering a newer release, shown above the tabs until dismissed. */
 @Composable
 fun UpdateCard(update: UpdateState.Offered, onInstall: () -> Unit, onDismiss: () -> Unit) {
@@ -466,50 +239,7 @@ fun UpdateCard(update: UpdateState.Offered, onInstall: () -> Unit, onDismiss: ()
 }
 
 @Composable
-private fun ThemeRow(
-    name: String,
-    author: String,
-    selected: Boolean,
-    swatches: @Composable () -> Unit,
-    onPick: () -> Unit,
-    onDelete: (() -> Unit)?,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onPick)
-            .padding(start = 8.dp, end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        androidx.compose.material3.RadioButton(selected = selected, onClick = onPick)
-        Column(Modifier.weight(1f)) {
-            Text(name)
-            if (author.isNotEmpty()) {
-                Text(author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        swatches()
-        if (onDelete != null) {
-            androidx.compose.material3.IconButton(onClick = onDelete) {
-                Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.theme_delete))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SwitchRow(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Switch(checked = checked, onCheckedChange = onChange)
-    }
-}
-
-@Composable
-private fun SectionTitle(text: String) {
+fun SectionTitle(text: String) {
     Text(
         text,
         Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
@@ -542,7 +272,6 @@ private fun periodLabel(period: Period): Int = when (period) {
     Period.All -> R.string.stats_all
 }
 
-private fun frequency(hz: Int): String = if (hz >= 1000) "${hz / 1000} kHz" else "$hz Hz"
 
 private const val MAX_SONGS = 50
 private const val MAX_NOTES = 5
@@ -586,7 +315,7 @@ fun FoldersScreen(
                         MaterialTheme.colorScheme.secondaryContainer,
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Icon(icon(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                         }
                     }
                 },
@@ -595,7 +324,7 @@ fun FoldersScreen(
                     var menu by remember { mutableStateOf(false) }
                     Box {
                         androidx.compose.material3.IconButton(onClick = { menu = true }) {
-                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                            Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
                         }
                         androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             androidx.compose.material3.DropdownMenuItem(
@@ -682,7 +411,7 @@ fun SmartPlaylistDialog(initial: SmartPlaylist?, onSave: (SmartPlaylist) -> Unit
                 itemsIndexed(rules) { index, rule -> RuleEditor(rule, onChange = { rules[index] = it }, onRemove = { rules.removeAt(index) }) }
                 item {
                     TextButton(onClick = { rules.add(Rule(RuleField.Title, RuleOp.Contains, "")) }) {
-                        Icon(painterResource(R.drawable.ic_add), null)
+                        Icon(icon(R.drawable.ic_add), null)
                         Spacer(Modifier.width(4.dp))
                         Text(stringResource(R.string.smart_add_rule))
                     }
@@ -704,7 +433,7 @@ private fun RuleEditor(rule: Rule, onChange: (Rule) -> Unit, onRemove: () -> Uni
             }
             Spacer(Modifier.weight(1f))
             androidx.compose.material3.IconButton(onClick = onRemove) {
-                Icon(painterResource(R.drawable.ic_close), stringResource(R.string.smart_remove_rule))
+                Icon(icon(R.drawable.ic_close), stringResource(R.string.smart_remove_rule))
             }
         }
         OutlinedTextField(

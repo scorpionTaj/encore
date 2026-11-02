@@ -1,5 +1,15 @@
 package dev.scorpiontaj.encore.ui
 
+import android.os.Build
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -105,7 +114,7 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
                 }
                 PlayPauseButton(state.playing, vm::togglePlay, filled = false)
                 IconButton(onClick = vm::next) {
-                    Icon(painterResource(R.drawable.ic_skip_next), stringResource(R.string.action_next))
+                    Icon(icon(R.drawable.ic_skip_next), stringResource(R.string.action_next))
                 }
             }
         }
@@ -138,7 +147,26 @@ fun NowPlayingScreen(
     var scrub by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(showLyrics, song) { if (showLyrics) vm.loadLyrics(song) }
 
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    // Keeps the screen on while this screen shows, when asked for in Settings → Now playing.
+    val view = LocalView.current
+    DisposableEffect(settings.keepScreenOn) {
+        view.keepScreenOn = settings.keepScreenOn
+        onDispose { view.keepScreenOn = false }
+    }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // The ambient background: the cover, blurred and dimmed behind everything, as on the desktop.
+        val cover = state.artwork
+        if (settings.ambient && cover != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Crossfade(targetState = cover, animationSpec = tween(600), label = "ambient") { art ->
+                Image(
+                    art,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().blur(60.dp).alpha(0.45f),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -148,7 +176,7 @@ fun NowPlayingScreen(
         ) {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) {
-                    Icon(painterResource(R.drawable.ic_expand_more), stringResource(R.string.action_close))
+                    Icon(icon(R.drawable.ic_expand_more), stringResource(R.string.action_close))
                 }
                 Text(
                     stringResource(R.string.now_playing),
@@ -159,7 +187,7 @@ fun NowPlayingScreen(
                 if (song != null) {
                     IconButton(onClick = { showLyrics = !showLyrics }) {
                         Icon(
-                            painterResource(R.drawable.ic_lyrics),
+                            icon(R.drawable.ic_lyrics),
                             stringResource(if (showLyrics) R.string.lyrics_hide else R.string.lyrics_show),
                             tint = toggleTint(showLyrics),
                         )
@@ -169,7 +197,7 @@ fun NowPlayingScreen(
                     val recordingThis = recording?.station?.uuid == station.uuid
                     IconButton(onClick = { if (recordingThis) vm.stopRecording() else vm.startRecording(station) }) {
                         Icon(
-                            painterResource(if (recordingThis) R.drawable.ic_stop else R.drawable.ic_record),
+                            icon(if (recordingThis) R.drawable.ic_stop else R.drawable.ic_record),
                             stringResource(if (recordingThis) R.string.record_stop else R.string.record_start),
                             tint = if (recordingThis) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -177,7 +205,7 @@ fun NowPlayingScreen(
                 }
                 Box {
                     IconButton(onClick = { sleepMenu = true }) {
-                        Icon(painterResource(R.drawable.ic_bedtime), stringResource(R.string.sleep_timer), tint = toggleTint(sleep != SleepState.Off))
+                        Icon(icon(R.drawable.ic_bedtime), stringResource(R.string.sleep_timer), tint = toggleTint(sleep != SleepState.Off))
                     }
                     DropdownMenu(expanded = sleepMenu, onDismissRequest = { sleepMenu = false }) {
                         SLEEP_MINUTES.forEach { minutes ->
@@ -200,33 +228,46 @@ fun NowPlayingScreen(
                         }
                     }
                 }
-                if (song != null) {
+                if (song != null || station != null) {
                     Box {
                         IconButton(onClick = { songMenu = true }) {
-                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                            Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
                         }
                         DropdownMenu(expanded = songMenu, onDismissRequest = { songMenu = false }) {
+                            if (song != null) {
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(icon("list-plus"), null) },
+                                    text = { Text(stringResource(R.string.playlist_add_to)) },
+                                    onClick = { songMenu = false; onAddToPlaylist(song) },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(icon("mic-vocal"), null) },
+                                    text = { Text(stringResource(R.string.lyrics_edit)) },
+                                    onClick = { songMenu = false; onEditLyrics(song) },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(icon("pencil"), null) },
+                                    text = { Text(stringResource(R.string.tags_edit)) },
+                                    onClick = { songMenu = false; onEditTags(song) },
+                                )
+                            }
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.playlist_add_to)) },
-                                onClick = { songMenu = false; onAddToPlaylist(song) },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.lyrics_edit)) },
-                                onClick = { songMenu = false; onEditLyrics(song) },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.tags_edit)) },
-                                onClick = { songMenu = false; onEditTags(song) },
+                                leadingIcon = { Icon(icon("square-arrow-out-up-right"), null) },
+                                text = { Text(stringResource(R.string.action_share)) },
+                                onClick = {
+                                    songMenu = false
+                                    if (song != null) vm.shareSong(song) else station?.let(vm::shareStation)
+                                },
                             )
                         }
                     }
                 }
                 IconButton(onClick = { showQueue = true }) {
-                    Icon(painterResource(R.drawable.ic_queue_music), stringResource(R.string.action_queue))
+                    Icon(icon(R.drawable.ic_queue_music), stringResource(R.string.action_queue))
                 }
             }
             when (showLyrics && song != null) {
-                true -> LyricsView(lyrics, position, Modifier.weight(3f).fillMaxWidth()) { vm.seekTo(it) }
+                true -> LyricsView(lyrics, position, settings.lyricsScale, Modifier.weight(3f).fillMaxWidth()) { vm.seekTo(it) }
                 false -> {
                     Spacer(Modifier.weight(1f))
                     Box(Modifier.widthIn(max = 420.dp)) {
@@ -299,25 +340,25 @@ fun NowPlayingScreen(
             ) {
                 IconButton(onClick = vm::toggleShuffle) {
                     Icon(
-                        painterResource(R.drawable.ic_shuffle),
+                        icon(R.drawable.ic_shuffle),
                         stringResource(if (state.shuffle) R.string.shuffle_on else R.string.shuffle_off),
                         tint = toggleTint(state.shuffle),
                     )
                 }
                 IconButton(onClick = vm::previous, Modifier.size(56.dp)) {
-                    Icon(painterResource(R.drawable.ic_skip_previous), stringResource(R.string.action_previous), Modifier.size(32.dp))
+                    Icon(icon(R.drawable.ic_skip_previous), stringResource(R.string.action_previous), Modifier.size(32.dp))
                 }
                 PlayPauseButton(state.playing, vm::togglePlay, filled = true)
                 IconButton(onClick = vm::next, Modifier.size(56.dp)) {
-                    Icon(painterResource(R.drawable.ic_skip_next), stringResource(R.string.action_next), Modifier.size(32.dp))
+                    Icon(icon(R.drawable.ic_skip_next), stringResource(R.string.action_next), Modifier.size(32.dp))
                 }
                 IconButton(onClick = vm::cycleRepeat) {
-                    val (icon, label) = when (state.repeatMode) {
+                    val (repeatIcon, label) = when (state.repeatMode) {
                         Player.REPEAT_MODE_ONE -> R.drawable.ic_repeat_one to R.string.repeat_one
                         Player.REPEAT_MODE_ALL -> R.drawable.ic_repeat to R.string.repeat_all
                         else -> R.drawable.ic_repeat to R.string.repeat_off
                     }
-                    Icon(painterResource(icon), stringResource(label), tint = toggleTint(state.repeatMode != Player.REPEAT_MODE_OFF))
+                    Icon(icon(repeatIcon), stringResource(label), tint = toggleTint(state.repeatMode != Player.REPEAT_MODE_OFF))
                 }
             }
             StatusLine(sleep, recording)
@@ -348,7 +389,7 @@ fun NowPlayingScreen(
                             onClick = { vm.skipTo(index) },
                             trailing = {
                                 IconButton(onClick = { vm.removeFromQueue(index) }) {
-                                    Icon(painterResource(R.drawable.ic_close), stringResource(R.string.action_remove))
+                                    Icon(icon(R.drawable.ic_close), stringResource(R.string.action_remove))
                                 }
                             },
                         )
@@ -384,7 +425,7 @@ private fun StatusLine(sleep: SleepState, recording: Recording?) {
 
 /** Lyrics for the playing song; synced lines follow the playback position and seek on tap. */
 @Composable
-private fun LyricsView(state: LyricsState, positionMs: Long, modifier: Modifier, onSeek: (Long) -> Unit) {
+private fun LyricsView(state: LyricsState, positionMs: Long, scale: Float, modifier: Modifier, onSeek: (Long) -> Unit) {
     Box(modifier, contentAlignment = Alignment.Center) {
         when (state) {
             LyricsState.Idle, LyricsState.Loading -> CircularProgressIndicator()
@@ -402,7 +443,7 @@ private fun LyricsView(state: LyricsState, positionMs: Long, modifier: Modifier,
                                 .fillMaxWidth()
                                 .clickable(enabled = line.startMs >= 0) { onSeek(line.startMs) }
                                 .padding(vertical = 6.dp),
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleLarge.let { it.copy(fontSize = it.fontSize * scale, lineHeight = it.lineHeight * scale) },
                             color = when {
                                 !state.lyrics.synced || index == active -> MaterialTheme.colorScheme.onSurface
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -426,15 +467,14 @@ private fun LyricsView(state: LyricsState, positionMs: Long, modifier: Modifier,
 
 @Composable
 private fun PlayPauseButton(playing: Boolean, onClick: () -> Unit, filled: Boolean) {
-    val icon = painterResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play)
     val label = stringResource(if (playing) R.string.action_pause else R.string.action_play)
     when (filled) {
         true -> FilledIconButton(
             onClick = onClick,
             modifier = Modifier.size(72.dp),
             colors = IconButtonDefaults.filledIconButtonColors(),
-        ) { Icon(icon, label, Modifier.size(36.dp)) }
-        false -> IconButton(onClick = onClick) { Icon(icon, label) }
+        ) { Crossfade(playing, label = "play") { now -> Icon(icon(if (now) R.drawable.ic_pause else R.drawable.ic_play), label, Modifier.size(36.dp)) } }
+        false -> IconButton(onClick = onClick) { Crossfade(playing, label = "play") { now -> Icon(icon(if (now) R.drawable.ic_pause else R.drawable.ic_play), label) } }
     }
 }
 

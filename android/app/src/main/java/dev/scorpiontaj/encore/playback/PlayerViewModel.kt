@@ -92,6 +92,9 @@ sealed interface LyricsState {
     data class Found(val mediaId: String, val lyrics: Lyrics) : LyricsState
 }
 
+/** A short message for the snackbar: a string resource and the values it names. */
+data class Notice(val message: Int, val args: List<Any> = emptyList())
+
 sealed interface UpdateState {
     data object Quiet : UpdateState
     data object Checking : UpdateState
@@ -155,8 +158,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val offeredTheme: StateFlow<ThemeFile?> = _offeredTheme.asStateFlow()
 
     /** A short message for the snackbar, as a string resource. */
-    private val _notice = MutableStateFlow<Int?>(null)
-    val notice: StateFlow<Int?> = _notice.asStateFlow()
+    private val _notice = MutableStateFlow<Notice?>(null)
+    val notice: StateFlow<Notice?> = _notice.asStateFlow()
+
+    /** The size of Encore's cache folder, shown in Settings → Storage. */
+    private val _cacheBytes = MutableStateFlow(0L)
+    val cacheBytes: StateFlow<Long> = _cacheBytes.asStateFlow()
 
     private val _lyrics = MutableStateFlow<LyricsState>(LyricsState.Idle)
     val lyrics: StateFlow<LyricsState> = _lyrics.asStateFlow()
@@ -183,7 +190,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     /** Reloads the library when MediaStore changes, a beat after the last change. */
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
-            if (_library.value != null) loadLibrary(debounce = true)
+            if (_library.value != null && Settings.state.value.watchFolders) loadLibrary(debounce = true)
         }
     }
 
@@ -198,7 +205,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             pendingUri?.let { pendingUri = null; playUri(it) }
         }
         app.contentResolver.registerContentObserver(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, observer)
-        checkForUpdates(asked = false)
+        if (Settings.state.value.checkUpdates) checkForUpdates(asked = false)
     }
 
     /** Current playback position, read on demand since it changes continuously. */
@@ -236,6 +243,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Keeps [folder]'s songs, and its subfolders' songs, out of every list until shown again. */
     fun hideFolder(folder: String) {
+        showNotice(R.string.notice_folder_hidden, folder)
         Settings.update { it.copy(hiddenFolders = it.hiddenFolders + folder) }
         loadLibrary()
     }
@@ -245,19 +253,29 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         loadLibrary()
     }
 
-    fun sleepAfter(minutes: Int) = Sleep.after(minutes)
+    fun sleepAfter(minutes: Int) {
+        Sleep.after(minutes)
+        showNotice(R.string.notice_sleep_set, minutes)
+    }
 
-    fun sleepAtEndOfSong() = Sleep.atEndOfSong()
+    fun sleepAtEndOfSong() {
+        Sleep.atEndOfSong()
+        showNotice(R.string.sleep_stops_after_song)
+    }
 
     fun cancelSleep() = Sleep.cancel()
 
     fun startRecording(station: Station) = Recorder.start(getApplication(), station)
 
-    fun stopRecording() = Recorder.stop()
+    fun stopRecording() {
+        Recorder.stop()
+        showNotice(R.string.notice_recording_saved)
+    }
 
     // Smart playlists
 
     fun saveSmartPlaylist(playlist: SmartPlaylist) {
+        showNotice(R.string.notice_playlist_saved, playlist.name)
         val updated = _smartPlaylists.value.filterNot { it.id == playlist.id } + playlist
         smartStore.save(updated)
         _smartPlaylists.value = updated
@@ -303,6 +321,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleFavourite(station: Station) {
+        val adding = station.uuid !in _favourites.value
+        showNotice(if (adding) R.string.notice_favourite_added else R.string.notice_favourite_removed, station.name)
         val updated = _favourites.value.let { if (station.uuid in it) it - station.uuid else it + station.uuid }
         radioPrefs.favourites = updated
         _favourites.value = updated
@@ -335,7 +355,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             val tree = Settings.state.value.lyricsTree?.let(Uri::parse)
             val resolver = getApplication<Application>().contentResolver
             val found = withContext(Dispatchers.IO) { LyricsFiles.read(resolver, tree, song) }
-                ?: runCatching { OnlineLyrics.find(song) }.onFailure { Log.w(TAG, "lyrics: lookup failed", it) }.getOrNull()
+                ?: runCatching { OnlineLyrics.find(song, Settings.state.value.lyricsSources) }.onFailure { Log.w(TAG, "lyrics: lookup failed", it) }.getOrNull()
             _lyrics.value = found?.let { LyricsState.Found(mediaId!!, it) } ?: LyricsState.Missing
         }
     }
@@ -354,7 +374,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             val shown = if (synced) lines.sortedBy { it.startMs } else lines
             _lyrics.value = LyricsState.Found(song.toMediaItem().mediaId, Lyrics(shown, synced, LyricsFiles.SOURCE))
         } else {
-            _notice.value = R.string.notice_lyrics_failed
+            _notice.value = Notice(R.string.notice_lyrics_failed)
         }
         return true
     }
@@ -379,11 +399,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             is TagWrite.NeedsPermission -> result.request
             TagWrite.Saved -> {
                 loadLibrary()
-                _notice.value = R.string.notice_tags_saved
+                _notice.value = Notice(R.string.notice_tags_saved)
                 null
             }
             null -> {
-                _notice.value = R.string.notice_tags_failed
+                _notice.value = Notice(R.string.notice_tags_failed)
                 null
             }
         }
@@ -391,35 +411,41 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     // Playlists
 
-    private fun editPlaylists(action: (ContentResolver) -> Unit) {
+    private fun editPlaylists(done: Int, vararg args: Any, action: (ContentResolver) -> Unit) {
         val resolver = getApplication<Application>().contentResolver
         viewModelScope.launch {
-            val done = withContext(Dispatchers.IO) {
+            val ok = withContext(Dispatchers.IO) {
                 runCatching { action(resolver) }.onFailure { Log.w(TAG, "playlists: change failed", it) }.isSuccess
             }
-            if (!done) _notice.value = R.string.notice_playlist_failed
+            _notice.value = if (ok) Notice(done, args.toList()) else Notice(R.string.notice_playlist_failed)
             loadLibrary()
         }
     }
 
-    fun createPlaylist(name: String, songs: List<Song> = emptyList()) = editPlaylists { resolver ->
+    fun createPlaylist(name: String, songs: List<Song> = emptyList()) = editPlaylists(R.string.notice_playlist_created, name) { resolver ->
         val id = PlaylistEditor.create(resolver, name) ?: error("playlists: create returned nothing")
         if (songs.isNotEmpty()) PlaylistEditor.add(resolver, id, songs, emptyList())
     }
 
-    fun renamePlaylist(playlist: Playlist, name: String) = editPlaylists { PlaylistEditor.rename(it, playlist.id, name) }
+    fun renamePlaylist(playlist: Playlist, name: String) =
+        editPlaylists(R.string.notice_playlist_renamed, name) { PlaylistEditor.rename(it, playlist.id, name) }
 
-    fun deletePlaylist(playlist: Playlist) = editPlaylists { PlaylistEditor.delete(it, playlist.id) }
+    fun deletePlaylist(playlist: Playlist) =
+        editPlaylists(R.string.notice_playlist_deleted, playlist.name) { PlaylistEditor.delete(it, playlist.id) }
 
-    fun addToPlaylist(playlist: Playlist, songs: List<Song>) = editPlaylists { PlaylistEditor.add(it, playlist.id, songs, playlist.songs) }
+    fun addToPlaylist(playlist: Playlist, songs: List<Song>) =
+        editPlaylists(R.string.notice_added_to_playlist, songs.singleOrNull()?.title ?: songs.size.toString(), playlist.name) {
+            PlaylistEditor.add(it, playlist.id, songs, playlist.songs)
+        }
 
-    fun removeFromPlaylist(playlist: Playlist, song: Song) = editPlaylists { PlaylistEditor.remove(it, playlist, song) }
+    fun removeFromPlaylist(playlist: Playlist, song: Song) =
+        editPlaylists(R.string.notice_removed_from_playlist, song.title, playlist.name) { PlaylistEditor.remove(it, playlist, song) }
 
     // Themes
 
     fun offerTheme(uri: Uri) {
         val theme = Themes.fromLink(uri)
-        if (theme == null) _notice.value = R.string.notice_theme_invalid else _offeredTheme.value = theme
+        if (theme == null) _notice.value = Notice(R.string.notice_theme_invalid) else _offeredTheme.value = theme
     }
 
     fun dismissTheme() {
@@ -432,6 +458,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _themes.value = Themes.all(getApplication())
         Settings.update { it.copy(customTheme = theme.id) }
         _offeredTheme.value = null
+        showNotice(R.string.notice_theme_added, theme.name)
     }
 
     fun useTheme(id: String?) = Settings.update { it.copy(customTheme = id) }
@@ -442,12 +469,110 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         if (Settings.state.value.customTheme == theme.id) Settings.update { it.copy(customTheme = null) }
     }
 
-    fun showNotice(message: Int) {
-        _notice.value = message
+    fun showNotice(message: Int, vararg args: Any) {
+        _notice.value = Notice(message, args.toList())
     }
 
     fun clearNotice() {
         _notice.value = null
+    }
+
+    // Song actions
+
+    /** Shares the song's file through Android's share sheet, so it can be sent to another app or person. */
+    fun shareSong(song: Song) {
+        val app = getApplication<Application>()
+        val send = Intent(Intent.ACTION_SEND)
+            .setType(song.mime.ifEmpty { "audio/*" })
+            .putExtra(Intent.EXTRA_STREAM, song.uri)
+            .putExtra(Intent.EXTRA_TITLE, song.title)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // The clip names the song, so the share sheet's preview shows its title.
+        send.clipData = android.content.ClipData.newUri(app.contentResolver, song.title, song.uri)
+        app.startActivity(Intent.createChooser(send, song.title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /** Shares a radio station's name and stream address as text. */
+    fun shareStation(station: Station) {
+        val app = getApplication<Application>()
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "${station.name}\n${station.url}")
+        app.startActivity(Intent.createChooser(send, station.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /**
+     * Deletes the song's file. Android asks the person to confirm first; this returns that prompt
+     * when one is needed, and the screen calls [songDeleted] once it is accepted.
+     */
+    suspend fun deleteSong(song: Song): IntentSender? = withContext(Dispatchers.IO) {
+        val resolver = getApplication<Application>().contentResolver
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            return@withContext MediaStore.createDeleteRequest(resolver, listOf(song.uri)).intentSender
+        }
+        try {
+            resolver.delete(song.uri, null, null)
+            null
+        } catch (denied: android.app.RecoverableSecurityException) {
+            denied.userAction.actionIntent.intentSender
+        }
+    }
+
+    fun songDeleted(song: Song) {
+        loadLibrary()
+        showNotice(R.string.notice_song_deleted, song.title)
+    }
+
+    // Storage and general settings
+
+    fun refreshCacheSize() {
+        viewModelScope.launch {
+            _cacheBytes.value = withContext(Dispatchers.IO) {
+                getApplication<Application>().cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+            }
+        }
+    }
+
+    fun clearCache() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { getApplication<Application>().cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
+            refreshCacheSize()
+            showNotice(R.string.notice_cache_cleared)
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { history.clear() }
+            _summary.value = null
+            _recent.value = emptyList()
+            showNotice(R.string.notice_history_cleared)
+        }
+    }
+
+    fun rescanLibrary() {
+        loadLibrary()
+        showNotice(R.string.notice_library_rescanned)
+    }
+
+    fun forgetLyricsFolder() {
+        val tree = Settings.state.value.lyricsTree ?: return
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        runCatching { getApplication<Application>().contentResolver.releasePersistableUriPermission(Uri.parse(tree), flags) }
+        Settings.update { it.copy(lyricsTree = null) }
+    }
+
+    /** The app's language as a tag such as "fr", or null when it follows the phone. Android 13 and newer. */
+    val language: String?
+        get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            getApplication<Application>().getSystemService(android.app.LocaleManager::class.java)
+                .applicationLocales.takeUnless { it.isEmpty }?.get(0)?.language
+        } else {
+            null
+        }
+
+    fun setLanguage(tag: String?) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+        val locales = if (tag == null) android.os.LocaleList.getEmptyLocaleList() else android.os.LocaleList.forLanguageTags(tag)
+        getApplication<Application>().getSystemService(android.app.LocaleManager::class.java).applicationLocales = locales
     }
 
     // Updates
@@ -549,12 +674,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun playNext(song: Song) {
+        showNotice(R.string.notice_play_next, song.title)
         val c = controller ?: return
         if (c.mediaItemCount == 0) return play(listOf(song))
         c.addMediaItem(c.currentMediaItemIndex + 1, song.toMediaItem())
     }
 
     fun addToQueue(song: Song) {
+        showNotice(R.string.notice_queued, song.title)
         val c = controller ?: return
         if (c.mediaItemCount == 0) return play(listOf(song))
         c.addMediaItem(song.toMediaItem())
