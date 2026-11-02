@@ -48,7 +48,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
@@ -66,7 +66,18 @@ android {
         compose = true
         buildConfig = true
     }
+
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/themeAssets"))
 }
+
+// The desktop's bundled themes (assets/themes) ship in the APK under themes/, so both apps offer
+// the same ones from one copy.
+val copyThemes by tasks.registering(Copy::class) {
+    from(rootProject.file("../assets/themes"))
+    include("**/*.json")
+    into(layout.buildDirectory.dir("generated/themeAssets/themes"))
+}
+tasks.named("preBuild") { dependsOn(copyThemes) }
 
 kotlin {
     compilerOptions {
@@ -91,4 +102,5 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.session)
     implementation(libs.kotlinx.coroutines.guava)
+    implementation(libs.jaudiotagger)
 }

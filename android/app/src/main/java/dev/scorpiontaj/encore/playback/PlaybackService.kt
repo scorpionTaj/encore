@@ -52,6 +52,18 @@ class PlaybackService : MediaSessionService() {
     private var listenedMs = 0L
     private var playingSince = 0L
 
+    /** The ReplayGain factor for the current song, which fades scale. */
+    private var gain = 1f
+
+    /** Fades songs in and out while crossfade is on, checking the position a few times a second. */
+    private val fader = object : Runnable {
+        override fun run() {
+            val player = session?.player ?: return
+            applyVolume(player)
+            if (player.isPlaying && Settings.state.value.crossfadeSeconds > 0) ticker.postDelayed(this, FADE_TICK_MS)
+        }
+    }
+
     /** Moves the widget's progress bar once a second while playing. */
     private val ticker = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
@@ -77,6 +89,12 @@ class PlaybackService : MediaSessionService() {
         Sound.attach(this, player.audioSessionId)
         Sleep.attach(player)
         scope.launch { Settings.state.map { it.normalize }.distinctUntilChanged().collect { applyLoudness(player) } }
+        scope.launch {
+            Settings.state.map { it.crossfadeSeconds }.distinctUntilChanged().collect {
+                ticker.removeCallbacks(fader)
+                fader.run()
+            }
+        }
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.containsAny(*WIDGET_EVENTS)) EncoreWidget.publish(this@PlaybackService, player)
@@ -88,6 +106,8 @@ class PlaybackService : MediaSessionService() {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 ticker.removeCallbacks(tick)
                 tick.run()
+                ticker.removeCallbacks(fader)
+                fader.run()
                 val now = SystemClock.elapsedRealtime()
                 if (isPlaying) {
                     playingSince = now
@@ -140,6 +160,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         ticker.removeCallbacks(tick)
+        ticker.removeCallbacks(fader)
         scope.cancel()
         Sleep.detach()
         session?.player?.let { commitListen(it.duration) }
@@ -179,7 +200,25 @@ class PlaybackService : MediaSessionService() {
      */
     private fun applyLoudness(player: Player) {
         val gainDb = if (Settings.state.value.normalize) replayGain(player.currentTracks) else null
-        player.volume = gainDb?.let { 10.0.pow(it / 20).toFloat().coerceIn(0f, 1f) } ?: 1f
+        gain = gainDb?.let { 10.0.pow(it / 20).toFloat().coerceIn(0f, 1f) } ?: 1f
+        applyVolume(player)
+    }
+
+    /**
+     * Sets the volume from the ReplayGain factor and, with crossfade on, a fade at each end of the
+     * song. The player plays one song at a time, so the fade runs out of one song and into the
+     * next rather than overlapping them. Radio and other streams without a length never fade.
+     */
+    private fun applyVolume(player: Player) {
+        val fadeMs = Settings.state.value.crossfadeSeconds * 1000L
+        val duration = player.duration
+        val fade = if (fadeMs > 0 && duration > 2 * fadeMs && player.isCurrentMediaItemSeekable) {
+            val position = player.currentPosition
+            minOf(position, duration - position).toFloat().div(fadeMs).coerceIn(0f, 1f)
+        } else {
+            1f
+        }
+        player.volume = gain * fade
     }
 
     private fun replayGain(tracks: Tracks): Double? {
@@ -221,6 +260,7 @@ class PlaybackService : MediaSessionService() {
 
     private companion object {
         const val MIN_LISTEN_MS = 30_000L
+        const val FADE_TICK_MS = 50L
         const val REPLAYGAIN_TRACK_GAIN = "REPLAYGAIN_TRACK_GAIN"
         const val PROGRESS_TICK_MS = 1_000L
         val WIDGET_EVENTS = intArrayOf(

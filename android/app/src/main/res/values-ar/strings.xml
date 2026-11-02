@@ -211,4 +211,34 @@
     <string name="folder_show">إظهار</string>
     <string name="settings_hidden_folders">المجلدات المخفية</string>
     <string name="settings_hidden_folders_empty">أخفِ مجلدًا من قائمته في صفحة المجلدات لإبعاد أغانيه عن مكتبتك.</string>
+
+    <string name="settings_crossfade">التلاشي المتداخل</string>
+    <string name="settings_crossfade_body">يتلاشى صوت كل أغنية ويظهر صوت التالية تدريجيًا.</string>
+    <string name="crossfade_off">متوقف</string>
+    <string name="crossfade_seconds">%1$d ث</string>
+    <string name="settings_themes">السمة</string>
+    <string name="settings_themes_body">افتح رابط سمة لإضافة المزيد، مثل سمات sonorahq.org/themes.</string>
+    <string name="theme_encore">Encore</string>
+    <string name="theme_delete">حذف السمة</string>
+    <string name="theme_install_title">إضافة هذه السمة؟</string>
+    <string name="theme_by">بواسطة %1$s</string>
+    <string name="theme_install">إضافة السمة</string>
+    <string name="playlist_new">قائمة تشغيل جديدة</string>
+    <string name="playlist_add_to">إضافة إلى قائمة تشغيل</string>
+    <string name="playlist_remove_from">إزالة من قائمة التشغيل</string>
+    <string name="action_rename">إعادة التسمية</string>
+    <string name="tags_edit">تعديل الوسوم</string>
+    <string name="lyrics_edit">تعديل الكلمات</string>
+    <string name="lyrics_edit_hint">اضغط على توقيت السطر أثناء التشغيل لتثبيته.</string>
+    <string name="lyrics_add_line">إضافة سطر</string>
+    <string name="lyrics_remove_line">إزالة السطر</string>
+    <string name="lyrics_from">الكلمات من %1$s</string>
+    <string name="lyrics_from_file">الكلمات من ملف ‎.lrc</string>
+    <string name="notice_tags_saved">تم حفظ الوسوم.</string>
+    <string name="notice_tags_failed">تعذّر حفظ الوسوم.</string>
+    <string name="notice_playlist_failed">تعذّر تعديل قائمة التشغيل. لا يمكن لـ Encore تعديل إلا القوائم التي أنشأها.</string>
+    <string name="notice_lyrics_failed">تعذّر حفظ الكلمات.</string>
+    <string name="notice_lyrics_pick_folder">اختر مجلد الموسيقى ليتمكن Encore من حفظ الكلمات بجانب أغانيك.</string>
+    <string name="notice_lyrics_folder">هذا المجلد لا يحتوي على هذه الأغنية. اختر مجلد الموسيقى.</string>
+    <string name="notice_theme_invalid">تعذّرت قراءة رابط السمة.</string>
 </resources>

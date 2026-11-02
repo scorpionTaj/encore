@@ -193,4 +193,34 @@
     <string name="folder_show">Afficher</string>
     <string name="settings_hidden_folders">Dossiers masqués</string>
     <string name="settings_hidden_folders_empty">Masquez un dossier depuis son menu dans la page Dossiers pour retirer ses titres de votre bibliothèque.</string>
+
+    <string name="settings_crossfade">Fondu enchaîné</string>
+    <string name="settings_crossfade_body">Faire disparaître chaque titre en fondu et apparaître le suivant.</string>
+    <string name="crossfade_off">Désactivé</string>
+    <string name="crossfade_seconds">%1$d s</string>
+    <string name="settings_themes">Thème</string>
+    <string name="settings_themes_body">Ouvrez un lien de thème pour en ajouter, comme ceux de sonorahq.org/themes.</string>
+    <string name="theme_encore">Encore</string>
+    <string name="theme_delete">Supprimer le thème</string>
+    <string name="theme_install_title">Ajouter ce thème ?</string>
+    <string name="theme_by">Par %1$s</string>
+    <string name="theme_install">Ajouter le thème</string>
+    <string name="playlist_new">Nouvelle playlist</string>
+    <string name="playlist_add_to">Ajouter à une playlist</string>
+    <string name="playlist_remove_from">Retirer de la playlist</string>
+    <string name="action_rename">Renommer</string>
+    <string name="tags_edit">Modifier les balises</string>
+    <string name="lyrics_edit">Modifier les paroles</string>
+    <string name="lyrics_edit_hint">Touchez l’heure d’une ligne pendant la lecture pour la caler.</string>
+    <string name="lyrics_add_line">Ajouter une ligne</string>
+    <string name="lyrics_remove_line">Retirer la ligne</string>
+    <string name="lyrics_from">Paroles de %1$s</string>
+    <string name="lyrics_from_file">Paroles du fichier .lrc</string>
+    <string name="notice_tags_saved">Balises enregistrées.</string>
+    <string name="notice_tags_failed">Impossible d’enregistrer les balises.</string>
+    <string name="notice_playlist_failed">Impossible de modifier la playlist. Encore ne peut modifier que les playlists qu’il a créées.</string>
+    <string name="notice_lyrics_failed">Impossible d’enregistrer les paroles.</string>
+    <string name="notice_lyrics_pick_folder">Choisissez votre dossier Musique pour qu’Encore enregistre les paroles à côté de vos titres.</string>
+    <string name="notice_lyrics_folder">Ce dossier ne contient pas ce titre. Choisissez votre dossier Musique.</string>
+    <string name="notice_theme_invalid">Ce lien de thème est illisible.</string>
 </resources>

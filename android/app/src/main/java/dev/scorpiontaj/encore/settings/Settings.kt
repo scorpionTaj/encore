@@ -21,6 +21,12 @@ data class SettingsState(
     val shuffleByAlbum: Boolean = false,
     /** Folders, such as "Music/Voice notes/", whose songs, and their subfolders' songs, stay out of the library. */
     val hiddenFolders: Set<String> = emptySet(),
+    /** Seconds each song fades out and the next fades in: 0 (off), 2, 4, 6 or 8. */
+    val crossfadeSeconds: Int = 0,
+    /** The installed theme in use, by id, or null for Encore's own colours. */
+    val customTheme: String? = null,
+    /** The folder the person let Encore write lyrics into, as a document tree URI. */
+    val lyricsTree: String? = null,
 )
 
 /**
@@ -41,6 +47,9 @@ object Settings {
             normalize = prefs.getBoolean(NORMALIZE, true),
             shuffleByAlbum = prefs.getBoolean(SHUFFLE_BY_ALBUM, false),
             hiddenFolders = prefs.getStringSet(HIDDEN_FOLDERS, emptySet()).orEmpty().toSet(),
+            crossfadeSeconds = prefs.getInt(CROSSFADE, 0),
+            customTheme = prefs.getString(CUSTOM_THEME, null),
+            lyricsTree = prefs.getString(LYRICS_TREE, null),
         )
     }
 
@@ -53,6 +62,9 @@ object Settings {
             putBoolean(NORMALIZE, next.normalize)
             putBoolean(SHUFFLE_BY_ALBUM, next.shuffleByAlbum)
             putStringSet(HIDDEN_FOLDERS, next.hiddenFolders)
+            putInt(CROSSFADE, next.crossfadeSeconds)
+            putString(CUSTOM_THEME, next.customTheme)
+            putString(LYRICS_TREE, next.lyricsTree)
         }
     }
 
@@ -61,4 +73,10 @@ object Settings {
     private const val NORMALIZE = "normalize"
     private const val SHUFFLE_BY_ALBUM = "shuffle_by_album"
     private const val HIDDEN_FOLDERS = "hidden_folders"
+    private const val CROSSFADE = "crossfade"
+    private const val CUSTOM_THEME = "custom_theme"
+    private const val LYRICS_TREE = "lyrics_tree"
+
+    /** The crossfade lengths offered, in seconds, as on the desktop. */
+    val CROSSFADES = listOf(0, 2, 4, 6, 8)
 }

@@ -189,4 +189,34 @@
     <string name="folder_show">Show</string>
     <string name="settings_hidden_folders">Hidden folders</string>
     <string name="settings_hidden_folders_empty">Hide a folder from its menu on the Folders page to keep its songs out of your library.</string>
+
+    <string name="settings_crossfade">Crossfade</string>
+    <string name="settings_crossfade_body">Fade each song out and the next one in.</string>
+    <string name="crossfade_off">Off</string>
+    <string name="crossfade_seconds">%1$d s</string>
+    <string name="settings_themes">Theme</string>
+    <string name="settings_themes_body">Open a theme link to add more, such as the ones on sonorahq.org/themes.</string>
+    <string name="theme_encore">Encore</string>
+    <string name="theme_delete">Delete theme</string>
+    <string name="theme_install_title">Add this theme?</string>
+    <string name="theme_by">By %1$s</string>
+    <string name="theme_install">Add theme</string>
+    <string name="playlist_new">New playlist</string>
+    <string name="playlist_add_to">Add to playlist</string>
+    <string name="playlist_remove_from">Remove from playlist</string>
+    <string name="action_rename">Rename</string>
+    <string name="tags_edit">Edit tags</string>
+    <string name="lyrics_edit">Edit lyrics</string>
+    <string name="lyrics_edit_hint">Tap a line’s time while the song plays to stamp it.</string>
+    <string name="lyrics_add_line">Add line</string>
+    <string name="lyrics_remove_line">Remove line</string>
+    <string name="lyrics_from">Lyrics from %1$s</string>
+    <string name="lyrics_from_file">Lyrics from the .lrc file</string>
+    <string name="notice_tags_saved">Tags saved.</string>
+    <string name="notice_tags_failed">Could not save the tags.</string>
+    <string name="notice_playlist_failed">Could not change the playlist. Encore can only change playlists it made.</string>
+    <string name="notice_lyrics_failed">Could not save the lyrics.</string>
+    <string name="notice_lyrics_pick_folder">Pick your Music folder so Encore can save lyrics beside your songs.</string>
+    <string name="notice_lyrics_folder">That folder does not hold this song. Pick your Music folder.</string>
+    <string name="notice_theme_invalid">That theme link could not be read.</string>
 </resources>

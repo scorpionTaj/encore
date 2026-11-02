@@ -2,6 +2,8 @@ package dev.scorpiontaj.encore.playback
 
 import android.app.Application
 import android.content.ComponentName
+import android.content.ContentResolver
+import android.content.IntentSender
 import android.content.Intent
 import android.database.ContentObserver
 import android.graphics.BitmapFactory
@@ -23,7 +25,14 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.scorpiontaj.encore.library.History
 import dev.scorpiontaj.encore.library.Library
-import dev.scorpiontaj.encore.library.Lrclib
+import dev.scorpiontaj.encore.library.LyricLine
+import dev.scorpiontaj.encore.library.LyricsFiles
+import dev.scorpiontaj.encore.library.OnlineLyrics
+import dev.scorpiontaj.encore.library.Playlist
+import dev.scorpiontaj.encore.library.PlaylistEditor
+import dev.scorpiontaj.encore.library.TagEditor
+import dev.scorpiontaj.encore.library.TagWrite
+import dev.scorpiontaj.encore.library.Tags
 import dev.scorpiontaj.encore.library.Lyrics
 import dev.scorpiontaj.encore.library.Period
 import dev.scorpiontaj.encore.library.SmartPlaylist
@@ -38,6 +47,9 @@ import dev.scorpiontaj.encore.radio.Recording
 import dev.scorpiontaj.encore.radio.Station
 import dev.scorpiontaj.encore.settings.Settings
 import dev.scorpiontaj.encore.settings.SettingsState
+import dev.scorpiontaj.encore.settings.ThemeFile
+import dev.scorpiontaj.encore.settings.Themes
+import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.update.Release
 import dev.scorpiontaj.encore.update.Updates
 import kotlinx.coroutines.Dispatchers
@@ -134,6 +146,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _summary = MutableStateFlow<Summary?>(null)
     val summary: StateFlow<Summary?> = _summary.asStateFlow()
+
+    private val _themes = MutableStateFlow(Themes.all(app))
+    val themes: StateFlow<List<ThemeFile>> = _themes.asStateFlow()
+
+    /** A theme from a link, waiting for the person to install it or not. */
+    private val _offeredTheme = MutableStateFlow<ThemeFile?>(null)
+    val offeredTheme: StateFlow<ThemeFile?> = _offeredTheme.asStateFlow()
+
+    /** A short message for the snackbar, as a string resource. */
+    private val _notice = MutableStateFlow<Int?>(null)
+    val notice: StateFlow<Int?> = _notice.asStateFlow()
 
     private val _lyrics = MutableStateFlow<LyricsState>(LyricsState.Idle)
     val lyrics: StateFlow<LyricsState> = _lyrics.asStateFlow()
@@ -297,10 +320,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // Lyrics
 
     /** Looks up lyrics for [song] unless they are already shown or on their way. */
-    fun loadLyrics(song: Song?) {
+    fun loadLyrics(song: Song?, force: Boolean = false) {
         val mediaId = song?.toMediaItem()?.mediaId
         val current = _lyrics.value
-        if (current is LyricsState.Found && current.mediaId == mediaId) return
+        if (!force && current is LyricsState.Found && current.mediaId == mediaId) return
         lyricsJob?.cancel()
         if (song == null) {
             _lyrics.value = LyricsState.Missing
@@ -308,9 +331,123 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
         _lyrics.value = LyricsState.Loading
         lyricsJob = viewModelScope.launch {
-            val found = runCatching { Lrclib.find(song) }.onFailure { Log.w(TAG, "lyrics: lookup failed", it) }.getOrNull()
+            // The .lrc beside the song wins, as on the desktop, then the online sources.
+            val tree = Settings.state.value.lyricsTree?.let(Uri::parse)
+            val resolver = getApplication<Application>().contentResolver
+            val found = withContext(Dispatchers.IO) { LyricsFiles.read(resolver, tree, song) }
+                ?: runCatching { OnlineLyrics.find(song) }.onFailure { Log.w(TAG, "lyrics: lookup failed", it) }.getOrNull()
             _lyrics.value = found?.let { LyricsState.Found(mediaId!!, it) } ?: LyricsState.Missing
         }
+    }
+
+    /**
+     * Saves edited lyrics as the .lrc beside [song] and shows them. Returns false when Encore has
+     * no folder holding the song yet, so the screen can ask for one and call again.
+     */
+    suspend fun saveLyrics(song: Song, lines: List<LyricLine>): Boolean {
+        val tree = Settings.state.value.lyricsTree?.let(Uri::parse)
+        if (!LyricsFiles.covers(tree, song)) return false
+        val resolver = getApplication<Application>().contentResolver
+        val saved = withContext(Dispatchers.IO) { runCatching { LyricsFiles.write(resolver, tree!!, song, lines) }.getOrDefault(false) }
+        if (saved) {
+            val synced = lines.all { it.startMs >= 0 }
+            val shown = if (synced) lines.sortedBy { it.startMs } else lines
+            _lyrics.value = LyricsState.Found(song.toMediaItem().mediaId, Lyrics(shown, synced, LyricsFiles.SOURCE))
+        } else {
+            _notice.value = R.string.notice_lyrics_failed
+        }
+        return true
+    }
+
+    /** Keeps the folder the person picked for lyrics, across restarts. */
+    fun grantLyricsFolder(tree: Uri) {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        getApplication<Application>().contentResolver.takePersistableUriPermission(tree, flags)
+        Settings.update { it.copy(lyricsTree = tree.toString()) }
+    }
+
+    // Tags
+
+    suspend fun readTags(song: Song): Tags = TagEditor.read(getApplication(), song)
+
+    /** Writes [tags] into [song]'s file. Returns a system prompt to show when Android wants the person's OK first. */
+    suspend fun saveTags(song: Song, tags: Tags): IntentSender? {
+        val result = runCatching { TagEditor.write(getApplication(), song, tags) }
+            .onFailure { Log.w(TAG, "tags: cannot write ${song.path}", it) }
+            .getOrNull()
+        return when (result) {
+            is TagWrite.NeedsPermission -> result.request
+            TagWrite.Saved -> {
+                loadLibrary()
+                _notice.value = R.string.notice_tags_saved
+                null
+            }
+            null -> {
+                _notice.value = R.string.notice_tags_failed
+                null
+            }
+        }
+    }
+
+    // Playlists
+
+    private fun editPlaylists(action: (ContentResolver) -> Unit) {
+        val resolver = getApplication<Application>().contentResolver
+        viewModelScope.launch {
+            val done = withContext(Dispatchers.IO) {
+                runCatching { action(resolver) }.onFailure { Log.w(TAG, "playlists: change failed", it) }.isSuccess
+            }
+            if (!done) _notice.value = R.string.notice_playlist_failed
+            loadLibrary()
+        }
+    }
+
+    fun createPlaylist(name: String, songs: List<Song> = emptyList()) = editPlaylists { resolver ->
+        val id = PlaylistEditor.create(resolver, name) ?: error("playlists: create returned nothing")
+        if (songs.isNotEmpty()) PlaylistEditor.add(resolver, id, songs, emptyList())
+    }
+
+    fun renamePlaylist(playlist: Playlist, name: String) = editPlaylists { PlaylistEditor.rename(it, playlist.id, name) }
+
+    fun deletePlaylist(playlist: Playlist) = editPlaylists { PlaylistEditor.delete(it, playlist.id) }
+
+    fun addToPlaylist(playlist: Playlist, songs: List<Song>) = editPlaylists { PlaylistEditor.add(it, playlist.id, songs, playlist.songs) }
+
+    fun removeFromPlaylist(playlist: Playlist, song: Song) = editPlaylists { PlaylistEditor.remove(it, playlist, song) }
+
+    // Themes
+
+    fun offerTheme(uri: Uri) {
+        val theme = Themes.fromLink(uri)
+        if (theme == null) _notice.value = R.string.notice_theme_invalid else _offeredTheme.value = theme
+    }
+
+    fun dismissTheme() {
+        _offeredTheme.value = null
+    }
+
+    fun installOfferedTheme() {
+        val theme = _offeredTheme.value ?: return
+        Themes.install(getApplication(), theme)
+        _themes.value = Themes.all(getApplication())
+        Settings.update { it.copy(customTheme = theme.id) }
+        _offeredTheme.value = null
+    }
+
+    fun useTheme(id: String?) = Settings.update { it.copy(customTheme = id) }
+
+    fun deleteTheme(theme: ThemeFile) {
+        Themes.delete(getApplication(), theme.id)
+        _themes.value = Themes.all(getApplication())
+        if (Settings.state.value.customTheme == theme.id) Settings.update { it.copy(customTheme = null) }
+    }
+
+    fun showNotice(message: Int) {
+        _notice.value = message
+    }
+
+    fun clearNotice() {
+        _notice.value = null
     }
 
     // Updates
