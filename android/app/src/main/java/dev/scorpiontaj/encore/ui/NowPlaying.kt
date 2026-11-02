@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.library.Library
+import dev.scorpiontaj.encore.library.LyricsFiles
+import dev.scorpiontaj.encore.library.Song
 import dev.scorpiontaj.encore.playback.LyricsState
 import dev.scorpiontaj.encore.playback.PlayerState
 import dev.scorpiontaj.encore.playback.PlayerViewModel
@@ -120,8 +122,12 @@ fun NowPlayingScreen(
     sleep: SleepState,
     recording: Recording?,
     vm: PlayerViewModel,
+    onAddToPlaylist: (Song) -> Unit,
+    onEditTags: (Song) -> Unit,
+    onEditLyrics: (Song) -> Unit,
     onClose: () -> Unit,
 ) {
+    var songMenu by remember { mutableStateOf(false) }
     val station = remember(state.mediaId, state.queue, state.index) { stationOf(state.queue.getOrNull(state.index)) }
     var sleepMenu by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
@@ -190,6 +196,27 @@ fun NowPlayingScreen(
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.sleep_off)) },
                                 onClick = { sleepMenu = false; vm.cancelSleep() },
+                            )
+                        }
+                    }
+                }
+                if (song != null) {
+                    Box {
+                        IconButton(onClick = { songMenu = true }) {
+                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                        }
+                        DropdownMenu(expanded = songMenu, onDismissRequest = { songMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.playlist_add_to)) },
+                                onClick = { songMenu = false; onAddToPlaylist(song) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.lyrics_edit)) },
+                                onClick = { songMenu = false; onEditLyrics(song) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.tags_edit)) },
+                                onClick = { songMenu = false; onEditTags(song) },
                             )
                         }
                     }
@@ -362,12 +389,12 @@ private fun LyricsView(state: LyricsState, positionMs: Long, modifier: Modifier,
         when (state) {
             LyricsState.Idle, LyricsState.Loading -> CircularProgressIndicator()
             LyricsState.Missing -> Text(stringResource(R.string.lyrics_missing), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            is LyricsState.Found -> {
+            is LyricsState.Found -> Column(Modifier.fillMaxSize()) {
                 val lines = state.lyrics.lines
                 val active = if (state.lyrics.synced) lines.indexOfLast { it.startMs <= positionMs } else -1
                 val list = rememberLazyListState()
                 LaunchedEffect(active) { if (active >= 0) list.animateScrollToItem((active - 2).coerceAtLeast(0)) }
-                LazyColumn(state = list, modifier = Modifier.fillMaxSize()) {
+                LazyColumn(state = list, modifier = Modifier.weight(1f).fillMaxWidth()) {
                     itemsIndexed(lines) { index, line ->
                         Text(
                             line.text,
@@ -383,6 +410,15 @@ private fun LyricsView(state: LyricsState, positionMs: Long, modifier: Modifier,
                         )
                     }
                 }
+                Text(
+                    when (val source = state.lyrics.source) {
+                        LyricsFiles.SOURCE -> stringResource(R.string.lyrics_from_file)
+                        else -> stringResource(R.string.lyrics_from, source)
+                    },
+                    Modifier.padding(vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

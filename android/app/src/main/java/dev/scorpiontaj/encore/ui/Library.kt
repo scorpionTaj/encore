@@ -72,20 +72,27 @@ import dev.scorpiontaj.encore.radio.Station
 import java.text.DecimalFormat
 import java.util.Locale
 
-/** The song actions every list offers: play from a row, queue it, or show its details. */
+/**
+ * The song actions every list offers: play from a row, queue it, add it to a playlist, edit its
+ * tags, or show its details. The dialogs behind the last three belong to the app screen.
+ */
 class SongActions(
     val play: (List<Song>, Int) -> Unit,
     val shuffle: (List<Song>) -> Unit,
     val playNext: (Song) -> Unit,
     val addToQueue: (Song) -> Unit,
     val details: (Song) -> Unit,
+    val addToPlaylist: (Song) -> Unit,
+    val editTags: (Song) -> Unit,
 ) {
-    constructor(vm: PlayerViewModel, details: (Song) -> Unit) : this(
+    constructor(vm: PlayerViewModel, details: (Song) -> Unit, addToPlaylist: (Song) -> Unit, editTags: (Song) -> Unit) : this(
         play = { songs, start -> vm.play(songs, start) },
         shuffle = { songs -> vm.play(songs, shuffle = true) },
         playNext = vm::playNext,
         addToQueue = vm::addToQueue,
         details = details,
+        addToPlaylist = addToPlaylist,
+        editTags = editTags,
     )
 }
 
@@ -255,13 +262,26 @@ fun PlaylistsScreen(
     onNewSmart: () -> Unit,
     onEditSmart: (SmartPlaylist) -> Unit,
     onDeleteSmart: (SmartPlaylist) -> Unit,
+    onNew: () -> Unit,
+    onRename: (Playlist) -> Unit,
+    onDelete: (Playlist) -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            FilledTonalButton(onClick = onNewSmart, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.smart_new))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(onClick = onNew) {
+                    Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.playlist_new))
+                }
+                FilledTonalButton(onClick = onNewSmart) {
+                    Icon(painterResource(R.drawable.ic_auto_awesome), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.smart_new))
+                }
             }
         }
         items(smart, key = { "smart:${it.id}" }) { playlist ->
@@ -301,11 +321,23 @@ fun PlaylistsScreen(
             item { Message(stringResource(R.string.playlists_empty)) }
         }
         items(playlists, key = { it.id }) { playlist ->
+            var menu by remember { mutableStateOf(false) }
             ListRow(
                 title = playlist.name,
                 subtitle = pluralStringResource(R.plurals.songs_count, playlist.songs.size, playlist.songs.size),
                 leading = { Artwork(playlist.songs.firstOrNull()?.uri) },
                 onClick = { onOpen(playlist) },
+                trailing = {
+                    Box {
+                        IconButton(onClick = { menu = true }) {
+                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, onClick = { menu = false; onRename(playlist) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.action_delete)) }, onClick = { menu = false; onDelete(playlist) })
+                        }
+                    }
+                },
             )
         }
     }
@@ -313,7 +345,14 @@ fun PlaylistsScreen(
 
 /** An album, artist or playlist opened from its tab: a header, then its songs. */
 @Composable
-fun CollectionScreen(title: String, subtitle: String, songs: List<Song>, current: String?, actions: SongActions) {
+fun CollectionScreen(
+    title: String,
+    subtitle: String,
+    songs: List<Song>,
+    current: String?,
+    actions: SongActions,
+    onRemove: ((Song) -> Unit)? = null,
+) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -332,7 +371,7 @@ fun CollectionScreen(title: String, subtitle: String, songs: List<Song>, current
             }
         }
         playAllHeader(songs, actions)
-        songItems(songs, current, actions)
+        songItems(songs, current, actions, onRemove)
     }
 }
 
@@ -547,13 +586,13 @@ fun LazyListScope.playAllHeader(songs: List<Song>, actions: SongActions) = item 
     }
 }
 
-fun LazyListScope.songItems(songs: List<Song>, current: String?, actions: SongActions) =
+fun LazyListScope.songItems(songs: List<Song>, current: String?, actions: SongActions, onRemove: ((Song) -> Unit)? = null) =
     itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-        SongRow(song, current == "$SONG_PREFIX${song.id}", actions) { actions.play(songs, index) }
+        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, onRemove) { actions.play(songs, index) }
     }
 
 @Composable
-fun SongRow(song: Song, playing: Boolean, actions: SongActions, onClick: () -> Unit) {
+fun SongRow(song: Song, playing: Boolean, actions: SongActions, onRemove: ((Song) -> Unit)? = null, onClick: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     ListRow(
         title = song.title,
@@ -578,6 +617,20 @@ fun SongRow(song: Song, playing: Boolean, actions: SongActions, onClick: () -> U
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_add_to_queue)) },
                         onClick = { menu = false; actions.addToQueue(song) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.playlist_add_to)) },
+                        onClick = { menu = false; actions.addToPlaylist(song) },
+                    )
+                    if (onRemove != null) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.playlist_remove_from)) },
+                            onClick = { menu = false; onRemove(song) },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.tags_edit)) },
+                        onClick = { menu = false; actions.editTags(song) },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_details)) },

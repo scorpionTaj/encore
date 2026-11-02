@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.settings.SettingsState
+import dev.scorpiontaj.encore.settings.ThemeFile
 import dev.scorpiontaj.encore.settings.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,26 +70,76 @@ private val Dark = darkColorScheme(
     surface = Color(0xFF131218),
 )
 
-/** Whether the app draws dark, from the theme picked in Settings. */
+/** Whether the app draws dark: from an installed theme's background when one is in use, else from Settings. */
 @Composable
-fun isDark(settings: SettingsState): Boolean = when (settings.theme) {
-    ThemeMode.System -> isSystemInDarkTheme()
-    ThemeMode.Light -> false
-    ThemeMode.Dark -> true
+fun isDark(settings: SettingsState, custom: ThemeFile? = null): Boolean = when {
+    custom != null -> !custom.isLight
+    settings.theme == ThemeMode.System -> isSystemInDarkTheme()
+    else -> settings.theme == ThemeMode.Dark
 }
 
-/** Encore's violet scheme, or the wallpaper's colours when asked for on Android 12 and newer. */
+/**
+ * Encore's violet scheme, the wallpaper's colours when asked for on Android 12 and newer, or an
+ * installed theme's colours when one is picked.
+ */
 @Composable
-fun EncoreTheme(settings: SettingsState, content: @Composable () -> Unit) {
-    val dark = isDark(settings)
+fun EncoreTheme(settings: SettingsState, custom: ThemeFile?, content: @Composable () -> Unit) {
+    val dark = isDark(settings, custom)
     val context = LocalContext.current
     val scheme = when {
+        custom != null -> schemeOf(custom)
         settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         dark -> Dark
         else -> Light
     }
     MaterialTheme(colorScheme = scheme, content = content)
+}
+
+/** Maps the desktop theme's colour names onto Material's roles, keeping Material's own for any it lacks. */
+private fun schemeOf(theme: ThemeFile): ColorScheme {
+    val base = if (theme.isLight) Light else Dark
+    fun color(vararg keys: String): Color? = keys.firstNotNullOfOrNull { theme.colors[it] }?.let { Color(it) }
+    val background = color("background") ?: base.background
+    val foreground = color("foreground") ?: base.onBackground
+    val primary = color("primary", "progress_bar") ?: base.primary
+    return base.copy(
+        primary = primary,
+        onPrimary = color("primary_foreground") ?: base.onPrimary,
+        primaryContainer = color("secondary", "muted") ?: base.primaryContainer,
+        onPrimaryContainer = foreground,
+        secondaryContainer = color("muted", "secondary") ?: base.secondaryContainer,
+        onSecondaryContainer = foreground,
+        background = background,
+        onBackground = foreground,
+        surface = background,
+        onSurface = foreground,
+        surfaceVariant = color("muted") ?: base.surfaceVariant,
+        onSurfaceVariant = color("muted_foreground") ?: base.onSurfaceVariant,
+        surfaceContainer = color("sidebar", "popover") ?: base.surfaceContainer,
+        surfaceContainerHigh = color("popover", "secondary") ?: base.surfaceContainerHigh,
+        surfaceContainerLow = color("sidebar") ?: base.surfaceContainerLow,
+        outline = color("border") ?: base.outline,
+        outlineVariant = color("table_row_border", "border") ?: base.outlineVariant,
+        error = color("danger") ?: base.error,
+        onError = color("danger_foreground") ?: base.onError,
+    )
+}
+
+/** Small colour swatches of a theme, for its card in Settings and the install preview. */
+@Composable
+fun ThemeSwatches(theme: ThemeFile, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Row(modifier) {
+        listOf("background", "primary", "foreground", "muted", "danger").mapNotNull { theme.colors[it] }.forEach {
+            Box(
+                Modifier
+                    .padding(end = 4.dp)
+                    .size(18.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color(it)),
+            )
+        }
+    }
 }
 
 /** Thumbnails already read, keyed by content URI. A missing cover is cached as [NoArt]. */

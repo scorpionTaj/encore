@@ -1,6 +1,7 @@
 package dev.scorpiontaj.encore.ui
 
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -64,6 +65,7 @@ import dev.scorpiontaj.encore.playback.RadioState
 import dev.scorpiontaj.encore.playback.UpdateState
 import dev.scorpiontaj.encore.radio.Station
 import dev.scorpiontaj.encore.settings.SettingsState
+import dev.scorpiontaj.encore.settings.ThemeFile
 import dev.scorpiontaj.encore.settings.ThemeMode
 
 /** Search across songs, albums, artists and the loaded radio stations. */
@@ -233,6 +235,9 @@ fun SettingsScreen(
     onBandLevel: (Int, Int) -> Unit,
     onPreset: (Int) -> Unit,
     onShowFolder: (String) -> Unit,
+    themes: List<ThemeFile>,
+    onTheme: (String?) -> Unit,
+    onDeleteTheme: (ThemeFile) -> Unit,
 ) {
     val context = LocalContext.current
     LazyColumn(Modifier.fillMaxSize()) {
@@ -245,6 +250,33 @@ fun SettingsScreen(
         item {
             SwitchRow(stringResource(R.string.settings_shuffle_by_album), stringResource(R.string.settings_shuffle_by_album_body), settings.shuffleByAlbum) { on ->
                 onSettings { it.copy(shuffleByAlbum = on) }
+            }
+        }
+        item {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                Text(stringResource(R.string.settings_crossfade))
+                Text(
+                    stringResource(R.string.settings_crossfade_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    dev.scorpiontaj.encore.settings.Settings.CROSSFADES.forEach { seconds ->
+                        FilterChip(
+                            selected = settings.crossfadeSeconds == seconds,
+                            onClick = { onSettings { it.copy(crossfadeSeconds = seconds) } },
+                            label = {
+                                Text(
+                                    if (seconds == 0) stringResource(R.string.crossfade_off)
+                                    else stringResource(R.string.crossfade_seconds, seconds),
+                                )
+                            },
+                        )
+                    }
+                }
             }
         }
         item { HorizontalDivider(Modifier.padding(top = 16.dp)) }
@@ -292,7 +324,39 @@ fun SettingsScreen(
                 }
             }
         }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        item {
+            Text(
+                stringResource(R.string.settings_themes),
+                Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            )
+            Text(
+                stringResource(R.string.settings_themes_body),
+                Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        item {
+            ThemeRow(
+                name = stringResource(R.string.theme_encore),
+                author = "",
+                selected = settings.customTheme == null,
+                swatches = {},
+                onPick = { onTheme(null) },
+                onDelete = null,
+            )
+        }
+        items(themes, key = { "theme:${it.id}" }) { theme ->
+            ThemeRow(
+                name = theme.name,
+                author = theme.author,
+                selected = settings.customTheme == theme.id,
+                swatches = { ThemeSwatches(theme) },
+                onPick = { onTheme(theme.id) },
+                onDelete = if (theme.bundled) null else ({ onDeleteTheme(theme) }),
+            )
+        }
+        if (settings.customTheme == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             item {
                 SwitchRow(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_body), settings.dynamicColor) { on ->
                     onSettings { it.copy(dynamicColor = on) }
@@ -396,6 +460,38 @@ fun UpdateCard(update: UpdateState.Offered, onInstall: () -> Unit, onDismiss: ()
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_later)) }
                 Button(onClick = onInstall) { Text(stringResource(R.string.update_install)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeRow(
+    name: String,
+    author: String,
+    selected: Boolean,
+    swatches: @Composable () -> Unit,
+    onPick: () -> Unit,
+    onDelete: (() -> Unit)?,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onPick)
+            .padding(start = 8.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.RadioButton(selected = selected, onClick = onPick)
+        Column(Modifier.weight(1f)) {
+            Text(name)
+            if (author.isNotEmpty()) {
+                Text(author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        swatches()
+        if (onDelete != null) {
+            androidx.compose.material3.IconButton(onClick = onDelete) {
+                Icon(painterResource(R.drawable.ic_delete), stringResource(R.string.theme_delete))
             }
         }
     }

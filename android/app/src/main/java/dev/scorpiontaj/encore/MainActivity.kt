@@ -1,5 +1,22 @@
 package dev.scorpiontaj.encore
 
+import android.app.Activity
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.activity.result.IntentSenderRequest
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.scorpiontaj.encore.library.LyricLine
+import dev.scorpiontaj.encore.library.Tags
+import dev.scorpiontaj.encore.playback.LyricsState
+import dev.scorpiontaj.encore.ui.AddToPlaylistDialog
+import dev.scorpiontaj.encore.ui.LyricsEditor
+import dev.scorpiontaj.encore.ui.NameDialog
+import dev.scorpiontaj.encore.ui.TagEditorDialog
+import dev.scorpiontaj.encore.ui.ThemeOfferDialog
+import kotlinx.coroutines.launch
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -92,8 +109,10 @@ class MainActivity : ComponentActivity() {
         openFrom(intent)
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
+            val themes by vm.themes.collectAsStateWithLifecycle()
+            val custom = themes.firstOrNull { it.id == settings.customTheme }
             // Status and navigation bar icons follow the app's theme, not only the system's.
-            val dark = isDark(settings)
+            val dark = isDark(settings, custom)
             DisposableEffect(dark) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
@@ -101,7 +120,7 @@ class MainActivity : ComponentActivity() {
                 )
                 onDispose {}
             }
-            EncoreTheme(settings) { EncoreApp(vm) }
+            EncoreTheme(settings, custom) { EncoreApp(vm) }
         }
     }
 
@@ -110,10 +129,11 @@ class MainActivity : ComponentActivity() {
         openFrom(intent)
     }
 
-    /** Plays an audio file another app asked Encore to open. */
+    /** Plays an audio file another app asked Encore to open, or offers a theme from a theme link. */
     private fun openFrom(intent: Intent?) {
         val uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return
-        vm.playUri(uri)
+        // encore://theme/… and sonora://theme/… links offer a theme; anything else is a file to play.
+        if (uri.scheme == "encore" || uri.scheme == "sonora") vm.offerTheme(uri) else vm.playUri(uri)
         setIntent(Intent(this, MainActivity::class.java))
     }
 }
@@ -181,7 +201,42 @@ private fun EncoreApp(vm: PlayerViewModel) {
     var detail by remember { mutableStateOf<Detail?>(null) }
     var nowPlaying by rememberSaveable { mutableStateOf(false) }
     var details by remember { mutableStateOf<Song?>(null) }
-    val actions = remember(vm) { SongActions(vm) { details = it } }
+    val themes by vm.themes.collectAsStateWithLifecycle()
+    val offeredTheme by vm.offeredTheme.collectAsStateWithLifecycle()
+    val notice by vm.notice.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { SnackbarHostState() }
+    /** The song a playlist is being picked for, the playlist being renamed, and whether a new one is being named. */
+    var addingToPlaylist by remember { mutableStateOf<Song?>(null) }
+    var renaming by remember { mutableStateOf<Playlist?>(null) }
+    var naming by remember { mutableStateOf(false) }
+    var editingTags by remember { mutableStateOf<Song?>(null) }
+    var editingLyrics by remember { mutableStateOf<Song?>(null) }
+    /** Tags and lyrics waiting on a system prompt, saved again once the person allows it. */
+    var pendingTags by remember { mutableStateOf<Pair<Song, Tags>?>(null) }
+    var pendingLyrics by remember { mutableStateOf<Pair<Song, List<LyricLine>>?>(null) }
+    val allowWrite = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val (song, tags) = pendingTags ?: return@rememberLauncherForActivityResult
+        pendingTags = null
+        if (result.resultCode == Activity.RESULT_OK) scope.launch { vm.saveTags(song, tags) }
+    }
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        val (song, lines) = pendingLyrics ?: return@rememberLauncherForActivityResult
+        pendingLyrics = null
+        if (tree == null) return@rememberLauncherForActivityResult
+        vm.grantLyricsFolder(tree)
+        scope.launch {
+            if (vm.saveLyrics(song, lines)) editingLyrics = null else vm.showNotice(R.string.notice_lyrics_folder)
+        }
+    }
+    val actions = remember(vm) {
+        SongActions(vm, details = { details = it }, addToPlaylist = { addingToPlaylist = it }, editTags = { editingTags = it })
+    }
+    LaunchedEffect(notice) {
+        val message = notice ?: return@LaunchedEffect
+        vm.clearNotice()
+        snackbar.showSnackbar(context.getString(message))
+    }
     // A radio stream's current song, which the service puts in the artist field.
     val streamSong = player.metadata.artist?.toString()?.takeIf { player.metadata.station != null }
 
@@ -202,6 +257,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
+            snackbarHost = { SnackbarHost(snackbar) },
             topBar = {
                 TopAppBar(
                     title = {
@@ -276,7 +332,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                 }
                 Box(Modifier.weight(1f)) {
                     when {
-                        open != null -> DetailScreen(open, lib, current, actions)
+                        open != null -> DetailScreen(open, lib, current, actions, vm::removeFromPlaylist)
                         page == Page.Search -> SearchScreen(
                             library = lib,
                             radio = radio,
@@ -316,6 +372,9 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             onBandLevel = vm::setBandLevel,
                             onPreset = vm::useEqualizerPreset,
                             onShowFolder = vm::showFolder,
+                            themes = themes,
+                            onTheme = vm::useTheme,
+                            onDeleteTheme = vm::deleteTheme,
                         )
                         Tab.entries[tab] == Tab.Radio -> RadioScreen(
                             state = radio,
@@ -343,6 +402,9 @@ private fun EncoreApp(vm: PlayerViewModel) {
                                 onNewSmart = { creating = true },
                                 onEditSmart = { editing = it },
                                 onDeleteSmart = vm::deleteSmartPlaylist,
+                                onNew = { naming = true },
+                                onRename = { renaming = it },
+                                onDelete = vm::deletePlaylist,
                             )
                             Tab.Radio -> Unit
                         }
@@ -356,10 +418,96 @@ private fun EncoreApp(vm: PlayerViewModel) {
             enter = slideInVertically { it },
             exit = slideOutVertically { it },
         ) {
-            NowPlayingScreen(player, library, lyrics, sleep, recording, vm) { nowPlaying = false }
+            NowPlayingScreen(
+                state = player,
+                library = library,
+                lyrics = lyrics,
+                sleep = sleep,
+                recording = recording,
+                vm = vm,
+                onAddToPlaylist = { addingToPlaylist = it },
+                onEditTags = { editingTags = it },
+                onEditLyrics = { editingLyrics = it },
+            ) { nowPlaying = false }
+        }
+
+        editingLyrics?.let { song ->
+            val shown = (lyrics as? LyricsState.Found)?.takeIf { it.mediaId == song.toMediaItem().mediaId }?.lyrics?.lines.orEmpty()
+            LyricsEditor(
+                song = song,
+                initial = shown,
+                positionMs = { if (player.mediaId == song.toMediaItem().mediaId) vm.positionMs else -1 },
+                onSave = { lines ->
+                    scope.launch {
+                        when (vm.saveLyrics(song, lines)) {
+                            true -> editingLyrics = null
+                            // No folder holds the song yet: ask for one, starting at Music.
+                            false -> {
+                                pendingLyrics = song to lines
+                                vm.showNotice(R.string.notice_lyrics_pick_folder)
+                                pickFolder.launch(musicFolder())
+                            }
+                        }
+                    }
+                },
+                onClose = { editingLyrics = null },
+            )
         }
 
         details?.let { SongDetailsDialog(it) { details = null } }
+        addingToPlaylist?.let { song ->
+            AddToPlaylistDialog(
+                playlists = library?.playlists.orEmpty(),
+                onPick = { playlist ->
+                    vm.addToPlaylist(playlist, listOf(song))
+                    addingToPlaylist = null
+                },
+                onNew = { naming = true },
+                onDismiss = { addingToPlaylist = null },
+            )
+        }
+        if (naming) {
+            NameDialog(
+                title = stringResource(R.string.playlist_new),
+                initial = "",
+                onConfirm = { name ->
+                    vm.createPlaylist(name, listOfNotNull(addingToPlaylist))
+                    naming = false
+                    addingToPlaylist = null
+                },
+                onDismiss = { naming = false },
+            )
+        }
+        renaming?.let { playlist ->
+            NameDialog(
+                title = stringResource(R.string.action_rename),
+                initial = playlist.name,
+                onConfirm = { name ->
+                    vm.renamePlaylist(playlist, name)
+                    renaming = null
+                },
+                onDismiss = { renaming = null },
+            )
+        }
+        editingTags?.let { song ->
+            val tags by produceState<Tags?>(null, song) { value = vm.readTags(song) }
+            val loaded = tags ?: return@let
+            TagEditorDialog(
+                song = song,
+                initial = loaded,
+                onSave = { tags ->
+                    editingTags = null
+                    scope.launch {
+                        vm.saveTags(song, tags)?.let { request ->
+                            pendingTags = song to tags
+                            allowWrite.launch(IntentSenderRequest.Builder(request).build())
+                        }
+                    }
+                },
+                onDismiss = { editingTags = null },
+            )
+        }
+        offeredTheme?.let { theme -> ThemeOfferDialog(theme, onInstall = vm::installOfferedTheme, onDismiss = vm::dismissTheme) }
         if (creating || editing != null) {
             SmartPlaylistDialog(
                 initial = editing,
@@ -377,7 +525,13 @@ private fun EncoreApp(vm: PlayerViewModel) {
 }
 
 @Composable
-private fun DetailScreen(detail: Detail, library: Library?, current: String?, actions: SongActions) {
+private fun DetailScreen(
+    detail: Detail,
+    library: Library?,
+    current: String?,
+    actions: SongActions,
+    onRemoveFromPlaylist: (Playlist, Song) -> Unit,
+) {
     val unknownArtist = stringResource(R.string.unknown_artist)
     when (detail) {
         is Detail.OfAlbum -> CollectionScreen(
@@ -394,7 +548,14 @@ private fun DetailScreen(detail: Detail, library: Library?, current: String?, ac
             current,
             actions,
         )
-        is Detail.OfPlaylist -> CollectionScreen(detail.playlist.name, "", detail.playlist.songs, current, actions)
+        is Detail.OfPlaylist -> {
+            // Read the playlist again from the library, so songs added or removed show at once. Removing
+            // a song makes the playlist again under a new id, so fall back to its name.
+            val playlist = library?.playlists?.let { all ->
+                all.firstOrNull { it.id == detail.playlist.id } ?: all.firstOrNull { it.name == detail.playlist.name }
+            } ?: detail.playlist
+            CollectionScreen(playlist.name, "", playlist.songs, current, actions) { onRemoveFromPlaylist(playlist, it) }
+        }
         is Detail.OfSmart -> {
             val songs = remember(detail.playlist, library) { library?.let(detail.playlist::songs).orEmpty() }
             CollectionScreen(detail.playlist.name, stringResource(R.string.smart_label), songs, current, actions)
@@ -419,3 +580,6 @@ private fun PermissionPrompt(onGrant: () -> Unit) {
         Button(onClick = onGrant, Modifier.padding(top = 24.dp)) { Text(stringResource(R.string.permission_grant)) }
     }
 }
+
+/** The storage provider's Music folder, where the folder picker for lyrics starts. */
+private fun musicFolder(): Uri = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Music")

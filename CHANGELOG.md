@@ -7,6 +7,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Crossfade on Android: each song fades out and the next fades in, over 2 to 8 seconds.
+- Make, rename and delete playlists on Android, and add or remove songs from a song's menu or Now
+  Playing. They are saved as .m3u files other players can read.
+- Edit a song's title, artist, album, album artist, year, genre and track number on Android.
+- Edit and sync a song's lyrics on Android, saved as an .lrc file beside the song and read back
+  first next time.
+- Lyrics on Android also come from NetEase, Kugou and Musixmatch when LRCLIB has none.
+- Open encore:// and sonora:// theme links on Android to preview and add a theme, pick from the
+  desktop's bundled themes, and delete themes you added.
+
 ## [1.7.0]
 
 ### Added
