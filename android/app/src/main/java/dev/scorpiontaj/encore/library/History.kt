@@ -67,6 +67,11 @@ class History(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         )
     }
 
+    /** Forgets every listen. */
+    fun clear() {
+        writableDatabase.delete("listens", null, null)
+    }
+
     /** The last [limit] things listened to, newest first, each once. */
     fun recent(limit: Int = RECENT): List<TopSong> = readableDatabase.rawQuery(
         "SELECT media_id, title, artist, COUNT(*) FROM listens GROUP BY media_id " +

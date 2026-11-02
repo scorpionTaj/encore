@@ -6,6 +6,7 @@ import android.provider.DocumentsContract
 import android.util.Base64
 import android.util.Log
 import dev.scorpiontaj.encore.BuildConfig
+import dev.scorpiontaj.encore.settings.LyricsSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -111,13 +112,16 @@ object OnlineLyrics {
     /** How far apart, in seconds, a source's song may be from ours and still count as the same. */
     private const val SLACK_S = 5
 
-    suspend fun find(song: Song): Lyrics? = withContext(Dispatchers.IO) {
-        val sources: List<Pair<String, (Song) -> Lyrics?>> = listOf(
-            "LRCLIB" to ::lrclib,
-            "NetEase" to ::netease,
-            "Kugou" to ::kugou,
-            "Musixmatch" to ::musixmatch,
-        )
+    /** Asks [order]'s sources in turn, as set in Settings → Lyrics, and keeps the first that has the song. */
+    suspend fun find(song: Song, order: List<LyricsSource>): Lyrics? = withContext(Dispatchers.IO) {
+        val sources: List<Pair<String, (Song) -> Lyrics?>> = order.map { source ->
+            source.label to when (source) {
+                LyricsSource.Lrclib -> ::lrclib
+                LyricsSource.NetEase -> ::netease
+                LyricsSource.Kugou -> ::kugou
+                LyricsSource.Musixmatch -> ::musixmatch
+            }
+        }
         sources.firstNotNullOfOrNull { (name, source) ->
             runCatching { source(song) }.onFailure { Log.w("lyrics", "lyrics: $name failed", it) }.getOrNull()
         }

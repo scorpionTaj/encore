@@ -18,11 +18,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -33,13 +36,18 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.settings.SettingsState
 import dev.scorpiontaj.encore.settings.ThemeFile
 import dev.scorpiontaj.encore.settings.ThemeMode
+import dev.scorpiontaj.encore.settings.Typeface
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -93,7 +101,39 @@ fun EncoreTheme(settings: SettingsState, custom: ThemeFile?, content: @Composabl
         dark -> Dark
         else -> Light
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = scheme, typography = typographyFor(settings.typeface)) {
+        CompositionLocalProvider(
+            LocalIconPack provides settings.iconPack,
+            LocalReduceMotion provides settings.reduceMotion,
+            content = content,
+        )
+    }
+}
+
+/** Whether to skip transitions and other movement, from Settings → Appearance → Motion. */
+val LocalReduceMotion = compositionLocalOf { false }
+
+/** The desktop's Inter faces, shipped from assets/fonts. */
+private val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_italic, FontWeight.Normal, FontStyle.Italic),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+)
+
+/** Material's type scale in Inter, or left as Material's own system font. */
+private fun typographyFor(typeface: Typeface): Typography {
+    val base = Typography()
+    if (typeface == Typeface.System) return base
+    fun TextStyle.inter() = copy(fontFamily = Inter)
+    return base.copy(
+        displayLarge = base.displayLarge.inter(), displayMedium = base.displayMedium.inter(), displaySmall = base.displaySmall.inter(),
+        headlineLarge = base.headlineLarge.inter(), headlineMedium = base.headlineMedium.inter(), headlineSmall = base.headlineSmall.inter(),
+        titleLarge = base.titleLarge.inter(), titleMedium = base.titleMedium.inter(), titleSmall = base.titleSmall.inter(),
+        bodyLarge = base.bodyLarge.inter(), bodyMedium = base.bodyMedium.inter(), bodySmall = base.bodySmall.inter(),
+        labelLarge = base.labelLarge.inter(), labelMedium = base.labelMedium.inter(), labelSmall = base.labelSmall.inter(),
+    )
 }
 
 /** Maps the desktop theme's colour names onto Material's roles, keeping Material's own for any it lacks. */
@@ -173,7 +213,7 @@ fun Artwork(uri: Uri?, modifier: Modifier = Modifier, size: Dp = 48.dp, bitmap: 
     ) {
         when (shown) {
             null -> Icon(
-                painterResource(R.drawable.ic_music_note),
+                icon(R.drawable.ic_music_note),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )
@@ -205,7 +245,7 @@ fun StationArtwork(url: String?, modifier: Modifier = Modifier, size: Dp = 48.dp
     ) {
         when (val shown = loaded) {
             null -> Icon(
-                painterResource(R.drawable.ic_radio),
+                icon(R.drawable.ic_radio),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
             )

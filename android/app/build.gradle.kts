@@ -67,17 +67,31 @@ android {
         buildConfig = true
     }
 
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/themeAssets"))
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/desktopAssets"))
+    sourceSets["main"].res.srcDir(layout.buildDirectory.dir("generated/desktopRes"))
 }
 
-// The desktop's bundled themes (assets/themes) ship in the APK under themes/, so both apps offer
-// the same ones from one copy.
-val copyThemes by tasks.registering(Copy::class) {
-    from(rootProject.file("../assets/themes"))
-    include("**/*.json")
-    into(layout.buildDirectory.dir("generated/themeAssets/themes"))
+// The desktop's bundled themes and icon packs ship in the APK under themes/ and icons/, so both
+// apps offer the same ones from one copy.
+val copyDesktopAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("../assets/themes")) {
+        include("**/*.json")
+        into("themes")
+    }
+    from(rootProject.file("../assets/icons")) {
+        include("**/*.svg")
+        into("icons")
+    }
+    into(layout.buildDirectory.dir("generated/desktopAssets"))
 }
-tasks.named("preBuild") { dependsOn(copyThemes) }
+
+// The desktop's Inter faces become Android font resources; resource names must be lowercase.
+val copyDesktopFonts by tasks.registering(Copy::class) {
+    from(rootProject.file("../assets/fonts")) { include("Inter-*.ttf") }
+    rename { name -> name.lowercase().replace('-', '_') }
+    into(layout.buildDirectory.dir("generated/desktopRes/font"))
+}
+tasks.named("preBuild") { dependsOn(copyDesktopAssets, copyDesktopFonts) }
 
 kotlin {
     compilerOptions {
@@ -103,4 +117,5 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.jaudiotagger)
+    implementation(libs.androidsvg)
 }

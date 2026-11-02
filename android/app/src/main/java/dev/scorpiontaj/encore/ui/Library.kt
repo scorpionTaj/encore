@@ -1,5 +1,6 @@
 package dev.scorpiontaj.encore.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -84,17 +84,11 @@ class SongActions(
     val details: (Song) -> Unit,
     val addToPlaylist: (Song) -> Unit,
     val editTags: (Song) -> Unit,
-) {
-    constructor(vm: PlayerViewModel, details: (Song) -> Unit, addToPlaylist: (Song) -> Unit, editTags: (Song) -> Unit) : this(
-        play = { songs, start -> vm.play(songs, start) },
-        shuffle = { songs -> vm.play(songs, shuffle = true) },
-        playNext = vm::playNext,
-        addToQueue = vm::addToQueue,
-        details = details,
-        addToPlaylist = addToPlaylist,
-        editTags = editTags,
-    )
-}
+    val share: (Song) -> Unit,
+    val openAlbum: (Song) -> Unit,
+    val openArtist: (Song) -> Unit,
+    val delete: (Song) -> Unit,
+)
 
 /** The Songs tab's filters, as on the desktop songs list. */
 private enum class SongFilter(val label: Int) {
@@ -122,11 +116,15 @@ fun SongsScreen(
     current: String?,
     actions: SongActions,
     onFindMissingCovers: () -> Unit,
+    sortName: String,
+    filterName: String,
+    onSortFilter: (sort: String, filter: String) -> Unit,
 ) {
     if (songs.isEmpty()) return Message(stringResource(R.string.library_empty))
-    var filter by rememberSaveable { mutableStateOf(SongFilter.All) }
+    // Sort and filter live in Settings, so the Songs tab opens the way it was left.
+    val filter = SongFilter.entries.firstOrNull { it.name == filterName } ?: SongFilter.All
+    val sort = SongSort.entries.firstOrNull { it.name == sortName } ?: SongSort.Title
     LaunchedEffect(filter) { if (filter == SongFilter.NoCover) onFindMissingCovers() }
-    var sort by rememberSaveable { mutableStateOf(SongSort.Title) }
     var sortMenu by remember { mutableStateOf(false) }
     val shown = remember(songs, duplicates, missingCovers, filter, sort) {
         songs.filter {
@@ -157,7 +155,7 @@ fun SongsScreen(
             ) {
                 Box {
                     IconButton(onClick = { sortMenu = true }) {
-                        Icon(painterResource(R.drawable.ic_sort), stringResource(R.string.action_sort))
+                        Icon(icon(R.drawable.ic_sort), stringResource(R.string.action_sort))
                     }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         SongSort.entries.forEach { entry ->
@@ -168,7 +166,7 @@ fun SongsScreen(
                                         fontWeight = if (entry == sort) FontWeight.SemiBold else null,
                                     )
                                 },
-                                onClick = { sort = entry; sortMenu = false },
+                                onClick = { onSortFilter(entry.name, filter.name); sortMenu = false },
                             )
                         }
                     }
@@ -176,7 +174,7 @@ fun SongsScreen(
                 SongFilter.entries.forEach { entry ->
                     FilterChip(
                         selected = filter == entry,
-                        onClick = { filter = entry },
+                        onClick = { onSortFilter(sort.name, entry.name) },
                         label = { Text(stringResource(entry.label)) },
                     )
                 }
@@ -273,12 +271,12 @@ fun PlaylistsScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(onClick = onNew) {
-                    Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
+                    Icon(icon(R.drawable.ic_add), null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.playlist_new))
                 }
                 FilledTonalButton(onClick = onNewSmart) {
-                    Icon(painterResource(R.drawable.ic_auto_awesome), null, Modifier.size(18.dp))
+                    Icon(icon(R.drawable.ic_auto_awesome), null, Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.smart_new))
                 }
@@ -293,7 +291,7 @@ fun PlaylistsScreen(
                 leading = {
                     Surface(Modifier.size(48.dp), RoundedCornerShape(8.dp), MaterialTheme.colorScheme.primaryContainer) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(painterResource(R.drawable.ic_auto_awesome), null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Icon(icon(R.drawable.ic_auto_awesome), null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                     }
                 },
@@ -301,7 +299,7 @@ fun PlaylistsScreen(
                 trailing = {
                     Box {
                         IconButton(onClick = { menu = true }) {
-                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                            Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(
@@ -330,7 +328,7 @@ fun PlaylistsScreen(
                 trailing = {
                     Box {
                         IconButton(onClick = { menu = true }) {
-                            Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                            Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
                         }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.action_rename)) }, onClick = { menu = false; onRename(playlist) })
@@ -453,7 +451,7 @@ fun StationRow(
         trailing = {
             IconButton(onClick = onFavourite) {
                 Icon(
-                    painterResource(if (favourite) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
+                    icon(if (favourite) R.drawable.ic_favorite else R.drawable.ic_favorite_border),
                     stringResource(if (favourite) R.string.radio_unfavourite else R.string.radio_favourite),
                     tint = if (favourite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -573,13 +571,13 @@ fun duration(ms: Long): String {
 fun LazyListScope.playAllHeader(songs: List<Song>, actions: SongActions) = item {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Button(onClick = { actions.play(songs, 0) }) {
-            Icon(painterResource(R.drawable.ic_play), null, Modifier.size(18.dp))
+            Icon(icon(R.drawable.ic_play), null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.action_play_all))
         }
         Spacer(Modifier.width(8.dp))
         FilledTonalButton(onClick = { actions.shuffle(songs) }) {
-            Icon(painterResource(R.drawable.ic_shuffle), null, Modifier.size(18.dp))
+            Icon(icon(R.drawable.ic_shuffle), null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.action_shuffle_all))
         }
@@ -588,13 +586,21 @@ fun LazyListScope.playAllHeader(songs: List<Song>, actions: SongActions) = item 
 
 fun LazyListScope.songItems(songs: List<Song>, current: String?, actions: SongActions, onRemove: ((Song) -> Unit)? = null) =
     itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, onRemove) { actions.play(songs, index) }
+        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, onRemove, Modifier.animateItem()) { actions.play(songs, index) }
     }
 
 @Composable
-fun SongRow(song: Song, playing: Boolean, actions: SongActions, onRemove: ((Song) -> Unit)? = null, onClick: () -> Unit) {
+fun SongRow(
+    song: Song,
+    playing: Boolean,
+    actions: SongActions,
+    onRemove: ((Song) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     ListRow(
+        modifier = modifier,
         title = song.title,
         subtitle = listOf(
             song.artist.orUnknown(stringResource(R.string.unknown_artist)),
@@ -607,18 +613,21 @@ fun SongRow(song: Song, playing: Boolean, actions: SongActions, onRemove: ((Song
         trailing = {
             Box {
                 IconButton(onClick = { menu = true }) {
-                    Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                    Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
+                        leadingIcon = { Icon(icon("list-start"), null) },
                         text = { Text(stringResource(R.string.action_play_next)) },
                         onClick = { menu = false; actions.playNext(song) },
                     )
                     DropdownMenuItem(
+                        leadingIcon = { Icon(icon("list-end"), null) },
                         text = { Text(stringResource(R.string.action_add_to_queue)) },
                         onClick = { menu = false; actions.addToQueue(song) },
                     )
                     DropdownMenuItem(
+                        leadingIcon = { Icon(icon("list-plus"), null) },
                         text = { Text(stringResource(R.string.playlist_add_to)) },
                         onClick = { menu = false; actions.addToPlaylist(song) },
                     )
@@ -629,12 +638,34 @@ fun SongRow(song: Song, playing: Boolean, actions: SongActions, onRemove: ((Song
                         )
                     }
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_go_to_album)) },
+                        leadingIcon = { Icon(icon("disc-3"), null) },
+                        onClick = { menu = false; actions.openAlbum(song) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_go_to_artist)) },
+                        leadingIcon = { Icon(icon("user-round"), null) },
+                        onClick = { menu = false; actions.openArtist(song) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_share)) },
+                        leadingIcon = { Icon(icon("square-arrow-out-up-right"), null) },
+                        onClick = { menu = false; actions.share(song) },
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.tags_edit)) },
+                        leadingIcon = { Icon(icon("pencil"), null) },
                         onClick = { menu = false; actions.editTags(song) },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.action_details)) },
+                        leadingIcon = { Icon(icon("info"), null) },
                         onClick = { menu = false; actions.details(song) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_delete_song), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(icon("trash-2"), null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { menu = false; actions.delete(song) },
                     )
                 }
             }
@@ -666,7 +697,10 @@ fun ListRow(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = if (highlighted) FontWeight.SemiBold else null,
-                color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                color = animateColorAsState(
+                    if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    label = "row",
+                ).value,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

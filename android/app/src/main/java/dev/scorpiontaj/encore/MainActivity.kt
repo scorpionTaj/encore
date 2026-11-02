@@ -1,5 +1,19 @@
 package dev.scorpiontaj.encore
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
+import dev.scorpiontaj.encore.ui.SettingsHome
+import dev.scorpiontaj.encore.ui.SettingsModel
+import dev.scorpiontaj.encore.ui.SettingsPage
+import dev.scorpiontaj.encore.ui.SettingsPageScreen
 import android.app.Activity
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -63,7 +77,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -82,6 +95,7 @@ import dev.scorpiontaj.encore.ui.AlbumsScreen
 import dev.scorpiontaj.encore.ui.ArtistsScreen
 import dev.scorpiontaj.encore.ui.CollectionScreen
 import dev.scorpiontaj.encore.ui.EncoreTheme
+import dev.scorpiontaj.encore.ui.icon
 import dev.scorpiontaj.encore.ui.isDark
 import dev.scorpiontaj.encore.ui.FoldersScreen
 import dev.scorpiontaj.encore.ui.HistoryScreen
@@ -91,7 +105,6 @@ import dev.scorpiontaj.encore.ui.NowPlayingScreen
 import dev.scorpiontaj.encore.ui.PlaylistsScreen
 import dev.scorpiontaj.encore.ui.RadioScreen
 import dev.scorpiontaj.encore.ui.SearchScreen
-import dev.scorpiontaj.encore.ui.SettingsScreen
 import dev.scorpiontaj.encore.ui.SmartPlaylistDialog
 import dev.scorpiontaj.encore.ui.SongDetailsDialog
 import dev.scorpiontaj.encore.ui.StatsScreen
@@ -196,6 +209,20 @@ private fun EncoreApp(vm: PlayerViewModel) {
     var editing by remember { mutableStateOf<SmartPlaylist?>(null) }
     var creating by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
+    var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
+    val cacheBytes by vm.cacheBytes.collectAsStateWithLifecycle()
+    val reduceMotion = settings.reduceMotion
+    LaunchedEffect(settingsPage) { if (settingsPage == SettingsPage.Storage) vm.refreshCacheSize() }
+    val pickLyricsFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        tree?.let(vm::grantLyricsFolder)
+    }
+    /** A song waiting for Android's delete confirmation. */
+    var deleting by remember { mutableStateOf<Song?>(null) }
+    val confirmDelete = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        val song = deleting ?: return@rememberLauncherForActivityResult
+        deleting = null
+        if (result.resultCode == Activity.RESULT_OK) vm.songDeleted(song)
+    }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
     var detail by remember { mutableStateOf<Detail?>(null) }
@@ -230,12 +257,36 @@ private fun EncoreApp(vm: PlayerViewModel) {
         }
     }
     val actions = remember(vm) {
-        SongActions(vm, details = { details = it }, addToPlaylist = { addingToPlaylist = it }, editTags = { editingTags = it })
+        SongActions(
+            play = { songs, start -> vm.play(songs, start) },
+            shuffle = { songs -> vm.play(songs, shuffle = true) },
+            playNext = vm::playNext,
+            addToQueue = vm::addToQueue,
+            details = { details = it },
+            addToPlaylist = { addingToPlaylist = it },
+            editTags = { editingTags = it },
+            share = vm::shareSong,
+            openAlbum = { song -> vm.library.value?.albums?.firstOrNull { it.id == song.albumId }?.let { nowPlaying = false; detail = Detail.OfAlbum(it) } },
+            openArtist = { song -> vm.library.value?.artists?.firstOrNull { it.name == song.artist }?.let { nowPlaying = false; detail = Detail.OfArtist(it) } },
+            delete = { song ->
+                scope.launch {
+                    when (val request = vm.deleteSong(song)) {
+                        null -> vm.songDeleted(song)
+                        else -> {
+                            deleting = song
+                            confirmDelete.launch(IntentSenderRequest.Builder(request).build())
+                        }
+                    }
+                }
+            },
+        )
     }
     LaunchedEffect(notice) {
-        val message = notice ?: return@LaunchedEffect
+        val shown = notice ?: return@LaunchedEffect
+        // Clearing first would restart this effect and cancel the snackbar, so clear once it is done.
+        snackbar.currentSnackbarData?.dismiss()
+        snackbar.showSnackbar(context.getString(shown.message, *shown.args.toTypedArray()))
         vm.clearNotice()
-        snackbar.showSnackbar(context.getString(message))
     }
     // A radio stream's current song, which the service puts in the artist field.
     val streamSong = player.metadata.artist?.toString()?.takeIf { player.metadata.station != null }
@@ -247,10 +298,14 @@ private fun EncoreApp(vm: PlayerViewModel) {
         if (page == Page.History) vm.loadRecent()
     }
     BackHandler(enabled = detail != null && !nowPlaying) { detail = null }
+    BackHandler(enabled = page == Page.Settings && settingsPage != null && !nowPlaying) { settingsPage = null }
     BackHandler(enabled = page == Page.Folders && folder.isNotEmpty() && detail == null && !nowPlaying) {
         folder = folder.removeSuffix("/").substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     }
-    BackHandler(enabled = page != null && detail == null && !nowPlaying && !(page == Page.Folders && folder.isNotEmpty())) {
+    BackHandler(
+        enabled = page != null && detail == null && !nowPlaying &&
+            !(page == Page.Folders && folder.isNotEmpty()) && !(page == Page.Settings && settingsPage != null),
+    ) {
         page = null
     }
     BackHandler(enabled = nowPlaying) { nowPlaying = false }
@@ -262,8 +317,10 @@ private fun EncoreApp(vm: PlayerViewModel) {
                 TopAppBar(
                     title = {
                         val open = page
+                        val section = settingsPage
                         Text(
                             when {
+                                open == Page.Settings && section != null -> stringResource(section.title)
                                 open != null -> stringResource(open.title)
                                 detail != null -> stringResource(Tab.entries[tab].label)
                                 else -> stringResource(R.string.app_name)
@@ -272,25 +329,31 @@ private fun EncoreApp(vm: PlayerViewModel) {
                     },
                     navigationIcon = {
                         if (detail != null || page != null) {
-                            IconButton(onClick = { if (detail != null) detail = null else page = null }) {
-                                Icon(painterResource(R.drawable.ic_arrow_back), stringResource(R.string.action_back))
+                            IconButton(onClick = {
+                                when {
+                                    detail != null -> detail = null
+                                    page == Page.Settings && settingsPage != null -> settingsPage = null
+                                    else -> page = null
+                                }
+                            }) {
+                                Icon(icon(R.drawable.ic_arrow_back), stringResource(R.string.action_back))
                             }
                         }
                     },
                     actions = {
                         if (page == null && detail == null) {
                             IconButton(onClick = { page = Page.Search }) {
-                                Icon(painterResource(R.drawable.ic_search), stringResource(R.string.action_search))
+                                Icon(icon(R.drawable.ic_search), stringResource(R.string.action_search))
                             }
                             Box {
                                 IconButton(onClick = { overflow = true }) {
-                                    Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+                                    Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
                                 }
                                 DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
                                     Page.entries.filter { it != Page.Search }.forEach { entry ->
                                         DropdownMenuItem(
                                             text = { Text(stringResource(entry.title)) },
-                                            leadingIcon = { Icon(painterResource(entry.icon), null) },
+                                            leadingIcon = { Icon(icon(entry.icon), null) },
                                             onClick = {
                                                 overflow = false
                                                 if (entry == Page.Folders) folder = ""
@@ -306,13 +369,17 @@ private fun EncoreApp(vm: PlayerViewModel) {
             },
             bottomBar = {
                 Column {
-                    if (player.hasMedia) MiniPlayer(player, library, vm) { nowPlaying = true }
+                    AnimatedVisibility(
+                        visible = player.hasMedia,
+                        enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
+                        exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
+                    ) { MiniPlayer(player, library, vm) { nowPlaying = true } }
                     NavigationBar {
                         Tab.entries.forEachIndexed { index, entry ->
                             NavigationBarItem(
                                 selected = tab == index && page == null,
                                 onClick = { tab = index; detail = null; page = null },
-                                icon = { Icon(painterResource(entry.icon), null) },
+                                icon = { Icon(icon(entry.icon), null) },
                                 label = { Text(stringResource(entry.label), maxLines = 1) },
                             )
                         }
@@ -330,7 +397,25 @@ private fun EncoreApp(vm: PlayerViewModel) {
                 val openArtist = { name: String ->
                     lib?.artists?.firstOrNull { it.name == name }?.let { detail = Detail.OfArtist(it) }
                 }
-                Box(Modifier.weight(1f)) {
+                AnimatedContent(
+                    targetState = Screen(tab, page, open, settingsPage),
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = {
+                        if (reduceMotion) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            (fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 }) togetherWith fadeOut(tween(140))
+                        }
+                    },
+                    contentKey = { it },
+                    label = "screen",
+                ) { screen ->
+                    // Each screen draws from its own target, so the outgoing one keeps its content while it fades.
+                    val tab = screen.tab
+                    val page = screen.page
+                    val open = screen.detail
+                    val shownSettings = screen.settingsPage
+                    Box(Modifier.fillMaxSize()) {
                     when {
                         open != null -> DetailScreen(open, lib, current, actions, vm::removeFromPlaylist)
                         page == Page.Search -> SearchScreen(
@@ -361,21 +446,35 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             null -> Loading(stringResource(R.string.library_loading))
                             else -> FoldersScreen(lib, folder, current, actions, onFolder = { folder = it }, onHide = vm::hideFolder)
                         }
-                        page == Page.Settings -> SettingsScreen(
-                            settings = settings,
-                            onSettings = vm::updateSettings,
-                            update = update,
-                            equalizer = equalizer,
-                            onCheckUpdates = { vm.checkForUpdates(asked = true) },
-                            onInstallUpdate = vm::installUpdate,
-                            onEqualizerEnabled = vm::setEqualizerEnabled,
-                            onBandLevel = vm::setBandLevel,
-                            onPreset = vm::useEqualizerPreset,
-                            onShowFolder = vm::showFolder,
-                            themes = themes,
-                            onTheme = vm::useTheme,
-                            onDeleteTheme = vm::deleteTheme,
-                        )
+                        page == Page.Settings -> when (shownSettings) {
+                            null -> SettingsHome { settingsPage = it }
+                            else -> SettingsPageScreen(
+                                shownSettings,
+                                SettingsModel(
+                                    settings = settings,
+                                    update = update,
+                                    equalizer = equalizer,
+                                    themes = themes,
+                                    cacheBytes = cacheBytes,
+                                    onSettings = vm::updateSettings,
+                                    onCheckUpdates = { vm.checkForUpdates(asked = true) },
+                                    onInstallUpdate = vm::installUpdate,
+                                    onEqualizerEnabled = vm::setEqualizerEnabled,
+                                    onBandLevel = vm::setBandLevel,
+                                    onPreset = vm::useEqualizerPreset,
+                                    onShowFolder = vm::showFolder,
+                                    onTheme = vm::useTheme,
+                                    onDeleteTheme = vm::deleteTheme,
+                                    onPickLyricsFolder = { pickLyricsFolder.launch(musicFolder()) },
+                                    onForgetLyricsFolder = vm::forgetLyricsFolder,
+                                    onRescan = vm::rescanLibrary,
+                                    onClearCache = vm::clearCache,
+                                    onClearHistory = vm::clearHistory,
+                                    onLanguage = vm::setLanguage,
+                                    language = vm.language,
+                                ),
+                            )
+                        }
                         Tab.entries[tab] == Tab.Radio -> RadioScreen(
                             state = radio,
                             country = country,
@@ -390,7 +489,12 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         !granted -> PermissionPrompt { request.launch(AUDIO_PERMISSION) }
                         lib == null -> Loading(stringResource(R.string.library_loading))
                         else -> when (Tab.entries[tab]) {
-                            Tab.Songs -> SongsScreen(lib.songs, lib.duplicates, missingCovers, current, actions, vm::findMissingCovers)
+                            Tab.Songs -> SongsScreen(
+                                lib.songs, lib.duplicates, missingCovers, current, actions, vm::findMissingCovers,
+                                sortName = settings.songSort,
+                                filterName = settings.songFilter,
+                                onSortFilter = { sort, filter -> vm.updateSettings { it.copy(songSort = sort, songFilter = filter) } },
+                            )
                             Tab.Albums -> AlbumsScreen(lib.albums) { detail = Detail.OfAlbum(it) }
                             Tab.Artists -> ArtistsScreen(lib.artists) { detail = Detail.OfArtist(it) }
                             Tab.Playlists -> PlaylistsScreen(
@@ -408,6 +512,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             )
                             Tab.Radio -> Unit
                         }
+                    }
                     }
                 }
             }
@@ -583,3 +688,6 @@ private fun PermissionPrompt(onGrant: () -> Unit) {
 
 /** The storage provider's Music folder, where the folder picker for lyrics starts. */
 private fun musicFolder(): Uri = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Music")
+
+/** What the main area shows; a change between two of these animates. */
+private data class Screen(val tab: Int, val page: Page?, val detail: Detail?, val settingsPage: SettingsPage?)
