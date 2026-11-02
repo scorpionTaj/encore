@@ -11,3 +11,6 @@ __pycache__/
 /flatpak/flatpak
 /.flatpak-builder
 /dist
+
+# macOS Finder metadata
+.DS_Store
