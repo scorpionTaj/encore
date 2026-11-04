@@ -174,9 +174,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val equalizer: StateFlow<EqualizerState> = Sound.state
 
     private var controller: MediaController? = null
+    private var artworkJob: Job? = null
 
     /** A file opened before the controller connected, played once it does. */
     private var pendingUri: Uri? = null
+
+    /**
+     * What is waiting on a system prompt: the song Android's delete confirmation is about, and
+     * the tag and lyrics writes waiting for the storage provider's blessing. Held here so a
+     * rotation does not lose the approval that arrives after it.
+     */
+    var pendingDelete: Song? = null
+    var pendingTags: Pair<Song, Tags>? = null
+    var pendingLyrics: Pair<Song, List<LyricLine>>? = null
+
+    /** The storage provider's permission request to relaunch, once one is pending. */
+    var pendingWriteRequest: IntentSender? = null
     private var libraryJob: Job? = null
     private var radioJob: Job? = null
     private var lyricsJob: Job? = null
@@ -243,8 +256,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Keeps [folder]'s songs, and its subfolders' songs, out of every list until shown again. */
     fun hideFolder(folder: String) {
-        showNotice(R.string.notice_folder_hidden, folder)
-        Settings.update { it.copy(hiddenFolders = it.hiddenFolders + folder) }
+        // Store the path the way [Library] matches it: segments separated by one trailing slash.
+        val path = folder.trim('/').let { if (it.isEmpty()) return else "$it/" }
+        showNotice(R.string.notice_folder_hidden, path.trimEnd('/'))
+        Settings.update { it.copy(hiddenFolders = it.hiddenFolders + path) }
         loadLibrary()
     }
 
@@ -722,18 +737,43 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun useEqualizerPreset(preset: Int) = Sound.usePreset(getApplication(), preset)
 
+    fun setBassStrength(strength: Int) = Sound.setBass(getApplication(), strength)
+
+    fun setSurroundStrength(strength: Int) = Sound.setSurround(getApplication(), strength)
+
+    /** Saves the equalizer's current band levels under [name], as on the desktop. */
+    fun saveEqualizerPreset(name: String) {
+        val levels = Sound.state.value.bands.map { it.levelMb }
+        if (levels.isEmpty()) return
+        Settings.update { it.copy(equalizerPresets = it.equalizerPresets + (name to levels)) }
+    }
+
+    fun deleteEqualizerPreset(name: String) = Settings.update { it.copy(equalizerPresets = it.equalizerPresets - name) }
+
+    fun useEqualizerPreset(name: String) {
+        Settings.state.value.equalizerPresets[name]?.let { levels -> Sound.setLevels(getApplication(), levels) }
+    }
+
     @androidx.annotation.OptIn(UnstableApi::class)
     private fun sync(player: Player) {
         val metadata = player.mediaMetadata
         if (!metadata.artworkData.contentEquals(artworkData)) {
             artworkData = metadata.artworkData
-            artwork = artworkData?.let { data ->
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
-                var sample = 1
-                while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= ARTWORK_MAX_PX) sample *= 2
-                BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
-                    ?.asImageBitmap()
+            artwork = null
+            // Decoding a large embedded cover takes long enough to hitch the frame a new song
+            // starts on, so it happens off the main thread and republishes when it lands.
+            artworkJob?.cancel()
+            metadata.artworkData?.let { data ->
+                artworkJob = viewModelScope.launch(Dispatchers.Default) {
+                    val bitmap = decodeArtwork(data)
+                    withContext(Dispatchers.Main) {
+                        // A newer track may have taken over while this one decoded.
+                        if (artworkData.contentEquals(data)) {
+                            artwork = bitmap
+                            controller?.let(::sync)
+                        }
+                    }
+                }
             }
         }
         _player.value = PlayerState(
@@ -748,6 +788,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             queue = List(player.mediaItemCount, player::getMediaItemAt),
             index = player.currentMediaItemIndex,
         )
+    }
+
+    /** Scales an embedded cover down to at most [ARTWORK_MAX_PX] on its longest side. */
+    private fun decodeArtwork(data: ByteArray): ImageBitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= ARTWORK_MAX_PX) sample *= 2
+        return BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+            ?.asImageBitmap()
     }
 
     override fun onCleared() {

@@ -56,9 +56,15 @@ object Recorder {
                 put(MediaStore.Audio.Media.ARTIST, station.name)
                 put(MediaStore.Audio.Media.IS_PENDING, 1)
             }
-            val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values) ?: return@launch
-            val connection = URL(station.url).openConnection() as HttpURLConnection
+            val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+            if (uri == null) {
+                // Nothing is being written, so the recording must not look like it is running.
+                if (_state.value === recording) _state.value = null
+                return@launch
+            }
+            var connection: HttpURLConnection? = null
             try {
+                connection = URL(station.url).openConnection() as HttpURLConnection
                 connection.setRequestProperty("User-Agent", "Encore-Android/${BuildConfig.VERSION_NAME}")
                 connection.connectTimeout = 15_000
                 connection.readTimeout = 30_000
@@ -75,7 +81,7 @@ object Recorder {
             } catch (error: Exception) {
                 Log.w("radio", "radio: recording stopped", error)
             } finally {
-                connection.disconnect()
+                connection?.disconnect()
                 resolver.update(uri, ContentValues().apply { put(MediaStore.Audio.Media.IS_PENDING, 0) }, null, null)
                 // A newer recording may have started meanwhile; leave its state alone.
                 if (_state.value === recording) _state.value = null

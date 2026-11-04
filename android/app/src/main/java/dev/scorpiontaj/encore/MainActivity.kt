@@ -73,6 +73,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,8 +96,10 @@ import dev.scorpiontaj.encore.ui.AlbumsScreen
 import dev.scorpiontaj.encore.ui.ArtistsScreen
 import dev.scorpiontaj.encore.ui.CollectionScreen
 import dev.scorpiontaj.encore.ui.EncoreTheme
+import dev.scorpiontaj.encore.ui.hapticFeedback
 import dev.scorpiontaj.encore.ui.icon
 import dev.scorpiontaj.encore.ui.isDark
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import dev.scorpiontaj.encore.ui.FoldersScreen
 import dev.scorpiontaj.encore.ui.HistoryScreen
 import dev.scorpiontaj.encore.ui.Loading
@@ -118,6 +121,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestHighRefreshRate()
         enableEdgeToEdge()
         openFrom(intent)
         setContent {
@@ -140,6 +144,21 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         openFrom(intent)
+    }
+
+    /**
+     * Asks for the screen's fastest mode at the current resolution, since some devices keep apps
+     * at 60 Hz unless the app itself asks. Compose then animates at whatever the display runs.
+     */
+    private fun requestHighRefreshRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        val display = display ?: return
+        val current = display.mode
+        val best = display.supportedModes
+            .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+            .maxByOrNull { it.refreshRate } ?: return
+        if (best.modeId == current.modeId) return
+        window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
     }
 
     /** Plays an audio file another app asked Encore to open, or offers a theme from a theme link. */
@@ -167,6 +186,32 @@ private sealed interface Detail {
     data class OfPlaylist(val playlist: Playlist) : Detail
     data class OfSmart(val playlist: SmartPlaylist) : Detail
 }
+
+/**
+ * Keeps an open collection across rotation by the keys that resolve it again — an album or
+ * playlist id, an artist or smart-playlist name — since the objects themselves are too big for
+ * the saved state. [DetailScreen] re-reads the real songs from the library.
+ */
+private val DetailSaver = listSaver<Detail?, String>(
+    save = { detail ->
+        when (detail) {
+            is Detail.OfAlbum -> listOf("album", detail.album.id.toString(), detail.album.title)
+            is Detail.OfArtist -> listOf("artist", detail.artist.name)
+            is Detail.OfPlaylist -> listOf("playlist", detail.playlist.id.toString(), detail.playlist.name)
+            is Detail.OfSmart -> listOf("smart", detail.playlist.id, detail.playlist.name)
+            null -> emptyList()
+        }
+    },
+    restore = { parts ->
+        when (parts.getOrNull(0)) {
+            "album" -> Detail.OfAlbum(Album(parts[1].toLongOrNull() ?: -1, parts[2], "", emptyList()))
+            "artist" -> Detail.OfArtist(Artist(parts[1], emptyList()))
+            "playlist" -> Detail.OfPlaylist(Playlist(parts[1].toLongOrNull() ?: -1, parts[2], emptyList()))
+            "smart" -> Detail.OfSmart(SmartPlaylist(parts[1], parts[2], emptyList(), true))
+            else -> null
+        }
+    },
+)
 
 private val AUDIO_PERMISSION =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
@@ -212,20 +257,20 @@ private fun EncoreApp(vm: PlayerViewModel) {
     var settingsPage by rememberSaveable { mutableStateOf<SettingsPage?>(null) }
     val cacheBytes by vm.cacheBytes.collectAsStateWithLifecycle()
     val reduceMotion = settings.reduceMotion
+    val haptic = hapticFeedback()
     LaunchedEffect(settingsPage) { if (settingsPage == SettingsPage.Storage) vm.refreshCacheSize() }
     val pickLyricsFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         tree?.let(vm::grantLyricsFolder)
     }
-    /** A song waiting for Android's delete confirmation. */
-    var deleting by remember { mutableStateOf<Song?>(null) }
+    /** A song waiting for Android's delete confirmation, held by the model so rotation keeps it. */
     val confirmDelete = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        val song = deleting ?: return@rememberLauncherForActivityResult
-        deleting = null
+        val song = vm.pendingDelete ?: return@rememberLauncherForActivityResult
+        vm.pendingDelete = null
         if (result.resultCode == Activity.RESULT_OK) vm.songDeleted(song)
     }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
-    var detail by remember { mutableStateOf<Detail?>(null) }
+    var detail by rememberSaveable(stateSaver = DetailSaver) { mutableStateOf<Detail?>(null) }
     var nowPlaying by rememberSaveable { mutableStateOf(false) }
     var details by remember { mutableStateOf<Song?>(null) }
     val themes by vm.themes.collectAsStateWithLifecycle()
@@ -240,16 +285,22 @@ private fun EncoreApp(vm: PlayerViewModel) {
     var editingTags by remember { mutableStateOf<Song?>(null) }
     var editingLyrics by remember { mutableStateOf<Song?>(null) }
     /** Tags and lyrics waiting on a system prompt, saved again once the person allows it. */
-    var pendingTags by remember { mutableStateOf<Pair<Song, Tags>?>(null) }
-    var pendingLyrics by remember { mutableStateOf<Pair<Song, List<LyricLine>>?>(null) }
     val allowWrite = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        val (song, tags) = pendingTags ?: return@rememberLauncherForActivityResult
-        pendingTags = null
-        if (result.resultCode == Activity.RESULT_OK) scope.launch { vm.saveTags(song, tags) }
+        val (song, tags) = vm.pendingTags ?: return@rememberLauncherForActivityResult
+        vm.pendingTags = null
+        if (result.resultCode == Activity.RESULT_OK) scope.launch {
+            // The provider may ask again; the effect below relaunches when it does.
+            vm.saveTags(song, tags)?.let { request -> vm.pendingWriteRequest = request }
+        }
+    }
+    LaunchedEffect(vm.pendingWriteRequest) {
+        val request = vm.pendingWriteRequest ?: return@LaunchedEffect
+        vm.pendingWriteRequest = null
+        allowWrite.launch(IntentSenderRequest.Builder(request).build())
     }
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
-        val (song, lines) = pendingLyrics ?: return@rememberLauncherForActivityResult
-        pendingLyrics = null
+        val (song, lines) = vm.pendingLyrics ?: return@rememberLauncherForActivityResult
+        vm.pendingLyrics = null
         if (tree == null) return@rememberLauncherForActivityResult
         vm.grantLyricsFolder(tree)
         scope.launch {
@@ -273,7 +324,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                     when (val request = vm.deleteSong(song)) {
                         null -> vm.songDeleted(song)
                         else -> {
-                            deleting = song
+                            vm.pendingDelete = song
                             confirmDelete.launch(IntentSenderRequest.Builder(request).build())
                         }
                     }
@@ -378,7 +429,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         Tab.entries.forEachIndexed { index, entry ->
                             NavigationBarItem(
                                 selected = tab == index && page == null,
-                                onClick = { tab = index; detail = null; page = null },
+                                onClick = { haptic(HapticFeedbackType.TextHandleMove); tab = index; detail = null; page = null },
                                 icon = { Icon(icon(entry.icon), null) },
                                 label = { Text(stringResource(entry.label), maxLines = 1) },
                             )
@@ -401,10 +452,15 @@ private fun EncoreApp(vm: PlayerViewModel) {
                     targetState = Screen(tab, page, open, settingsPage),
                     modifier = Modifier.weight(1f),
                     transitionSpec = {
-                        if (reduceMotion) {
-                            EnterTransition.None togetherWith ExitTransition.None
-                        } else {
-                            (fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 }) togetherWith fadeOut(tween(140))
+                        // Drilling in slides from the right, coming back from the left, and
+                        // switching tabs only fades.
+                        when {
+                            reduceMotion -> EnterTransition.None togetherWith ExitTransition.None
+                            targetState.depth > initialState.depth ->
+                                (fadeIn(tween(220)) + slideInHorizontally(tween(260)) { it / 10 }) togetherWith fadeOut(tween(140))
+                            targetState.depth < initialState.depth ->
+                                (fadeIn(tween(220)) + slideInHorizontally(tween(260)) { -it / 10 }) togetherWith fadeOut(tween(140))
+                            else -> fadeIn(tween(220)) togetherWith fadeOut(tween(140))
                         }
                     },
                     contentKey = { it },
@@ -417,7 +473,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                     val shownSettings = screen.settingsPage
                     Box(Modifier.fillMaxSize()) {
                     when {
-                        open != null -> DetailScreen(open, lib, current, actions, vm::removeFromPlaylist)
+                        open != null -> DetailScreen(open, lib, smart, current, actions, vm::removeFromPlaylist)
                         page == Page.Search -> SearchScreen(
                             library = lib,
                             radio = radio,
@@ -462,6 +518,11 @@ private fun EncoreApp(vm: PlayerViewModel) {
                                     onEqualizerEnabled = vm::setEqualizerEnabled,
                                     onBandLevel = vm::setBandLevel,
                                     onPreset = vm::useEqualizerPreset,
+                                    onBass = vm::setBassStrength,
+                                    onSurround = vm::setSurroundStrength,
+                                    onSavePreset = vm::saveEqualizerPreset,
+                                    onDeletePreset = vm::deleteEqualizerPreset,
+                                    onUsePreset = vm::useEqualizerPreset,
                                     onShowFolder = vm::showFolder,
                                     onTheme = vm::useTheme,
                                     onDeleteTheme = vm::deleteTheme,
@@ -537,6 +598,8 @@ private fun EncoreApp(vm: PlayerViewModel) {
         }
 
         editingLyrics?.let { song ->
+            // Reading may still be under way; the editor fills in as the lines arrive.
+            LaunchedEffect(song) { vm.loadLyrics(song) }
             val shown = (lyrics as? LyricsState.Found)?.takeIf { it.mediaId == song.toMediaItem().mediaId }?.lyrics?.lines.orEmpty()
             LyricsEditor(
                 song = song,
@@ -548,7 +611,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             true -> editingLyrics = null
                             // No folder holds the song yet: ask for one, starting at Music.
                             false -> {
-                                pendingLyrics = song to lines
+                                vm.pendingLyrics = song to lines
                                 vm.showNotice(R.string.notice_lyrics_pick_folder)
                                 pickFolder.launch(musicFolder())
                             }
@@ -604,8 +667,8 @@ private fun EncoreApp(vm: PlayerViewModel) {
                     editingTags = null
                     scope.launch {
                         vm.saveTags(song, tags)?.let { request ->
-                            pendingTags = song to tags
-                            allowWrite.launch(IntentSenderRequest.Builder(request).build())
+                            vm.pendingTags = song to tags
+                            vm.pendingWriteRequest = request
                         }
                     }
                 },
@@ -633,26 +696,28 @@ private fun EncoreApp(vm: PlayerViewModel) {
 private fun DetailScreen(
     detail: Detail,
     library: Library?,
+    smart: List<SmartPlaylist>,
     current: String?,
     actions: SongActions,
     onRemoveFromPlaylist: (Playlist, Song) -> Unit,
 ) {
     val unknownArtist = stringResource(R.string.unknown_artist)
     when (detail) {
-        is Detail.OfAlbum -> CollectionScreen(
-            detail.album.title.orUnknown(stringResource(R.string.unknown_album)),
-            detail.album.artist.orUnknown(unknownArtist),
-            detail.album.songs,
-            current,
-            actions,
-        )
-        is Detail.OfArtist -> CollectionScreen(
-            detail.artist.name.orUnknown(unknownArtist),
-            "",
-            detail.artist.songs,
-            current,
-            actions,
-        )
+        is Detail.OfAlbum -> {
+            // A rotation restores only the album's id, so read the songs back from the library.
+            val album = library?.albums?.firstOrNull { it.id == detail.album.id } ?: detail.album
+            CollectionScreen(
+                album.title.orUnknown(stringResource(R.string.unknown_album)),
+                album.artist.orUnknown(unknownArtist),
+                album.songs,
+                current,
+                actions,
+            )
+        }
+        is Detail.OfArtist -> {
+            val artist = library?.artists?.firstOrNull { it.name == detail.artist.name } ?: detail.artist
+            CollectionScreen(artist.name.orUnknown(unknownArtist), "", artist.songs, current, actions)
+        }
         is Detail.OfPlaylist -> {
             // Read the playlist again from the library, so songs added or removed show at once. Removing
             // a song makes the playlist again under a new id, so fall back to its name.
@@ -662,8 +727,10 @@ private fun DetailScreen(
             CollectionScreen(playlist.name, "", playlist.songs, current, actions) { onRemoveFromPlaylist(playlist, it) }
         }
         is Detail.OfSmart -> {
-            val songs = remember(detail.playlist, library) { library?.let(detail.playlist::songs).orEmpty() }
-            CollectionScreen(detail.playlist.name, stringResource(R.string.smart_label), songs, current, actions)
+            // A restored snapshot carries no rules; the live one does.
+            val playlist = smart.firstOrNull { it.id == detail.playlist.id } ?: detail.playlist
+            val songs = remember(playlist, library) { library?.let(playlist::songs).orEmpty() }
+            CollectionScreen(playlist.name, stringResource(R.string.smart_label), songs, current, actions)
         }
     }
 }
@@ -690,4 +757,13 @@ private fun PermissionPrompt(onGrant: () -> Unit) {
 private fun musicFolder(): Uri = DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Music")
 
 /** What the main area shows; a change between two of these animates. */
-private data class Screen(val tab: Int, val page: Page?, val detail: Detail?, val settingsPage: SettingsPage?)
+private data class Screen(val tab: Int, val page: Page?, val detail: Detail?, val settingsPage: SettingsPage?) {
+    /** How far down the drill-down stack the screen sits; deeper screens slide in from the right. */
+    val depth: Int
+        get() = when {
+            settingsPage != null -> 3
+            detail != null -> 2
+            page != null -> 1
+            else -> 0
+        }
+}

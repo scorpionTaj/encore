@@ -147,7 +147,9 @@ fun LyricsEditor(
     onSave: (List<LyricLine>) -> Unit,
     onClose: () -> Unit,
 ) {
-    val lines = remember(song.id) {
+    // Keyed on the initial lines too: lyrics read while the editor is open fill it in, instead
+    // of leaving a blank editor whose Save would overwrite the song's real .lrc with nothing.
+    val lines = remember(song.id, initial) {
         mutableStateListOf<LyricLine>().apply { addAll(initial.ifEmpty { listOf(LyricLine(-1, "")) }) }
     }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

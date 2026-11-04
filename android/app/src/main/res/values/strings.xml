@@ -108,6 +108,12 @@
     <string name="update_install">Update</string>
     <string name="update_later">Later</string>
     <string name="settings_equalizer">Equalizer</string>
+    <string name="settings_bass">Bass boost</string>
+    <string name="settings_surround">Surround sound</string>
+    <string name="settings_own_presets">Your presets</string>
+    <string name="settings_save_preset">Save the current levels as a preset</string>
+    <string name="preset_use">Use this preset</string>
+    <string name="preset_delete">Delete this preset</string>
     <string name="equalizer_unavailable">This device offers no equalizer.</string>
     <string name="equalizer_enabled">Use the equalizer</string>
     <string name="equalizer_band">%1$s · %2$+.1f dB</string>
@@ -251,6 +257,8 @@
     <string name="settings_ambient_body">Show the cover, blurred, behind Now playing.</string>
     <string name="settings_keep_screen_on">Keep the screen on</string>
     <string name="settings_keep_screen_on_body">While Now playing is open.</string>
+    <string name="settings_haptics">Haptic feedback</string>
+    <string name="settings_haptics_body">A light buzz on play, skip and swipes.</string>
     <string name="settings_lyrics_size">Lyrics size</string>
     <string name="settings_lyrics_sources">Lyrics sources</string>
     <string name="settings_lyrics_sources_body">The .lrc beside a song comes first, then these, in this order.</string>

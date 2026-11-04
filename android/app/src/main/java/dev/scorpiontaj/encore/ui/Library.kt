@@ -585,7 +585,9 @@ fun LazyListScope.playAllHeader(songs: List<Song>, actions: SongActions) = item 
 }
 
 fun LazyListScope.songItems(songs: List<Song>, current: String?, actions: SongActions, onRemove: ((Song) -> Unit)? = null) =
-    itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+    // The key carries the position: playlists imported from elsewhere may hold one song twice,
+    // and a repeated key crashes the list.
+    itemsIndexed(songs, key = { index, song -> "$index:${song.id}" }) { index, song ->
         SongRow(song, current == "$SONG_PREFIX${song.id}", actions, onRemove, Modifier.animateItem()) { actions.play(songs, index) }
     }
 
