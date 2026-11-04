@@ -407,6 +407,41 @@ fun FoldersScreen(
     }
 }
 
+/** The genres the library carries, alphabetical, each opening the songs tagged with it. */
+@Composable
+fun GenresScreen(library: Library, onGenre: (String) -> Unit) {
+    val genres = remember(library) {
+        library.songs
+            .filter { !it.genre.isNullOrBlank() }
+            .groupBy { it.genre!! }
+            .map { (genre, songs) ->
+                genre to songs.sortedWith(compareBy({ it.album.lowercase() }, { it.track }))
+            }
+            .sortedBy { (genre, _) -> genre.lowercase() }
+    }
+    if (genres.isEmpty()) return Message(stringResource(R.string.genres_empty))
+    LazyColumn(Modifier.fillMaxSize()) {
+        items(genres, key = { it.first }) { (genre, songs) ->
+            ListRow(
+                title = genre,
+                subtitle = pluralStringResource(R.plurals.songs_count, songs.size, songs.size),
+                leading = {
+                    Surface(
+                        Modifier.size(48.dp),
+                        RoundedCornerShape(8.dp),
+                        MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(icon(R.drawable.ic_audio_lines), null, Modifier.size(24.dp))
+                        }
+                    }
+                },
+                onClick = { onGenre(genre) },
+            )
+        }
+    }
+}
+
 /** What was listened to most recently, newest first. */
 @Composable
 fun HistoryScreen(recent: List<TopSong>?, library: Library?, current: String?, onPlay: (String) -> Unit) {

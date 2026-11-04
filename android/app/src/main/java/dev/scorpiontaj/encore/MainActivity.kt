@@ -101,6 +101,7 @@ import dev.scorpiontaj.encore.ui.icon
 import dev.scorpiontaj.encore.ui.isDark
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import dev.scorpiontaj.encore.ui.FoldersScreen
+import dev.scorpiontaj.encore.ui.GenresScreen
 import dev.scorpiontaj.encore.ui.HistoryScreen
 import dev.scorpiontaj.encore.ui.Loading
 import dev.scorpiontaj.encore.ui.MiniPlayer
@@ -223,6 +224,7 @@ private enum class Page(val title: Int, val icon: Int) {
     Search(R.string.action_search, R.drawable.ic_search),
     Stats(R.string.page_stats, R.drawable.ic_bar_chart),
     History(R.string.page_history, R.drawable.ic_history),
+    Genres(R.string.page_genres, R.drawable.ic_audio_lines),
     Folders(R.string.page_folders, R.drawable.ic_folder),
     Settings(R.string.page_settings, R.drawable.ic_settings),
 }
@@ -252,6 +254,8 @@ private fun EncoreApp(vm: PlayerViewModel) {
     val recent by vm.recent.collectAsStateWithLifecycle()
     val missingCovers by vm.missingCovers.collectAsStateWithLifecycle()
     var folder by rememberSaveable { mutableStateOf("") }
+    /** The genre whose songs the Genres page shows, or the list of all genres. */
+    var genre by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<SmartPlaylist?>(null) }
     var creating by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
@@ -354,9 +358,13 @@ private fun EncoreApp(vm: PlayerViewModel) {
     BackHandler(enabled = page == Page.Folders && folder.isNotEmpty() && detail == null && !nowPlaying) {
         folder = folder.removeSuffix("/").substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     }
+    BackHandler(enabled = page == Page.Genres && genre != null && detail == null && !nowPlaying) {
+        genre = null
+    }
     BackHandler(
         enabled = page != null && detail == null && !nowPlaying &&
-            !(page == Page.Folders && folder.isNotEmpty()) && !(page == Page.Settings && settingsPage != null),
+            !(page == Page.Folders && folder.isNotEmpty()) && !(page == Page.Settings && settingsPage != null) &&
+            !(page == Page.Genres && genre != null),
     ) {
         page = null
     }
@@ -385,6 +393,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                                 when {
                                     detail != null -> detail = null
                                     page == Page.Settings && settingsPage != null -> settingsPage = null
+                                    page == Page.Genres && genre != null -> genre = null
                                     else -> page = null
                                 }
                             }) {
@@ -503,6 +512,20 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         page == Page.History -> HistoryScreen(recent, lib, current) { id ->
                             lib?.song(id)?.let { vm.play(listOf(it)) }
                                 ?: (radio as? RadioState.Loaded)?.stations?.firstOrNull { it.mediaId == id }?.let(vm::play)
+                        }
+                        page == Page.Genres -> when (lib) {
+                            null -> Loading(stringResource(R.string.library_loading))
+                            else -> when (val open = genre) {
+                                null -> GenresScreen(lib) { genre = it }
+                                else -> CollectionScreen(
+                                    open,
+                                    "",
+                                    lib.songs.filter { it.genre == open }
+                                        .sortedWith(compareBy({ it.album.lowercase() }, { it.track })),
+                                    current,
+                                    actions,
+                                )
+                            }
                         }
                         page == Page.Folders -> when (lib) {
                             null -> Loading(stringResource(R.string.library_loading))

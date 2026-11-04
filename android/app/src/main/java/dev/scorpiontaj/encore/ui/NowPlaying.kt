@@ -45,7 +45,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -449,8 +454,15 @@ fun NowPlayingScreen(
                 Message(stringResource(R.string.queue_empty))
             } else {
                 val list = rememberLazyListState(initialFirstVisibleItemIndex = state.index.coerceAtLeast(0))
-                LazyColumn(state = list) {
+                // Dragging a row after a long press moves it about: the rows are one height, so
+                // the drag translates into whole-row moves, handed to the queue as they happen.
+                val rowHeight = with(LocalDensity.current) { QUEUE_ROW.dp.toPx() }
+                var dragFrom by remember { mutableIntStateOf(-1) }
+                var dragOffset by remember { mutableFloatStateOf(0f) }
+                LazyColumn(state = list, modifier = Modifier.fillMaxWidth()) {
                     itemsIndexed(state.queue, key = { index, item -> "$index:${item.mediaId}" }) { index, item ->
+                        val here = remember { mutableIntStateOf(index) }
+                        here.intValue = index
                         val dismiss = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -465,6 +477,41 @@ fun NowPlayingScreen(
                         SwipeToDismissBox(
                             state = dismiss,
                             enableDismissFromStartToEnd = false,
+                            modifier = Modifier
+                                .zIndex(if (index == dragFrom) 1f else 0f)
+                                .graphicsLayer { translationY = if (index == dragFrom) dragOffset else 0f }
+                                .pointerInput(vm) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            if (state.queue.size > 1) {
+                                                dragFrom = here.intValue
+                                                dragOffset = 0f
+                                                haptic(HapticFeedbackType.LongPress)
+                                            }
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            if (dragFrom < 0) return@detectDragGesturesAfterLongPress
+                                            dragOffset += amount.y
+                                            val to = (dragFrom + (dragOffset / rowHeight).toInt())
+                                                .coerceIn(0, state.queue.size - 1)
+                                            if (to != dragFrom) {
+                                                vm.moveInQueue(dragFrom, to)
+                                                dragOffset -= (to - dragFrom) * rowHeight
+                                                dragFrom = to
+                                                haptic(HapticFeedbackType.TextHandleMove)
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            dragFrom = -1
+                                            dragOffset = 0f
+                                        },
+                                        onDragCancel = {
+                                            dragFrom = -1
+                                            dragOffset = 0f
+                                        },
+                                    )
+                                },
                             backgroundContent = {
                                 Box(
                                     Modifier.fillMaxSize().padding(horizontal = 24.dp),
@@ -677,6 +724,9 @@ private fun subtitle(state: PlayerState): String {
 }
 
 private const val POSITION_POLL_MS = 500L
+
+/** The height of a queue row, the unit whole-row drags move by, in dp. */
+private const val QUEUE_ROW = 64
 
 /** How far up the mini player travels before it opens, and down a screen before it closes, in dp. */
 private const val OPEN_SWIPE = 56

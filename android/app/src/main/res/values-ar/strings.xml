@@ -179,6 +179,9 @@
     <string name="action_cancel">إلغاء</string>
     <string name="page_history">استمعت إليه مؤخرًا</string>
     <string name="page_folders">المجلدات</string>
+    <string name="page_genres">الأنواع</string>
+    <string name="unknown_genre">نوع غير معروف</string>
+    <string name="genres_empty">لا توجد أغاني مصنفة بضمن نوع بعد.</string>
     <string name="history_empty">لم يتم تشغيل أي شيء بعد.</string>
     <string name="settings_playback">التشغيل</string>
     <string name="settings_normalize">توحيد مستوى الصوت</string>

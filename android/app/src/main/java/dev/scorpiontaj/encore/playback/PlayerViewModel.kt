@@ -752,6 +752,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeFromQueue(index: Int) = controller?.removeMediaItem(index)
 
+    /** Moves a queued item to another spot, as dragging it about does. */
+    fun moveInQueue(from: Int, to: Int) = controller?.moveMediaItem(from, to)
+
     // Equalizer
 
     fun setEqualizerEnabled(enabled: Boolean) = Sound.setEnabled(getApplication(), enabled)

@@ -165,6 +165,9 @@
     <string name="action_cancel">Cancel</string>
     <string name="page_history">Recently played</string>
     <string name="page_folders">Folders</string>
+    <string name="page_genres">Genres</string>
+    <string name="unknown_genre">Unknown genre</string>
+    <string name="genres_empty">Songs have no genre tags yet.</string>
     <string name="history_empty">Nothing played yet.</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_normalize">Loudness normalisation</string>
