@@ -2171,6 +2171,8 @@ impl Playback {
 
         self.task = None;
         retire(self.engine.take());
+        // The old engine's preloaded track went with it; the new one must be asked again.
+        self.preloaded = None;
         self.start_engine(playback, cx);
         if let Some(track) = current
             && playing == Some(true)
