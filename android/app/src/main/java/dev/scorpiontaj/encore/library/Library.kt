@@ -128,7 +128,7 @@ data class Library(
          * the main thread, after audio permission is granted.
          */
         fun load(resolver: ContentResolver, hidden: Set<String> = emptySet()): Library {
-            val songs = songs(resolver).filterNot { song -> hidden.any { song.folder.startsWith(it) } }
+            val songs = songs(resolver).filterNot { song -> hidden.any { isUnder(song.folder, it) } }
             val albums = songs.groupBy { it.albumId }.map { (id, tracks) ->
                 val sorted = tracks.sortedBy { it.track }
                 Album(id, sorted.first().album, sorted.first().albumArtist, sorted)
@@ -137,6 +137,17 @@ data class Library(
                 Artist(name, tracks.sortedWith(compareBy({ it.album.lowercase() }, { it.track })))
             }.sortedBy { it.name.lowercase() }
             return Library(songs, albums, artists, playlists(resolver, songs.associateBy { it.id }))
+        }
+
+        /**
+         * True when [folder] is [hidden] itself or inside it, comparing whole path segments. An
+         * empty [hidden] hides nothing, and a half-segment like "Voice" never hides "Voicework/".
+         */
+        private fun isUnder(folder: String, hidden: String): Boolean {
+            val inside = hidden.trim('/')
+            if (inside.isEmpty()) return false
+            val here = folder.trim('/')
+            return here == inside || here.startsWith("$inside/")
         }
 
         private fun songs(resolver: ContentResolver): List<Song> {

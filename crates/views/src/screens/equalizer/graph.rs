@@ -518,6 +518,8 @@ impl EqualizerSpectrum {
                 this.from = this.shown(cx);
                 this.arrived = Instant::now();
                 this.levels = levels.to_vec();
+                // A read redraws on its own; a wait scheduled for the one before is stale, and
+                // left to fire it would redraw again for nothing. Dropping the task cancels it.
                 this.frame = None;
                 cx.notify();
             }

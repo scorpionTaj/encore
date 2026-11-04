@@ -62,6 +62,7 @@ import dev.scorpiontaj.encore.library.Summary
 import dev.scorpiontaj.encore.playback.EqualizerState
 import dev.scorpiontaj.encore.playback.RadioState
 import dev.scorpiontaj.encore.playback.UpdateState
+import dev.scorpiontaj.encore.radio.RADIO_PREFIX
 import dev.scorpiontaj.encore.radio.Station
 import dev.scorpiontaj.encore.settings.SettingsState
 import dev.scorpiontaj.encore.settings.ThemeFile
@@ -352,13 +353,17 @@ fun HistoryScreen(recent: List<TopSong>?, library: Library?, current: String?, o
         else -> LazyColumn(Modifier.fillMaxSize()) {
             items(recent, key = { it.mediaId }) { entry ->
                 val song = library?.song(entry.mediaId)
+                // Only a station id stands for the airwaves; a file opened from another app is
+                // unknown, not a radio station.
+                val station = entry.mediaId.startsWith(RADIO_PREFIX)
                 ListRow(
                     title = entry.title,
                     subtitle = listOfNotNull(
-                        entry.artist ?: stringResource(R.string.radio_station).takeIf { song == null },
+                        entry.artist ?: stringResource(if (station) R.string.radio_station else R.string.unknown_artist)
+                            .takeIf { song == null },
                         pluralStringResource(R.plurals.stats_plays, entry.plays, entry.plays),
                     ).joinToString(" · "),
-                    leading = { if (song != null) Artwork(song.uri) else StationArtwork(null) },
+                    leading = { if (song != null) Artwork(song.uri) else StationArtwork(if (station) null else "") },
                     highlighted = current == entry.mediaId,
                     onClick = { onPlay(entry.mediaId) },
                 )

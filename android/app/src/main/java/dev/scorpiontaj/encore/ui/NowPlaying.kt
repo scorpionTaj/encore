@@ -1,16 +1,34 @@
 package dev.scorpiontaj.encore.ui
 
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,8 +59,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,8 +72,10 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,6 +83,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import dev.scorpiontaj.encore.R
@@ -72,12 +97,26 @@ import dev.scorpiontaj.encore.playback.SleepState
 import dev.scorpiontaj.encore.radio.Recorder
 import dev.scorpiontaj.encore.radio.Recording
 import dev.scorpiontaj.encore.radio.stationOf
+import dev.scorpiontaj.encore.settings.Settings
 import android.os.SystemClock
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+/**
+ * Buzzes for playback actions — play, skip, swipe dismiss — when the person has not turned
+ * haptics off in Settings → Now playing.
+ */
+@Composable
+fun hapticFeedback(): (HapticFeedbackType) -> Unit {
+    val feedback = LocalHapticFeedback.current
+    val settings by Settings.state.collectAsStateWithLifecycle()
+    return { type -> if (settings.haptics) feedback.performHapticFeedback(type) }
+}
 
 /** The bar above the tabs while something is loaded: tap it to open [NowPlayingScreen]. */
 @Composable
 fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpen: () -> Unit) {
+    val haptic = hapticFeedback()
     val position = rememberPosition(state, vm)
     Surface(tonalElevation = 3.dp) {
         Column {
@@ -92,6 +131,7 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
             Row(
                 Modifier
                     .fillMaxWidth()
+                    .swipeUpToOpen { haptic(HapticFeedbackType.LongPress); onOpen() }
                     .clickable(onClick = onOpen)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -113,7 +153,7 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
                     )
                 }
                 PlayPauseButton(state.playing, vm::togglePlay, filled = false)
-                IconButton(onClick = vm::next) {
+                IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.next() }) {
                     Icon(icon(R.drawable.ic_skip_next), stringResource(R.string.action_next))
                 }
             }
@@ -136,6 +176,7 @@ fun NowPlayingScreen(
     onEditLyrics: (Song) -> Unit,
     onClose: () -> Unit,
 ) {
+    val haptic = hapticFeedback()
     var songMenu by remember { mutableStateOf(false) }
     val station = remember(state.mediaId, state.queue, state.index) { stationOf(state.queue.getOrNull(state.index)) }
     var sleepMenu by remember { mutableStateOf(false) }
@@ -148,6 +189,7 @@ fun NowPlayingScreen(
     LaunchedEffect(showLyrics, song) { if (showLyrics) vm.loadLyrics(song) }
 
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val reduceMotion = settings.reduceMotion
     // Keeps the screen on while this screen shows, when asked for in Settings → Now playing.
     val view = LocalView.current
     DisposableEffect(settings.keepScreenOn) {
@@ -174,7 +216,10 @@ fun NowPlayingScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().dragToDismiss { haptic(HapticFeedbackType.LongPress); onClose() }.padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = onClose) {
                     Icon(icon(R.drawable.ic_expand_more), stringResource(R.string.action_close))
                 }
@@ -266,15 +311,38 @@ fun NowPlayingScreen(
                     Icon(icon(R.drawable.ic_queue_music), stringResource(R.string.action_queue))
                 }
             }
-            when (showLyrics && song != null) {
-                true -> LyricsView(lyrics, position, settings.lyricsScale, Modifier.weight(3f).fillMaxWidth()) { vm.seekTo(it) }
-                false -> {
-                    Spacer(Modifier.weight(1f))
-                    Box(Modifier.widthIn(max = 420.dp)) {
-                        val artworkUri = state.metadata.artworkUri?.toString()
-                        when {
-                            song == null && artworkUri != null -> StationArtwork(artworkUri, size = 280.dp)
-                            else -> Artwork(song?.uri, size = androidx.compose.ui.unit.Dp.Unspecified, bitmap = state.artwork)
+            AnimatedContent(
+                targetState = showLyrics && song != null,
+                modifier = Modifier.weight(3f).fillMaxWidth(),
+                transitionSpec = {
+                    if (reduceMotion) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        fadeIn(tween(220)) togetherWith fadeOut(tween(140))
+                    }
+                },
+                label = "now-playing-body",
+            ) { showingLyrics ->
+                when (showingLyrics) {
+                    true -> LyricsView(lyrics, position, settings.lyricsScale, Modifier.fillMaxSize()) { vm.seekTo(it) }
+                    false -> Column(Modifier.fillMaxSize()) {
+                        Spacer(Modifier.weight(1f))
+                        Box(
+                            Modifier
+                                .widthIn(max = 420.dp)
+                                .fillMaxWidth()
+                                .dragToDismiss { haptic(HapticFeedbackType.LongPress); onClose() }
+                                .swipeToTrack(
+                                    onPrevious = { haptic(HapticFeedbackType.TextHandleMove); vm.previous() },
+                                    onNext = { haptic(HapticFeedbackType.TextHandleMove); vm.next() },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            val artworkUri = state.metadata.artworkUri?.toString()
+                            when {
+                                song == null && artworkUri != null -> StationArtwork(artworkUri, size = 280.dp)
+                                else -> Artwork(song?.uri, size = androidx.compose.ui.unit.Dp.Unspecified, bitmap = state.artwork)
+                            }
                         }
                     }
                 }
@@ -311,6 +379,8 @@ fun NowPlayingScreen(
             }
             Spacer(Modifier.height(20.dp))
             if (state.seekable && state.durationMs > 0) {
+                val thumbSize by animateDpAsState(if (scrubbing) 26.dp else 20.dp, label = "seek-thumb")
+                val thumbInteraction = remember { MutableInteractionSource() }
                 Slider(
                     value = if (scrubbing) scrub else (position.toFloat() / state.durationMs).coerceIn(0f, 1f),
                     onValueChange = { scrubbing = true; scrub = it },
@@ -318,6 +388,8 @@ fun NowPlayingScreen(
                         vm.seekTo((scrub * state.durationMs).toLong())
                         scrubbing = false
                     },
+                    interactionSource = thumbInteraction,
+                    thumb = { SliderDefaults.Thumb(interactionSource = thumbInteraction, thumbSize = DpSize(thumbSize, thumbSize)) },
                 )
                 Row(Modifier.fillMaxWidth()) {
                     val shown = if (scrubbing) (scrub * state.durationMs).toLong() else position
@@ -338,21 +410,21 @@ fun NowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = vm::toggleShuffle) {
+                IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.toggleShuffle() }) {
                     Icon(
                         icon(R.drawable.ic_shuffle),
                         stringResource(if (state.shuffle) R.string.shuffle_on else R.string.shuffle_off),
                         tint = toggleTint(state.shuffle),
                     )
                 }
-                IconButton(onClick = vm::previous, Modifier.size(56.dp)) {
+                IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.previous() }, Modifier.size(56.dp)) {
                     Icon(icon(R.drawable.ic_skip_previous), stringResource(R.string.action_previous), Modifier.size(32.dp))
                 }
                 PlayPauseButton(state.playing, vm::togglePlay, filled = true)
-                IconButton(onClick = vm::next, Modifier.size(56.dp)) {
+                IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.next() }, Modifier.size(56.dp)) {
                     Icon(icon(R.drawable.ic_skip_next), stringResource(R.string.action_next), Modifier.size(32.dp))
                 }
-                IconButton(onClick = vm::cycleRepeat) {
+                IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.cycleRepeat() }) {
                     val (repeatIcon, label) = when (state.repeatMode) {
                         Player.REPEAT_MODE_ONE -> R.drawable.ic_repeat_one to R.string.repeat_one
                         Player.REPEAT_MODE_ALL -> R.drawable.ic_repeat to R.string.repeat_all
@@ -379,20 +451,48 @@ fun NowPlayingScreen(
                 val list = rememberLazyListState(initialFirstVisibleItemIndex = state.index.coerceAtLeast(0))
                 LazyColumn(state = list) {
                     itemsIndexed(state.queue, key = { index, item -> "$index:${item.mediaId}" }) { index, item ->
-                        val itemSong = library?.song(item.mediaId)
-                        ListRow(
-                            title = item.mediaMetadata.title?.toString().orEmpty(),
-                            subtitle = item.mediaMetadata.artist?.toString()
-                                ?: stringResource(if (itemSong == null) R.string.radio_station else R.string.unknown_artist),
-                            leading = { Artwork(itemSong?.uri) },
-                            highlighted = index == state.index,
-                            onClick = { vm.skipTo(index) },
-                            trailing = {
-                                IconButton(onClick = { vm.removeFromQueue(index) }) {
-                                    Icon(icon(R.drawable.ic_close), stringResource(R.string.action_remove))
+                        val dismiss = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    haptic(HapticFeedbackType.LongPress)
+                                    vm.removeFromQueue(index)
+                                    true
+                                } else {
+                                    false
                                 }
                             },
                         )
+                        SwipeToDismissBox(
+                            state = dismiss,
+                            enableDismissFromStartToEnd = false,
+                            backgroundContent = {
+                                Box(
+                                    Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                                    contentAlignment = Alignment.CenterEnd,
+                                ) {
+                                    Icon(
+                                        icon(R.drawable.ic_close),
+                                        stringResource(R.string.action_remove),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            },
+                        ) {
+                            val itemSong = library?.song(item.mediaId)
+                            ListRow(
+                                title = item.mediaMetadata.title?.toString().orEmpty(),
+                                subtitle = item.mediaMetadata.artist?.toString()
+                                    ?: stringResource(if (itemSong == null) R.string.radio_station else R.string.unknown_artist),
+                                leading = { Artwork(itemSong?.uri) },
+                                highlighted = index == state.index,
+                                onClick = { vm.skipTo(index) },
+                                trailing = {
+                                    IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.removeFromQueue(index) }) {
+                                        Icon(icon(R.drawable.ic_close), stringResource(R.string.action_remove))
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -442,7 +542,7 @@ private fun LyricsView(state: LyricsState, positionMs: Long, scale: Float, modif
                             Modifier
                                 .fillMaxWidth()
                                 .clickable(enabled = line.startMs >= 0) { onSeek(line.startMs) }
-                                .padding(vertical = 6.dp),
+                                .padding(vertical = 8.dp),
                             style = MaterialTheme.typography.titleLarge.let { it.copy(fontSize = it.fontSize * scale, lineHeight = it.lineHeight * scale) },
                             color = when {
                                 !state.lyrics.synced || index == active -> MaterialTheme.colorScheme.onSurface
@@ -467,14 +567,76 @@ private fun LyricsView(state: LyricsState, positionMs: Long, scale: Float, modif
 
 @Composable
 private fun PlayPauseButton(playing: Boolean, onClick: () -> Unit, filled: Boolean) {
+    val haptic = hapticFeedback()
     val label = stringResource(if (playing) R.string.action_pause else R.string.action_play)
     when (filled) {
         true -> FilledIconButton(
-            onClick = onClick,
+            onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
             modifier = Modifier.size(72.dp),
             colors = IconButtonDefaults.filledIconButtonColors(),
         ) { Crossfade(playing, label = "play") { now -> Icon(icon(if (now) R.drawable.ic_pause else R.drawable.ic_play), label, Modifier.size(36.dp)) } }
-        false -> IconButton(onClick = onClick) { Crossfade(playing, label = "play") { now -> Icon(icon(if (now) R.drawable.ic_pause else R.drawable.ic_play), label) } }
+        false -> IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() }) { Crossfade(playing, label = "play") { now -> Icon(icon(if (now) R.drawable.ic_pause else R.drawable.ic_play), label) } }
+    }
+}
+
+/** Opens the full player when the mini player is dragged or flung up far enough. */
+private fun Modifier.swipeUpToOpen(onOpen: () -> Unit): Modifier = composed {
+    var travelled by remember { mutableFloatStateOf(0f) }
+    pointerInput(onOpen) {
+        detectVerticalDragGestures(
+            onDragStart = { travelled = 0f },
+            onVerticalDrag = { change, amount ->
+                travelled += amount
+                change.consume()
+            },
+            onDragEnd = {
+                if (-travelled > OPEN_SWIPE.dp.toPx()) onOpen()
+            },
+        )
+    }
+}
+
+/** Drags the content down with the finger and closes it once the drag goes far enough. */
+private fun Modifier.dragToDismiss(onDismiss: () -> Unit): Modifier = composed {
+    val offset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    pointerInput(onDismiss) {
+        detectVerticalDragGestures(
+            onVerticalDrag = { change, amount ->
+                change.consume()
+                scope.launch { offset.snapTo((offset.value + amount).coerceAtLeast(0f)) }
+            },
+            onDragEnd = {
+                scope.launch {
+                    if (offset.value > DISMISS_DRAG.dp.toPx()) {
+                        onDismiss()
+                    } else {
+                        offset.animateTo(0f, spring(Spring.DampingRatioNoBouncy, Spring.StiffnessMediumLow))
+                    }
+                }
+            },
+            onDragCancel = { scope.launch { offset.animateTo(0f) } },
+        )
+    }.graphicsLayer { translationY = offset.value }
+}
+
+/** Plays the previous or next song when the cover is swiped sideways. */
+private fun Modifier.swipeToTrack(onPrevious: () -> Unit, onNext: () -> Unit): Modifier = composed {
+    var travelled by remember { mutableFloatStateOf(0f) }
+    pointerInput(onPrevious, onNext) {
+        detectHorizontalDragGestures(
+            onDragStart = { travelled = 0f },
+            onHorizontalDrag = { change, amount ->
+                travelled += amount
+                change.consume()
+            },
+            onDragEnd = {
+                when {
+                    travelled > SWIPE_TRACK.dp.toPx() -> onPrevious()
+                    travelled < -SWIPE_TRACK.dp.toPx() -> onNext()
+                }
+            },
+        )
     }
 }
 
@@ -482,13 +644,20 @@ private fun PlayPauseButton(playing: Boolean, onClick: () -> Unit, filled: Boole
 private fun toggleTint(on: Boolean): Color =
     if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
-/** The playback position, polled twice a second while playing. */
+/**
+ * The playback position, read on every frame while playing so the seek bar follows the audio
+ * clock at the display's refresh rate, and polled slowly while paused for remote changes.
+ */
 @Composable
 private fun rememberPosition(state: PlayerState, vm: PlayerViewModel): Long {
     var position by remember { mutableLongStateOf(vm.positionMs) }
     LaunchedEffect(state.mediaId, state.playing) {
         position = vm.positionMs
         while (state.playing) {
+            withFrameNanos {}
+            position = vm.positionMs
+        }
+        while (true) {
             delay(POSITION_POLL_MS)
             position = vm.positionMs
         }
@@ -508,4 +677,11 @@ private fun subtitle(state: PlayerState): String {
 }
 
 private const val POSITION_POLL_MS = 500L
+
+/** How far up the mini player travels before it opens, and down a screen before it closes, in dp. */
+private const val OPEN_SWIPE = 56
+private const val DISMISS_DRAG = 120
+
+/** How far sideways the cover travels before the track changes, in dp. */
+private const val SWIPE_TRACK = 80
 private val SLEEP_MINUTES = listOf(15, 30, 45, 60, 90)

@@ -3,6 +3,8 @@ package dev.scorpiontaj.encore.settings
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,8 @@ data class SettingsState(
     val ambient: Boolean = true,
     /** Keeps the screen on while the now playing screen is open. */
     val keepScreenOn: Boolean = false,
+    /** Buzzes on play, skip, swipe dismiss and other playback actions. */
+    val haptics: Boolean = true,
     /** How large lyrics are drawn, as a multiple of the normal size. */
     val lyricsScale: Float = 1f,
     // Lyrics
@@ -48,6 +52,8 @@ data class SettingsState(
     val shuffleByAlbum: Boolean = false,
     /** Seconds each song fades out and the next fades in: 0 (off), 2, 4, 6 or 8. */
     val crossfadeSeconds: Int = 0,
+    /** Equalizer presets the person saved, by name, as band levels in millibels. */
+    val equalizerPresets: Map<String, List<Int>> = emptyMap(),
     // Library
     /** Folders, such as "Music/Voice notes/", whose songs, and their subfolders' songs, stay out of the library. */
     val hiddenFolders: Set<String> = emptySet(),
@@ -89,6 +95,7 @@ object Settings {
             reduceMotion = prefs.getBoolean(REDUCE_MOTION, defaults.reduceMotion),
             ambient = prefs.getBoolean(AMBIENT, defaults.ambient),
             keepScreenOn = prefs.getBoolean(KEEP_SCREEN_ON, defaults.keepScreenOn),
+            haptics = prefs.getBoolean(HAPTICS, defaults.haptics),
             lyricsScale = prefs.getFloat(LYRICS_SCALE, defaults.lyricsScale),
             lyricsSources = prefs.getString(LYRICS_SOURCES, null)
                 ?.split(',')?.mapNotNull { name -> LyricsSource.entries.firstOrNull { it.name == name } }
@@ -97,6 +104,15 @@ object Settings {
             normalize = prefs.getBoolean(NORMALIZE, defaults.normalize),
             shuffleByAlbum = prefs.getBoolean(SHUFFLE_BY_ALBUM, defaults.shuffleByAlbum),
             crossfadeSeconds = prefs.getInt(CROSSFADE, defaults.crossfadeSeconds),
+            equalizerPresets = prefs.getString(EQUALIZER_PRESETS, null)?.let { json ->
+                runCatching {
+                    val obj = JSONObject(json)
+                    obj.keys().asSequence().associateWith { name ->
+                        val bands = obj.getJSONArray(name)
+                        List(bands.length()) { bands.getInt(it) }
+                    }
+                }.getOrNull()
+            } ?: defaults.equalizerPresets,
             hiddenFolders = prefs.getStringSet(HIDDEN_FOLDERS, emptySet()).orEmpty().toSet(),
             watchFolders = prefs.getBoolean(WATCH_FOLDERS, defaults.watchFolders),
             songSort = prefs.getString(SONG_SORT, null) ?: defaults.songSort,
@@ -117,12 +133,19 @@ object Settings {
             putBoolean(REDUCE_MOTION, next.reduceMotion)
             putBoolean(AMBIENT, next.ambient)
             putBoolean(KEEP_SCREEN_ON, next.keepScreenOn)
+            putBoolean(HAPTICS, next.haptics)
             putFloat(LYRICS_SCALE, next.lyricsScale)
             putString(LYRICS_SOURCES, next.lyricsSources.joinToString(",") { it.name })
             putString(LYRICS_TREE, next.lyricsTree)
             putBoolean(NORMALIZE, next.normalize)
             putBoolean(SHUFFLE_BY_ALBUM, next.shuffleByAlbum)
             putInt(CROSSFADE, next.crossfadeSeconds)
+            putString(
+                EQUALIZER_PRESETS,
+                JSONObject().apply {
+                    next.equalizerPresets.forEach { (name, levels) -> put(name, JSONArray(levels)) }
+                }.toString(),
+            )
             putStringSet(HIDDEN_FOLDERS, next.hiddenFolders)
             putBoolean(WATCH_FOLDERS, next.watchFolders)
             putString(SONG_SORT, next.songSort)
@@ -149,6 +172,8 @@ object Settings {
     private const val SHUFFLE_BY_ALBUM = "shuffle_by_album"
     private const val CROSSFADE = "crossfade"
     private const val HIDDEN_FOLDERS = "hidden_folders"
+    private const val HAPTICS = "haptics"
+    private const val EQUALIZER_PRESETS = "equalizer_presets"
     private const val WATCH_FOLDERS = "watch_folders"
     private const val SONG_SORT = "song_sort"
     private const val SONG_FILTER = "song_filter"

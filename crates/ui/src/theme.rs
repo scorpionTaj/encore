@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::{Duration, Instant};
 
 use gpui::{
-    App, Global, Hsla, Pixels, Rgba, SharedString, Task, WindowAppearance,
+    App, Global, Hsla, Pixels, Rgba, SharedString, Window, WindowAppearance,
     WindowBackgroundAppearance, px, rgb, rgba,
 };
 use i18n::t;
@@ -19,7 +19,6 @@ pub const MIN_LYRICS_SCALE: f32 = 0.6;
 pub const MAX_LYRICS_SCALE: f32 = 2.;
 
 const FADE: Duration = Duration::from_millis(320);
-const FRAME: Duration = Duration::from_millis(8);
 
 const SURFACE_TINT: f32 = 0.5;
 const BORDER_TINT: f32 = 0.4;
@@ -399,9 +398,10 @@ pub struct Theme {
 
 impl Global for Theme {}
 
+/// A theme change under way, fading from one look to the next on the display's own clock.
 #[derive(Default)]
 struct Transition {
-    task: Option<Task<()>>,
+    running: Option<(Instant, Theme, Theme)>,
 }
 
 impl Global for Transition {}
@@ -813,40 +813,46 @@ impl Theme {
     }
 
     pub fn set(look: Look, overrides: &ThemeOverrides, cx: &mut App) {
-        cx.default_global::<Transition>().task = None;
+        cx.default_global::<Transition>().running = None;
         cx.set_global(Self::for_look(resolve(look, cx), overrides));
         cx.refresh_windows();
     }
 
     pub fn fade(look: Look, overrides: &ThemeOverrides, cx: &mut App) {
+        // Reduced motion asks for the theme to simply switch, like every other animation does.
+        if cx.reduce_motion() {
+            Self::set(look, overrides, cx);
+            return;
+        }
         let from = *cx.theme();
         let to = Self::for_look(resolve(look, cx), overrides);
-
-        cx.default_global::<Transition>().task = None;
+        cx.set_global(Transition {
+            running: Some((Instant::now(), from, to)),
+        });
         cx.set_global(from.mixed(&to, 0.));
         cx.refresh_windows();
+    }
+}
 
-        let task = cx.spawn(async move |cx| {
-            let start = Instant::now();
-            loop {
-                cx.background_executor().timer(FRAME).await;
-
-                let delta = start.elapsed().as_secs_f32() / FADE.as_secs_f32();
-                let step = match delta >= 1. {
-                    true => to,
-                    false => from.mixed(&to, ease_out(delta)),
-                };
-                cx.update(|cx| {
-                    cx.set_global(step);
-                    cx.refresh_windows();
-                });
-
-                if delta >= 1. {
-                    break;
-                }
-            }
-        });
-        cx.default_global::<Transition>().task = Some(task);
+/// Moves the theme fade to the mix that is due and asks for the next frame while it runs.
+/// The window root calls this before it renders, so every frame lands in phase with the
+/// display instead of on a timer, and the easing reads elapsed time, so several windows
+/// advancing at once still agree.
+pub fn fade_step(window: &mut Window, cx: &mut App) {
+    let Some((started, from, to)) = cx.default_global::<Transition>().running else {
+        return;
+    };
+    let delta = started.elapsed().as_secs_f32() / FADE.as_secs_f32();
+    if delta >= 1. {
+        cx.default_global::<Transition>().running = None;
+        cx.set_global(to);
+        cx.refresh_windows();
+    } else {
+        cx.set_global(from.mixed(&to, ease_out(delta)));
+        match cx.theme().transparent {
+            true => window.on_next_frame(|window, _| window.refresh()),
+            false => window.request_animation_frame(),
+        }
     }
 }
 

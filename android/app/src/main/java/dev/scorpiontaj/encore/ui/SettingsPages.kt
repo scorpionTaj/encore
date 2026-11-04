@@ -85,6 +85,11 @@ class SettingsModel(
     val onEqualizerEnabled: (Boolean) -> Unit,
     val onBandLevel: (Int, Int) -> Unit,
     val onPreset: (Int) -> Unit,
+    val onBass: (Int) -> Unit,
+    val onSurround: (Int) -> Unit,
+    val onSavePreset: (String) -> Unit,
+    val onDeletePreset: (String) -> Unit,
+    val onUsePreset: (String) -> Unit,
     val onShowFolder: (String) -> Unit,
     val onTheme: (String?) -> Unit,
     val onDeleteTheme: (ThemeFile) -> Unit,
@@ -128,6 +133,19 @@ fun SettingsHome(onOpen: (SettingsPage) -> Unit) {
 /** One Settings category's page. */
 @Composable
 fun SettingsPageScreen(page: SettingsPage, model: SettingsModel) {
+    // Naming the equalizer's current levels, asked for from the Sound page.
+    var namingPreset by remember { mutableStateOf(false) }
+    if (namingPreset) {
+        NameDialog(
+            title = stringResource(R.string.settings_save_preset),
+            initial = "",
+            onConfirm = { name ->
+                if (name.isNotBlank()) model.onSavePreset(name)
+                namingPreset = false
+            },
+            onDismiss = { namingPreset = false },
+        )
+    }
     LazyColumn(Modifier.fillMaxSize().padding(bottom = 16.dp)) {
         when (page) {
             SettingsPage.General -> general(model)
@@ -135,7 +153,7 @@ fun SettingsPageScreen(page: SettingsPage, model: SettingsModel) {
             SettingsPage.NowPlaying -> nowPlaying(model)
             SettingsPage.Lyrics -> lyrics(model)
             SettingsPage.Playback -> playback(model)
-            SettingsPage.Sound -> sound(model)
+            SettingsPage.Sound -> sound(model) { namingPreset = true }
             SettingsPage.Library -> library(model)
             SettingsPage.Storage -> storage(model)
             SettingsPage.About -> about(model)
@@ -276,6 +294,11 @@ private fun LazyListScope.nowPlaying(model: SettingsModel) {
             model.onSettings { it.copy(keepScreenOn = on) }
         }
     }
+    item {
+        SwitchRow(stringResource(R.string.settings_haptics), stringResource(R.string.settings_haptics_body), settings.haptics) { on ->
+            model.onSettings { it.copy(haptics = on) }
+        }
+    }
     item { Group(R.string.settings_lyrics_size) }
     item {
         ChipRow {
@@ -375,40 +398,85 @@ private fun LazyListScope.playback(model: SettingsModel) {
     item { InfoRow(stringResource(R.string.settings_gapless), stringResource(R.string.settings_gapless_body)) }
 }
 
-private fun LazyListScope.sound(model: SettingsModel) {
+private fun LazyListScope.sound(model: SettingsModel, onAskSavePreset: () -> Unit) {
     val equalizer = model.equalizer
     item { Group(R.string.settings_equalizer, first = true) }
     if (equalizer.bands.isEmpty()) {
         item { InfoRow(stringResource(R.string.settings_equalizer), stringResource(R.string.equalizer_unavailable)) }
-        return
-    }
-    item { SwitchRow(stringResource(R.string.equalizer_enabled), "", equalizer.enabled, model.onEqualizerEnabled) }
-    if (equalizer.presets.isNotEmpty()) {
-        item {
-            LazyRow(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                itemsIndexed(equalizer.presets) { index, name ->
-                    FilterChip(selected = false, onClick = { model.onPreset(index) }, label = { Text(name) }, enabled = equalizer.enabled)
+    } else {
+        item { SwitchRow(stringResource(R.string.equalizer_enabled), "", equalizer.enabled, model.onEqualizerEnabled) }
+        if (equalizer.presets.isNotEmpty()) {
+            item {
+                LazyRow(
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(equalizer.presets) { index, name ->
+                        FilterChip(selected = false, onClick = { model.onPreset(index) }, label = { Text(name) }, enabled = equalizer.enabled)
+                    }
                 }
             }
         }
-    }
-    itemsIndexed(equalizer.bands) { index, band ->
-        Column(Modifier.padding(horizontal = 16.dp)) {
-            val hz = band.centerHz
-            Text(
-                stringResource(R.string.equalizer_band, if (hz >= 1000) "${hz / 1000} kHz" else "$hz Hz", band.levelMb / 100f),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Slider(
-                value = band.levelMb.toFloat(),
-                onValueChange = { model.onBandLevel(index, it.toInt()) },
-                valueRange = equalizer.minMb.toFloat()..equalizer.maxMb.toFloat(),
-                enabled = equalizer.enabled,
-            )
+        itemsIndexed(equalizer.bands) { index, band ->
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                val hz = band.centerHz
+                Text(
+                    stringResource(R.string.equalizer_band, if (hz >= 1000) "${hz / 1000} kHz" else "$hz Hz", band.levelMb / 100f),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                Slider(
+                    value = band.levelMb.toFloat(),
+                    onValueChange = { model.onBandLevel(index, it.toInt()) },
+                    valueRange = equalizer.minMb.toFloat()..equalizer.maxMb.toFloat(),
+                    enabled = equalizer.enabled,
+                )
+            }
         }
+        // The device's own effects sit on the same audio session as the equalizer.
+        if (equalizer.bassAvailable) {
+            item { Group(R.string.settings_bass) }
+            item { StrengthRow(stringResource(R.string.settings_bass), equalizer.bassStrength, model.onBass) }
+        }
+        if (equalizer.surroundAvailable) {
+            item { Group(R.string.settings_surround) }
+            item { StrengthRow(stringResource(R.string.settings_surround), equalizer.surroundStrength, model.onSurround) }
+        }
+    }
+    // Presets the person saved from the levels above, as on the desktop's equalizer.
+    if (model.settings.equalizerPresets.isNotEmpty() || equalizer.bands.isNotEmpty()) {
+        item { Group(R.string.settings_own_presets) }
+        model.settings.equalizerPresets.keys.sortedWith(String.CASE_INSENSITIVE_ORDER).forEach { name ->
+            item("preset:$name") {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    IconButton(onClick = { model.onUsePreset(name) }, enabled = equalizer.enabled) {
+                        Icon(icon("play"), stringResource(R.string.preset_use))
+                    }
+                    IconButton(onClick = { model.onDeletePreset(name) }) {
+                        Icon(icon("trash-2"), stringResource(R.string.preset_delete), tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+        if (equalizer.bands.isNotEmpty()) {
+            item { TextButton(onClick = onAskSavePreset, Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.settings_save_preset)) } }
+        }
+    }
+}
+
+/** A 0–100 % strength slider for an audio effect. */
+@Composable
+private fun StrengthRow(label: String, strength: Int, onStrength: (Int) -> Unit) {
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        Text("$label · ${(strength / 10).coerceIn(0, 100)} %", style = MaterialTheme.typography.labelMedium)
+        Slider(
+            value = strength.toFloat(),
+            onValueChange = { onStrength(it.toInt()) },
+            valueRange = 0f..1000f,
+        )
     }
 }
 

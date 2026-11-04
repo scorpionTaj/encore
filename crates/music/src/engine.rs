@@ -853,12 +853,16 @@ struct Tail<F: Fetch> {
 
 impl<F: Fetch> Tail<F> {
     /// Mixes the next chunk of the ending track under `samples`, the start of the next one, on an
-    /// equal-power curve. Returns false once the ending track has nothing left to give.
+    /// equal-power curve. A chunk shorter than asked for, or an ending track that has run out,
+    /// pads with silence rather than cutting the curve short: abandoning the fade part-way
+    /// would jump the next track from under full volume to full volume. Returns false once the
+    /// fade has run its length.
     fn mix(&mut self, samples: &mut [f32], channels: usize) -> bool {
         let frames = samples.len() / channels.max(1);
-        let Some(under) = self.playing.take(frames, Vec::with_capacity(samples.len())) else {
-            return false;
-        };
+        let under = self
+            .playing
+            .take(frames, Vec::with_capacity(samples.len()))
+            .unwrap_or_default();
         for (frame, chunk) in samples.chunks_mut(channels.max(1)).enumerate() {
             let progress =
                 ((self.faded + frame as u64) as f32 / self.frames.max(1) as f32).min(1.0);
@@ -873,7 +877,7 @@ impl<F: Fetch> Tail<F> {
             }
         }
         self.faded += frames as u64;
-        self.faded < self.frames && under.len() >= samples.len()
+        self.faded < self.frames
     }
 }
 
@@ -1112,11 +1116,17 @@ fn audio_loop<F: Fetch>(
                             }
                         }
                         false => {
-                            if let Err(error) = held.source.try_seek(position) {
-                                log::warn!("playback: cannot seek {}: {error}", held.id);
+                            // The position marker may only move with the audio: a failed seek
+                            // keeps decoding where it was, so keep reporting from there too.
+                            match held.source.try_seek(position) {
+                                Ok(()) => {
+                                    held.base = position;
+                                    held.offset = 0;
+                                }
+                                Err(error) => {
+                                    log::warn!("playback: cannot seek {}: {error}", held.id)
+                                }
                             }
-                            held.base = position;
-                            held.offset = 0;
                         }
                     }
                     joining = None;

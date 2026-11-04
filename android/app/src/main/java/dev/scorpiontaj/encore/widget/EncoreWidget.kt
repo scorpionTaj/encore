@@ -8,58 +8,32 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.widget.RemoteViews
-import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import dev.scorpiontaj.encore.MainActivity
 import dev.scorpiontaj.encore.R
 import dev.scorpiontaj.encore.library.UNKNOWN
 import dev.scorpiontaj.encore.playback.PlaybackService
-import dev.scorpiontaj.encore.playback.nextRepeatMode
+
+/** The widget's button commands, sent to [PlaybackService] as service intents. */
+const val WIDGET_PREVIOUS = "dev.scorpiontaj.encore.widget.PREVIOUS"
+const val WIDGET_PLAY_PAUSE = "dev.scorpiontaj.encore.widget.PLAY_PAUSE"
+const val WIDGET_NEXT = "dev.scorpiontaj.encore.widget.NEXT"
+const val WIDGET_SHUFFLE = "dev.scorpiontaj.encore.widget.SHUFFLE"
+const val WIDGET_REPEAT = "dev.scorpiontaj.encore.widget.REPEAT"
 
 /**
  * The 5x1 home-screen player with shuffle and repeat on either side of the transport. PlaybackService pushes every track and play-state change through
- * [publish]; the buttons send broadcasts back here, which reach the player through a short-lived
- * MediaController.
+ * [publish]; the buttons send service intents straight to [PlaybackService], which applies them
+ * to its own player.
  */
 class EncoreWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         manager.updateAppWidget(ids, render(context, current))
-    }
-
-    @androidx.annotation.OptIn(UnstableApi::class)
-    override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
-        if (action !in COMMANDS) return super.onReceive(context, intent)
-        val pending = goAsync()
-        // A receiver's own context may not bind services; the application context may.
-        val app = context.applicationContext
-        val token = SessionToken(app, ComponentName(app, PlaybackService::class.java))
-        val future = MediaController.Builder(app, token).buildAsync()
-        future.addListener({
-            val controller = runCatching { future.get() }.getOrNull()
-            when (action) {
-                ACTION_PREVIOUS -> controller?.seekToPrevious()
-                ACTION_PLAY_PAUSE -> controller?.let { Util.handlePlayPauseButtonAction(it) }
-                ACTION_NEXT -> controller?.seekToNext()
-                ACTION_SHUFFLE -> controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
-                ACTION_REPEAT -> controller?.let { it.repeatMode = nextRepeatMode(it.repeatMode) }
-            }
-            // Holding the binding briefly lets the service promote itself to the foreground
-            // before the controller lets go of it.
-            Handler(Looper.getMainLooper()).postDelayed({
-                controller?.release()
-                pending.finish()
-            }, RELEASE_DELAY_MS)
-        }, ContextCompat.getMainExecutor(context))
     }
 
     /** What the widget shows: null while nothing is loaded in the player. */
@@ -73,13 +47,6 @@ class EncoreWidget : AppWidgetProvider() {
     )
 
     companion object {
-        private const val ACTION_PREVIOUS = "dev.scorpiontaj.encore.widget.PREVIOUS"
-        private const val ACTION_PLAY_PAUSE = "dev.scorpiontaj.encore.widget.PLAY_PAUSE"
-        private const val ACTION_NEXT = "dev.scorpiontaj.encore.widget.NEXT"
-        private const val ACTION_SHUFFLE = "dev.scorpiontaj.encore.widget.SHUFFLE"
-        private const val ACTION_REPEAT = "dev.scorpiontaj.encore.widget.REPEAT"
-        private val COMMANDS = setOf(ACTION_PREVIOUS, ACTION_PLAY_PAUSE, ACTION_NEXT, ACTION_SHUFFLE, ACTION_REPEAT)
-        private const val RELEASE_DELAY_MS = 1_000L
         private const val ART_SIZE_PX = 192
 
         private const val PROGRESS_MAX = 1000
@@ -201,19 +168,20 @@ class EncoreWidget : AppWidgetProvider() {
                 setOnClickPendingIntent(R.id.widget_art, open)
                 setOnClickPendingIntent(R.id.widget_info, open)
                 // With nothing loaded there is nothing to control, so every button opens the app.
-                setOnClickPendingIntent(R.id.widget_previous, snapshot?.let { command(context, ACTION_PREVIOUS) } ?: open)
-                setOnClickPendingIntent(R.id.widget_play_pause, snapshot?.let { command(context, ACTION_PLAY_PAUSE) } ?: open)
-                setOnClickPendingIntent(R.id.widget_next, snapshot?.let { command(context, ACTION_NEXT) } ?: open)
-                setOnClickPendingIntent(R.id.widget_shuffle, snapshot?.let { command(context, ACTION_SHUFFLE) } ?: open)
-                setOnClickPendingIntent(R.id.widget_repeat, snapshot?.let { command(context, ACTION_REPEAT) } ?: open)
+                setOnClickPendingIntent(R.id.widget_previous, snapshot?.let { command(context, WIDGET_PREVIOUS) } ?: open)
+                setOnClickPendingIntent(R.id.widget_play_pause, snapshot?.let { command(context, WIDGET_PLAY_PAUSE) } ?: open)
+                setOnClickPendingIntent(R.id.widget_next, snapshot?.let { command(context, WIDGET_NEXT) } ?: open)
+                setOnClickPendingIntent(R.id.widget_shuffle, snapshot?.let { command(context, WIDGET_SHUFFLE) } ?: open)
+                setOnClickPendingIntent(R.id.widget_repeat, snapshot?.let { command(context, WIDGET_REPEAT) } ?: open)
             }
 
         private fun toggleColor(on: Boolean): Int = if (on) R.color.accent else R.color.widget_text_secondary
 
-        private fun command(context: Context, action: String): PendingIntent = PendingIntent.getBroadcast(
+        /** Starts [PlaybackService] with [action]; the service applies it to its own player. */
+        private fun command(context: Context, action: String): PendingIntent = PendingIntent.getService(
             context,
             action.hashCode(),
-            Intent(context, EncoreWidget::class.java).setAction(action),
+            Intent(context, PlaybackService::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }

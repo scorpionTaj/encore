@@ -107,6 +107,12 @@
     <string name="update_install">Mettre à jour</string>
     <string name="update_later">Plus tard</string>
     <string name="settings_equalizer">Égaliseur</string>
+    <string name="settings_bass">Basses</string>
+    <string name="settings_surround">Son spatial</string>
+    <string name="settings_own_presets">Vos préréglages</string>
+    <string name="settings_save_preset">Garder les niveaux actuels comme préréglage</string>
+    <string name="preset_use">Utiliser ce préréglage</string>
+    <string name="preset_delete">Supprimer ce préréglage</string>
     <string name="equalizer_unavailable">Cet appareil n’offre pas d’égaliseur.</string>
     <string name="equalizer_enabled">Utiliser l’égaliseur</string>
     <string name="equalizer_band">%1$s · %2$+.1f dB</string>
@@ -255,6 +261,8 @@
     <string name="settings_ambient_body">Afficher la pochette, floutée, derrière la lecture en cours.</string>
     <string name="settings_keep_screen_on">Garder l’écran allumé</string>
     <string name="settings_keep_screen_on_body">Tant que la lecture en cours est ouverte.</string>
+    <string name="settings_haptics">Retour haptique</string>
+    <string name="settings_haptics_body">Une légère vibration à la lecture, au saut et aux gestes.</string>
     <string name="settings_lyrics_size">Taille des paroles</string>
     <string name="settings_lyrics_sources">Sources de paroles</string>
     <string name="settings_lyrics_sources_body">Le fichier .lrc à côté du titre passe en premier, puis celles-ci, dans cet ordre.</string>

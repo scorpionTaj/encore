@@ -900,6 +900,9 @@ impl Render for Root {
         }
         self.follow_os_fullscreen(window, cx);
 
+        // A theme change is mid-fade: advance it one frame before anything draws.
+        ui::fade_step(window, cx);
+
         let options = self.options(cx);
         self.title_bar
             .update(cx, |bar, cx| bar.set_options(options, cx));
