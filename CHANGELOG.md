@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.9.0]
+
 ### Added
 
 - Songs on Android crossfade into each other, playing at the same time, instead of one fading out
