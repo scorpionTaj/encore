@@ -284,6 +284,12 @@ impl Session {
                     }
                     Err(error) => {
                         log::warn!("session: cannot update local music folders: {error:#}");
+                        // The scan failed, but what was asked is what stands: keeping the old
+                        // list would quietly resurrect a folder the person just removed, and the
+                        // next successful scan would index it again.
+                        this.local_folders = chosen.clone();
+                        this.settings
+                            .update(cx, |settings, cx| settings.set_local_folders(chosen, cx));
                         if asked {
                             Toasts::with_detail(
                                 Outcome::Failed,
