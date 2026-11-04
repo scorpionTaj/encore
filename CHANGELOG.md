@@ -7,6 +7,51 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Songs on Android crossfade into each other, playing at the same time, instead of one fading out
+  and the next fading in.
+- Bass boost and surround sound on Android, on the same audio session as the equalizer.
+- Save the equalizer's current levels as your own preset on Android, and apply or delete it later.
+- Haptic feedback on Android for play, skip, swipe dismiss and tab changes, with a setting to
+  turn it off.
+- Now playing on Android can be dragged down to close, opened by swiping the mini player up, and
+  the cover swiped sideways to change song.
+- Swipe a song away in the Android queue to remove it.
+- Encore for Android asks the screen for its fastest refresh rate, so 90 and 120 Hz displays run
+  the app at their full speed.
+- Back and forward moves between Android screens now slide in the direction you went, and the
+  system's predictive back animation is supported.
+- Themes on the desktop fade in step with the display instead of on a timer, and honour Reduce
+  motion.
+
+### Fixed
+
+- The home-screen widget on Android answers immediately and reliably: its buttons now reach the
+  playback service directly instead of through a short-lived connection.
+- Repeating one song on Android now counts each play in history and stats.
+- The sleep timer's "at the end of the song" is honoured on Android even while a crossfade is
+  running.
+- Turning loudness normalisation off on Android now really plays at full volume.
+- Editing lyrics on Android no longer risks saving an empty file over the song's existing .lrc.
+- Approving a delete, tag write or lyrics save on Android survives rotating the screen, and an
+  open album, artist or playlist stays open.
+- A playlist holding the same song twice no longer crashes the Android app when opened.
+- A radio recording whose file could not be created no longer looks like it is still recording on
+  Android.
+- A file opened in Encore for Android from another app is no longer labelled a radio station in
+  History.
+- Cover art no longer decodes on Android's main thread, so a new song does not hitch the screen.
+- Hiding a folder on Android can no longer hide songs in folders that merely share letters with
+  it.
+- The desktop engine no longer loses its preloaded next song after changing playback settings
+  while paused, so the next join stays gapless.
+- A failed seek on the desktop keeps the elapsed time where the audio actually is, instead of
+  jumping to where the seek was aimed.
+- A crossfade on the desktop can no longer end with a click when the two decoders drift apart.
+- Removing a music folder on the desktop succeeds even if the scan that follows fails.
+- The desktop visualizer stops redrawing when the levels settle, and when fullscreen is left.
+
 ## [1.8.0]
 
 ### Added
