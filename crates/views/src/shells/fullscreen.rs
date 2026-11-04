@@ -192,7 +192,11 @@ impl FullscreenView {
         self.last_pos = None;
         match shown {
             true => self.stir(cx),
-            false => self.rest = None,
+            // Left fullscreen, its render no longer runs to stop the levels' frame chain.
+            false => {
+                self.rest = None;
+                self.visualizer.hide();
+            }
         }
         cx.notify();
     }

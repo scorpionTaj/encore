@@ -13,6 +13,10 @@ const SETTLE: Duration = Duration::from_millis(40);
 /// The longest gap between two frames that still counts as one step: past it the levels adopt
 /// the target outright, so coming back from a stalled window snaps rather than swoops.
 const STALL: Duration = Duration::from_millis(250);
+/// How close the drawn levels must sit to the analyzer's before the frame chain rests. A paused
+/// or silent track gets there, and holding the window at display rate for a still picture
+/// would only spend battery. [VisualizerDrive::show] re-arms the chain when the levels move.
+const REST: f32 = 0.001;
 
 #[derive(Default)]
 struct State {
@@ -53,7 +57,7 @@ impl VisualizerDrive {
     }
 
     fn step(&self, watch: EntityId, window: &mut Window, cx: &mut App) {
-        {
+        let settled = {
             let mut state = self.state.borrow_mut();
             if !state.visible {
                 state.armed = false;
@@ -69,6 +73,15 @@ impl VisualizerDrive {
             };
             ease(&mut state.shown.left, spectrum.left(), rate);
             ease(&mut state.shown.right, spectrum.right(), rate);
+            let at_rest = gap(&state.shown.left, spectrum.left()) < REST
+                && gap(&state.shown.right, spectrum.right()) < REST;
+            if at_rest {
+                state.armed = false;
+            }
+            at_rest
+        };
+        if settled {
+            return;
         }
 
         cx.notify(watch);
@@ -87,4 +100,13 @@ fn ease(shown: &mut Vec<f32>, target: Vec<f32>, rate: f32) {
     for (shown, target) in shown.iter_mut().zip(&target) {
         *shown += (target - *shown) * rate;
     }
+}
+
+/// The worst band's distance from where it should be.
+fn gap(shown: &[f32], target: Vec<f32>) -> f32 {
+    shown
+        .iter()
+        .zip(&target)
+        .map(|(shown, target)| (target - shown).abs())
+        .fold(0., f32::max)
 }
