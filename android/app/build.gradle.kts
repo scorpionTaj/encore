@@ -118,4 +118,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.jaudiotagger)
     implementation(libs.androidsvg)
+    testImplementation(libs.junit)
 }

@@ -57,8 +57,15 @@ object Updates {
         )
     }
 
-    /** Downloads the release's APK into the cache and keeps it only when its hash matches. */
-    suspend fun download(context: Context, release: Release): File = withContext(Dispatchers.IO) {
+    /**
+     * Downloads the release's APK into the cache and keeps it only when its hash matches.
+     * [onProgress] reports how much has arrived and, when the server says so, how much there is.
+     */
+    suspend fun download(
+        context: Context,
+        release: Release,
+        onProgress: (received: Long, total: Long?) -> Unit = { _, _ -> },
+    ): File = withContext(Dispatchers.IO) {
         val sums = text(checkNotNull(release.sumsUrl) { "update: the release lists no checksums" })
         val expected = sums.lines().map { it.trim().split(Regex("\\s+"), limit = 2) }
             .firstOrNull { it.size == 2 && it[1].trimStart('*') == release.apkName }?.get(0)?.lowercase()
@@ -68,6 +75,9 @@ object Updates {
         val digest = MessageDigest.getInstance("SHA-256")
         val connection = open(release.apkUrl)
         try {
+            val total = connection.contentLengthLong.takeIf { it > 0 }
+            var received = 0L
+            onProgress(received, total)
             connection.inputStream.use { input ->
                 file.outputStream().use { output ->
                     val buffer = ByteArray(64 * 1024)
@@ -76,6 +86,8 @@ object Updates {
                         if (read < 0) break
                         digest.update(buffer, 0, read)
                         output.write(buffer, 0, read)
+                        received += read
+                        onProgress(received, total)
                     }
                 }
             }

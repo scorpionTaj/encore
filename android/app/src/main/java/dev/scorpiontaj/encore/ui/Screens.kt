@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,11 +19,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -61,6 +66,7 @@ import dev.scorpiontaj.encore.library.SONG_PREFIX
 import dev.scorpiontaj.encore.library.Summary
 import dev.scorpiontaj.encore.playback.EqualizerState
 import dev.scorpiontaj.encore.playback.RadioState
+import android.text.format.Formatter
 import dev.scorpiontaj.encore.playback.UpdateState
 import dev.scorpiontaj.encore.radio.RADIO_PREFIX
 import dev.scorpiontaj.encore.radio.Station
@@ -234,6 +240,63 @@ fun UpdateCard(update: UpdateState.Offered, onInstall: () -> Unit, onDismiss: ()
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.update_later)) }
                 Button(onClick = onInstall) { Text(stringResource(R.string.update_install)) }
+            }
+        }
+    }
+}
+
+/**
+ * The update coming down or being installed: a spinner, a bar that fills as bytes arrive and the
+ * sizes behind it. When the server did not say how big it is, the bar paces itself instead.
+ */
+@Composable
+fun UpdateProgressCard(state: UpdateState, onCancel: (() -> Unit)?) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Text(
+                    stringResource(if (state is UpdateState.Installing) R.string.update_installing else R.string.update_downloading),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            val downloading = state as? UpdateState.Downloading
+            if (downloading != null) {
+                val context = LocalContext.current
+                val fraction = downloading.total?.takeIf { it > 0 }
+                    ?.let { total -> downloading.received.toFloat() / total }
+                when (fraction) {
+                    null -> LinearProgressIndicator(
+                        Modifier.fillMaxWidth().padding(top = 12.dp).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    )
+                    else -> LinearProgressIndicator(
+                        progress = { fraction.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                        drawStopIndicator = {},
+                        gapSize = 0.dp,
+                    )
+                }
+                downloading.total?.let { total ->
+                    Text(
+                        stringResource(
+                            R.string.update_sizes,
+                            Formatter.formatShortFileSize(context, downloading.received),
+                            Formatter.formatShortFileSize(context, total),
+                        ),
+                        Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (onCancel != null) {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+                }
             }
         }
     }

@@ -112,6 +112,7 @@ import dev.scorpiontaj.encore.ui.SmartPlaylistDialog
 import dev.scorpiontaj.encore.ui.SongDetailsDialog
 import dev.scorpiontaj.encore.ui.StatsScreen
 import dev.scorpiontaj.encore.ui.UpdateCard
+import dev.scorpiontaj.encore.ui.UpdateProgressCard
 import dev.scorpiontaj.encore.ui.SongActions
 import dev.scorpiontaj.encore.ui.SongsScreen
 import dev.scorpiontaj.encore.ui.orUnknown
@@ -442,6 +443,11 @@ private fun EncoreApp(vm: PlayerViewModel) {
                 (update as? UpdateState.Offered)?.takeIf { page == null }?.let {
                     UpdateCard(it, onInstall = vm::installUpdate, onDismiss = vm::dismissUpdate)
                 }
+                when {
+                    page == null && update is UpdateState.Downloading -> UpdateProgressCard(update, onCancel = vm::cancelUpdateDownload)
+                    page == null && update is UpdateState.Installing -> UpdateProgressCard(update, onCancel = null)
+                    else -> {}
+                }
                 val current = player.mediaId
                 val lib = library
                 val open = detail
@@ -515,6 +521,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                                     onSettings = vm::updateSettings,
                                     onCheckUpdates = { vm.checkForUpdates(asked = true) },
                                     onInstallUpdate = vm::installUpdate,
+                                    onCancelUpdate = vm::cancelUpdateDownload,
                                     onEqualizerEnabled = vm::setEqualizerEnabled,
                                     onBandLevel = vm::setBandLevel,
                                     onPreset = vm::useEqualizerPreset,

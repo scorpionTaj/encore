@@ -105,6 +105,8 @@
     <string name="update_current">Encore محدّث.</string>
     <string name="update_failed">تعذّر التحديث. حاول لاحقًا.</string>
     <string name="update_downloading">جارٍ تنزيل التحديث…</string>
+    <string name="update_installing">جارٍ تثبيت التحديث…</string>
+    <string name="update_sizes">%1$s من %2$s</string>
     <string name="update_available">الإصدار %1$s من Encore متاح</string>
     <string name="update_check">البحث عن تحديثات</string>
     <string name="update_install">تحديث</string>

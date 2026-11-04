@@ -33,15 +33,19 @@ jobs:
       - name: build the APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ENCORE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ENCORE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ENCORE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ENCORE_KEYSTORE_PASSWORD: ${{ secrets.ENCORE_KEYSTORE_PASSWORD }}
+          ENCORE_KEY_ALIAS: ${{ secrets.ENCORE_KEY_ALIAS }}
+          ENCORE_KEY_PASSWORD: ${{ secrets.ENCORE_KEY_PASSWORD }}
         run: |
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/encore.jks"
             export ENCORE_KEYSTORE="$RUNNER_TEMP/encore.jks"
           fi
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleRelease
+
+      # every locale must carry the strings another locale carries
+      - name: check the locale strings
+        run: python3 scripts/i18n-coverage-android.py
 
       - uses: actions/upload-artifact@v4
         with:

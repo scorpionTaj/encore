@@ -298,18 +298,20 @@ impl PlayerBar {
         let cover = track.and_then(|track| track.cover.clone());
         div()
             .id("now-playing-artwork")
-            .when_some(
-                track.and_then(|track| track.album_id.clone()),
-                |this, album| this.link(Destination::Album(album.into())),
-            )
+            // The cover opens the full Now playing; the album stays a right-click away.
             .when(track.is_some(), |this| {
-                this.on_mouse_down(
-                    MouseButton::Right,
-                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                        window.prevent_default();
-                        this.open_playing_menu(event.position, cx);
-                    }),
-                )
+                this.role(Role::Button)
+                    .aria_label(t!("player-fullscreen"))
+                    .on_click(|_, window, cx| {
+                        window.dispatch_action(Box::new(ToggleFullscreen), cx)
+                    })
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                            window.prevent_default();
+                            this.open_playing_menu(event.position, cx);
+                        }),
+                    )
             })
             .child(Artwork::new(cover).size(artwork))
             .flex_none()
@@ -328,11 +330,12 @@ impl PlayerBar {
             Some(track) => div()
                 .id("now-playing-track")
                 .aria_label(SharedString::from(track.name.clone()))
-                .when(track.album_id.is_some(), |this| this.role(Role::Link))
-                .when_some(track.album_id.clone(), |this, album_id| {
-                    this.hover(|style| style.underline())
-                        .link(Destination::Album(album_id.into()))
+                // The name opens the full Now playing, like the cover beside it.
+                .role(Role::Button)
+                .on_click(|_, window, cx| {
+                    window.dispatch_action(Box::new(ToggleFullscreen), cx)
                 })
+                .hover(|style| style.cursor_pointer())
                 .on_mouse_down(
                     MouseButton::Right,
                     cx.listener(move |this, event: &MouseDownEvent, window, cx| {

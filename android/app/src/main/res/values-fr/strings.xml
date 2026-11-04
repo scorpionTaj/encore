@@ -102,6 +102,8 @@
     <string name="update_current">Encore est à jour.</string>
     <string name="update_failed">Mise à jour impossible. Réessayez plus tard.</string>
     <string name="update_downloading">Téléchargement de la mise à jour…</string>
+    <string name="update_installing">Installation de la mise à jour…</string>
+    <string name="update_sizes">%1$s sur %2$s</string>
     <string name="update_available">Encore %1$s est disponible</string>
     <string name="update_check">Rechercher des mises à jour</string>
     <string name="update_install">Mettre à jour</string>

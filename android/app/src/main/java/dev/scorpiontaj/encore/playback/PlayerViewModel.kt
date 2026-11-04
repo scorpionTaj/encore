@@ -100,7 +100,10 @@ sealed interface UpdateState {
     data object Checking : UpdateState
     data object Current : UpdateState
     data class Offered(val release: Release) : UpdateState
-    data object Downloading : UpdateState
+
+    /** The update is coming over the network: how much has arrived, and how big it is. */
+    data class Downloading(val received: Long = 0, val total: Long? = null) : UpdateState
+    data object Installing : UpdateState
     data object Failed : UpdateState
 }
 
@@ -170,6 +173,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _update = MutableStateFlow<UpdateState>(UpdateState.Quiet)
     val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    /** The download under way, and the offer it is bringing, so it can be cancelled. */
+    private var updateJob: Job? = null
+    private var updateOffer: UpdateState.Offered? = null
 
     val equalizer: StateFlow<EqualizerState> = Sound.state
 
@@ -593,7 +600,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // Updates
 
     fun checkForUpdates(asked: Boolean) {
-        if (_update.value is UpdateState.Downloading) return
+        if (_update.value is UpdateState.Downloading || _update.value is UpdateState.Installing) return
         if (asked) _update.value = UpdateState.Checking
         viewModelScope.launch {
             val release = runCatching { Updates.latest() }.onFailure { Log.w(TAG, "update: check failed", it) }
@@ -610,9 +617,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _update.value = UpdateState.Quiet
     }
 
+    /** Stops the download under way and puts the offer back up. */
+    fun cancelUpdateDownload() {
+        if (_update.value !is UpdateState.Downloading) return
+        updateJob?.cancel()
+        updateJob = null
+        _update.value = updateOffer ?: UpdateState.Quiet
+    }
+
     /**
-     * Downloads and installs the offered release. Android first needs permission to install
-     * packages from Encore; without it this opens that setting and leaves the offer up.
+     * Downloads and installs the offered release, reporting how much has arrived. Android first
+     * needs permission to install packages from Encore; without it this opens that setting and
+     * leaves the offer up.
      */
     fun installUpdate() {
         val offered = _update.value as? UpdateState.Offered ?: return
@@ -624,15 +640,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             )
             return
         }
-        _update.value = UpdateState.Downloading
-        viewModelScope.launch {
+        updateOffer = offered
+        _update.value = UpdateState.Downloading()
+        updateJob = viewModelScope.launch {
             runCatching {
-                val apk = Updates.download(app, offered.release)
+                val apk = Updates.download(app, offered.release) { received, total ->
+                    _update.value = UpdateState.Downloading(received, total)
+                }
+                _update.value = UpdateState.Installing
                 Updates.install(app, apk)
             }.onFailure {
                 Log.w(TAG, "update: install failed", it)
                 _update.value = UpdateState.Failed
-            }.onSuccess { _update.value = offered }
+            }.onSuccess {
+                updateJob = null
+                _update.value = offered
+            }
         }
     }
 

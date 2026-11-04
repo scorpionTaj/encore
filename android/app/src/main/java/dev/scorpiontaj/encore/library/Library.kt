@@ -143,7 +143,7 @@ data class Library(
          * True when [folder] is [hidden] itself or inside it, comparing whole path segments. An
          * empty [hidden] hides nothing, and a half-segment like "Voice" never hides "Voicework/".
          */
-        private fun isUnder(folder: String, hidden: String): Boolean {
+        internal fun isUnder(folder: String, hidden: String): Boolean {
             val inside = hidden.trim('/')
             if (inside.isEmpty()) return false
             val here = folder.trim('/')
