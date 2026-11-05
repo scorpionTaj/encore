@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0]
+
 ### Added
 
 - Choose which tab Encore for Android opens on, in Settings → General → Open on.
