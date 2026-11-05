@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -19,7 +18,7 @@ val releaseKeystore: String? = System.getenv("ENCORE_KEYSTORE")
 
 android {
     namespace = "dev.scorpiontaj.encore"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.scorpiontaj.encore"
@@ -67,13 +66,11 @@ android {
         buildConfig = true
     }
 
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/desktopAssets"))
-    sourceSets["main"].res.srcDir(layout.buildDirectory.dir("generated/desktopRes"))
 }
 
 // The desktop's bundled themes and icon packs ship in the APK under themes/ and icons/, so both
 // apps offer the same ones from one copy.
-val copyDesktopAssets by tasks.registering(Copy::class) {
+val copyDesktopAssets = tasks.register<Copy>("copyDesktopAssets") {
     from(rootProject.file("../assets/themes")) {
         include("**/*.json")
         into("themes")
@@ -86,12 +83,24 @@ val copyDesktopAssets by tasks.registering(Copy::class) {
 }
 
 // The desktop's Inter faces become Android font resources; resource names must be lowercase.
-val copyDesktopFonts by tasks.registering(Copy::class) {
+val copyDesktopFonts = tasks.register<Copy>("copyDesktopFonts") {
     from(rootProject.file("../assets/fonts")) { include("Inter-*.ttf") }
     rename { name -> name.lowercase().replace('-', '_') }
     into(layout.buildDirectory.dir("generated/desktopRes/font"))
 }
 tasks.named("preBuild") { dependsOn(copyDesktopAssets, copyDesktopFonts) }
+
+// Both copies land under build/generated and join every variant's sources; preBuild fills them first.
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addStaticSourceDirectory(
+            layout.buildDirectory.dir("generated/desktopAssets").get().asFile.path,
+        )
+        variant.sources.res?.addStaticSourceDirectory(
+            layout.buildDirectory.dir("generated/desktopRes").get().asFile.path,
+        )
+    }
+}
 
 kotlin {
     compilerOptions {

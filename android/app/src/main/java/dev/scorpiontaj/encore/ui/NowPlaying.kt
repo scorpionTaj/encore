@@ -479,20 +479,16 @@ fun NowPlayingScreen(
                     itemsIndexed(state.queue, key = { index, item -> "$index:${item.mediaId}" }) { index, item ->
                         val here = remember { mutableIntStateOf(index) }
                         here.intValue = index
-                        val dismiss = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { value ->
-                                if (value == SwipeToDismissBoxValue.EndToStart) {
-                                    haptic(HapticFeedbackType.LongPress)
-                                    vm.removeFromQueue(index)
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                        )
+                        val dismiss = rememberSwipeToDismissBoxState()
                         SwipeToDismissBox(
                             state = dismiss,
                             enableDismissFromStartToEnd = false,
+                            onDismiss = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    haptic(HapticFeedbackType.LongPress)
+                                    vm.removeFromQueue(here.intValue)
+                                }
+                            },
                             modifier = Modifier
                                 .zIndex(if (index == dragFrom) 1f else 0f)
                                 .graphicsLayer { translationY = if (index == dragFrom) dragOffset else 0f }
@@ -529,15 +525,18 @@ fun NowPlayingScreen(
                                     )
                                 },
                             backgroundContent = {
-                                Box(
-                                    Modifier.fillMaxSize().padding(horizontal = 24.dp),
-                                    contentAlignment = Alignment.CenterEnd,
-                                ) {
-                                    Icon(
-                                        icon(R.drawable.ic_close),
-                                        stringResource(R.string.action_remove),
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
+                                // Drawn only mid-swipe: the row above it is transparent.
+                                if (dismiss.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                                    Box(
+                                        Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                                        contentAlignment = Alignment.CenterEnd,
+                                    ) {
+                                        Icon(
+                                            icon(R.drawable.ic_close),
+                                            stringResource(R.string.action_remove),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
                                 }
                             },
                         ) {
