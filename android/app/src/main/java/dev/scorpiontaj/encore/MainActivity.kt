@@ -78,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -238,6 +239,7 @@ private enum class Page(val title: Int, val icon: Int) {
 @Composable
 private fun EncoreApp(vm: PlayerViewModel) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     var granted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, AUDIO_PERMISSION) == PackageManager.PERMISSION_GRANTED)
     }
@@ -349,7 +351,10 @@ private fun EncoreApp(vm: PlayerViewModel) {
         val shown = notice ?: return@LaunchedEffect
         // Clearing first would restart this effect and cancel the snackbar, so clear once it is done.
         snackbar.currentSnackbarData?.dismiss()
-        snackbar.showSnackbar(context.getString(shown.message, *shown.args.toTypedArray()))
+        snackbar.showSnackbar(
+            shown.count?.let { resources.getQuantityString(shown.message, it, *shown.args.toTypedArray()) }
+                ?: resources.getString(shown.message, *shown.args.toTypedArray()),
+        )
         vm.clearNotice()
     }
     // A radio stream's current song, which the service puts in the artist field.

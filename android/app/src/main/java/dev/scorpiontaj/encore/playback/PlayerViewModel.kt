@@ -1,5 +1,6 @@
 package dev.scorpiontaj.encore.playback
 
+import androidx.core.net.toUri
 import android.app.Application
 import android.content.ComponentName
 import android.content.ContentResolver
@@ -95,7 +96,8 @@ sealed interface LyricsState {
 }
 
 /** A short message for the snackbar: a string resource and the values it names. */
-data class Notice(val message: Int, val args: List<Any> = emptyList())
+/** A message for the snackbar; with [count] it is a plurals resource chosen by that number. */
+data class Notice(val message: Int, val args: List<Any> = emptyList(), val count: Int? = null)
 
 /** The album the home screen offers to carry on with, and how far into it the listening got. */
 data class ResumeCard(val album: Album, val played: Int, val startIndex: Int)
@@ -293,7 +295,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun sleepAfter(minutes: Int) {
         Sleep.after(minutes)
-        showNotice(R.string.notice_sleep_set, minutes)
+        showCountNotice(R.plurals.notice_sleep_set, minutes)
     }
 
     fun sleepAtEndOfSong() {
@@ -511,6 +513,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _notice.value = Notice(message, args.toList())
     }
 
+    /** Shows the plurals resource [message] for [count], which is also its first argument. */
+    fun showCountNotice(message: Int, count: Int) {
+        _notice.value = Notice(message, listOf(count), count)
+    }
+
     fun clearNotice() {
         _notice.value = null
     }
@@ -594,7 +601,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun forgetLyricsFolder() {
         val tree = Settings.state.value.lyricsTree ?: return
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        runCatching { getApplication<Application>().contentResolver.releasePersistableUriPermission(Uri.parse(tree), flags) }
+        runCatching { getApplication<Application>().contentResolver.releasePersistableUriPermission(tree.toUri(), flags) }
         Settings.update { it.copy(lyricsTree = null) }
     }
 
@@ -651,7 +658,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val app = getApplication<Application>()
         if (!app.packageManager.canRequestPackageInstalls()) {
             app.startActivity(
-                Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
+                Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${app.packageName}".toUri())
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             return

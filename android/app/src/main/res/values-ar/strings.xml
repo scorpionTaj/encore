@@ -195,7 +195,14 @@
     <string name="page_genres">الأنواع</string>
     <string name="page_home">الرئيسية</string>
     <string name="home_continue">متابعة الاستماع</string>
-    <string name="home_progress">تم تشغيل %1$d من أصل %2$d</string>
+    <plurals name="home_progress">
+        <item quantity="zero">تم تشغيل %1$d من أصل %2$d</item>
+        <item quantity="one">تم تشغيل %1$d من أصل أغنية واحدة</item>
+        <item quantity="two">تم تشغيل %1$d من أصل أغنيتين</item>
+        <item quantity="few">تم تشغيل %1$d من أصل %2$d أغانٍ</item>
+        <item quantity="many">تم تشغيل %1$d من أصل %2$d أغنية</item>
+        <item quantity="other">تم تشغيل %1$d من أصل %2$d أغنية</item>
+    </plurals>
     <string name="home_today">اليوم</string>
     <string name="home_week">هذا الأسبوع</string>
     <string name="home_top_artist">الأكثر استماعًا</string>
@@ -203,7 +210,6 @@
     <string name="home_most_played">الأكثر تشغيلًا</string>
     <string name="home_recently_played">شُغّلت حديثًا</string>
     <string name="home_recently_added">أُضيفت حديثًا</string>
-    <string name="unknown_genre">نوع غير معروف</string>
     <string name="genres_empty">لا توجد أغاني مصنفة بضمن نوع بعد.</string>
     <string name="history_empty">لم يتم تشغيل أي شيء بعد.</string>
     <string name="settings_playback">التشغيل</string>
@@ -338,7 +344,14 @@
     <string name="settings_license_body">رخصة جنو العمومية، الإصدار 3 أو أحدث</string>
     <string name="settings_report">الإبلاغ عن مشكلة</string>
     <string name="notice_folder_hidden">تم إخفاء %1$s</string>
-    <string name="notice_sleep_set">يتوقف التشغيل بعد %1$d دقيقة</string>
+    <plurals name="notice_sleep_set">
+        <item quantity="zero">يتوقف التشغيل بعد %1$d دقيقة</item>
+        <item quantity="one">يتوقف التشغيل بعد دقيقة واحدة</item>
+        <item quantity="two">يتوقف التشغيل بعد دقيقتين</item>
+        <item quantity="few">يتوقف التشغيل بعد %1$d دقائق</item>
+        <item quantity="many">يتوقف التشغيل بعد %1$d دقيقة</item>
+        <item quantity="other">يتوقف التشغيل بعد %1$d دقيقة</item>
+    </plurals>
     <string name="notice_recording_saved">تم حفظ التسجيل في الموسيقى، Encore Recordings</string>
     <string name="notice_playlist_saved">تم حفظ %1$s</string>
     <string name="notice_favourite_added">تمت إضافة %1$s إلى المفضلة</string>

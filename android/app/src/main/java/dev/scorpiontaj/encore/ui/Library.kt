@@ -603,7 +603,9 @@ fun qualityLine(song: Song): String {
 fun String.orUnknown(fallback: String): String = if (this == UNKNOWN || isBlank()) fallback else this
 
 /** A country's name in the app's language, from its ISO code. */
-fun countryName(code: String): String = Locale("", code).getDisplayCountry(Locale.getDefault()).ifEmpty { code }
+fun countryName(code: String): String =
+    runCatching { Locale.Builder().setRegion(code).build().getDisplayCountry(Locale.getDefault()) }
+        .getOrNull()?.ifEmpty { null } ?: code
 
 /** A MediaStore timestamp, in seconds, as a medium date and short time in the app's language. */
 fun date(seconds: Long): String =
@@ -652,7 +654,7 @@ fun LazyListScope.songItems(songs: List<Song>, current: String?, actions: SongAc
     // The key carries the position: playlists imported from elsewhere may hold one song twice,
     // and a repeated key crashes the list.
     itemsIndexed(songs, key = { index, song -> "$index:${song.id}" }) { index, song ->
-        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, onRemove, Modifier.animateItem()) { actions.play(songs, index) }
+        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, Modifier.animateItem(), onRemove) { actions.play(songs, index) }
     }
 
 /**
@@ -664,8 +666,8 @@ fun SongRow(
     song: Song,
     playing: Boolean,
     actions: SongActions,
-    onRemove: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onRemove: ((Song) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }

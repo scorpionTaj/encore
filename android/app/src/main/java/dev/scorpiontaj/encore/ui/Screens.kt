@@ -466,7 +466,7 @@ fun HomeScreen(
                                 Text(
                                     listOfNotNull(
                                         card.album.artist.takeIf { it != UNKNOWN && it.isNotBlank() },
-                                        stringResource(R.string.home_progress, card.played, card.album.songs.size),
+                                        pluralStringResource(R.plurals.home_progress, card.album.songs.size, card.played, card.album.songs.size),
                                     ).joinToString(" · "),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = colors.onSurfaceVariant,

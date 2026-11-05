@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.caverock.androidsvg.RenderOptions
 import com.caverock.androidsvg.SVG
+import androidx.core.graphics.createBitmap
 import dev.scorpiontaj.encore.R
 
 /** The desktop icon packs, by folder under assets/icons, with the name shown in Settings. */
@@ -127,7 +128,7 @@ private fun load(context: Context, pack: String, name: String, mirror: Boolean):
     } ?: return null
     svg.documentWidth = ICON_PX.toFloat()
     svg.documentHeight = ICON_PX.toFloat()
-    val bitmap = Bitmap.createBitmap(ICON_PX, ICON_PX, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(ICON_PX, ICON_PX)
     val canvas = Canvas(bitmap)
     if (mirror) canvas.scale(-1f, 1f, ICON_PX / 2f, ICON_PX / 2f)
     svg.renderToCanvas(canvas, RenderOptions.create().css("svg { color: #ffffff }"))
