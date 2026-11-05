@@ -24,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,11 +38,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.IconButtonDefaults
+import dev.scorpiontaj.encore.library.UNKNOWN
+import dev.scorpiontaj.encore.library.Song
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -49,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import dev.scorpiontaj.encore.BuildConfig
@@ -65,6 +77,8 @@ import dev.scorpiontaj.encore.library.TopSong
 import dev.scorpiontaj.encore.library.SONG_PREFIX
 import dev.scorpiontaj.encore.library.Summary
 import dev.scorpiontaj.encore.playback.EqualizerState
+import dev.scorpiontaj.encore.playback.HomeStats
+import dev.scorpiontaj.encore.playback.ResumeCard
 import dev.scorpiontaj.encore.playback.RadioState
 import android.text.format.Formatter
 import dev.scorpiontaj.encore.playback.UpdateState
@@ -407,6 +421,212 @@ fun FoldersScreen(
     }
 }
 
+/**
+ * The landing tab: the album to carry on with, this week's listening, and the week's songs as
+ * the chips switch them — most played, recently played, or just added.
+ */
+@Composable
+fun HomeScreen(
+    resume: ResumeCard?,
+    stats: HomeStats?,
+    played: List<TopSong>?,
+    library: Library?,
+    current: String?,
+    actions: SongActions,
+    onLoad: () -> Unit,
+) {
+    LaunchedEffect(library) { onLoad() }
+    var chip by rememberSaveable { mutableIntStateOf(0) }
+    val colors = MaterialTheme.colorScheme
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)) {
+        resume?.let { card ->
+            item {
+                Surface(Modifier.fillMaxWidth(), RoundedCornerShape(HOME_RADIUS), colors.surfaceContainerHigh) {
+                    Column(Modifier.padding(20.dp)) {
+                        Text(
+                            stringResource(R.string.home_continue).uppercase(),
+                            style = MaterialTheme.typography.labelLarge,
+                            letterSpacing = 1.sp,
+                            color = colors.primary,
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            Artwork(card.album.songs.firstOrNull()?.uri, size = 64.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    card.album.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    listOfNotNull(
+                                        card.album.artist.takeIf { it != UNKNOWN && it.isNotBlank() },
+                                        stringResource(R.string.home_progress, card.played, card.album.songs.size),
+                                    ).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            FilledIconButton(
+                                onClick = { actions.play(card.album.songs, card.startIndex) },
+                                modifier = Modifier.size(52.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = colors.primaryContainer,
+                                    contentColor = colors.onPrimaryContainer,
+                                ),
+                            ) {
+                                Icon(icon(R.drawable.ic_play), stringResource(R.string.action_play))
+                            }
+                        }
+                        val fraction = card.album.songs.size.takeIf { it > 0 }
+                            ?.let { card.played.toFloat() / it } ?: 0f
+                        LinearProgressIndicator(
+                            progress = { fraction.coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 18.dp)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            trackColor = colors.surfaceContainerHighest,
+                            drawStopIndicator = {},
+                            gapSize = 0.dp,
+                        )
+                    }
+                }
+            }
+        }
+        stats?.let { week ->
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    HomeStat(listenedLabel(week.todayMs), stringResource(R.string.home_today), Modifier.weight(1f))
+                    HomeStat(listenedLabel(week.weekMs), stringResource(R.string.home_week), Modifier.weight(1f))
+                    HomeStat(week.topArtist ?: "—", stringResource(R.string.home_top_artist), Modifier.weight(1f))
+                }
+            }
+        }
+        item {
+            Text(
+                stringResource(R.string.home_made),
+                Modifier.padding(top = 24.dp, bottom = 8.dp, start = 4.dp),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        item {
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                HomeChip(R.string.home_most_played, "headphones", 0, chip) { chip = 0 }
+                HomeChip(R.string.home_recently_played, "rotate-ccw-clock", 1, chip) { chip = 1 }
+                HomeChip(R.string.home_recently_added, "square-plus", 2, chip) { chip = 2 }
+            }
+        }
+        val songs = when (chip) {
+            0 -> played?.sortedByDescending { it.plays }?.mapNotNull { library?.song(it.mediaId) }.orEmpty()
+            1 -> played?.mapNotNull { library?.song(it.mediaId) }.orEmpty()
+            else -> library?.songs?.sortedByDescending { it.dateAdded }?.take(HOME_SHOWN).orEmpty()
+        }
+        itemsIndexed(songs, key = { index, song -> "$index:${song.id}" }) { index, song ->
+            HomeSongRow(
+                song,
+                playing = current == "$SONG_PREFIX${song.id}",
+            ) { actions.play(songs, index) }
+        }
+    }
+}
+
+/** One number of the week, over what it counts. */
+@Composable
+private fun HomeStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Surface(modifier, RoundedCornerShape(HOME_RADIUS), MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Column(
+            Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** One of the home screen's song-list choices, with its icon. */
+@Composable
+private fun HomeChip(label: Int, iconName: String, index: Int, selected: Int, onPick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    FilterChip(
+        selected = selected == index,
+        onClick = onPick,
+        label = { Text(stringResource(label), style = MaterialTheme.typography.bodyLarge) },
+        leadingIcon = { Icon(icon(iconName), null, Modifier.size(FilterChipDefaults.IconSize)) },
+        shape = RoundedCornerShape(50),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = colors.primary.copy(alpha = ACCENT_TINT),
+            selectedLabelColor = colors.primary,
+            selectedLeadingIconColor = colors.primary,
+        ),
+        modifier = Modifier.height(44.dp),
+    )
+}
+
+/** A song of the home list: its title over its artist, and its length. */
+@Composable
+private fun HomeSongRow(song: Song, playing: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                song.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (playing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                song.artist.orUnknown(stringResource(R.string.unknown_artist)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            duration(song.durationMs),
+            Modifier.padding(start = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 /** The genres the library carries, alphabetical, each opening the songs tagged with it. */
 @Composable
 fun GenresScreen(library: Library, onGenre: (String) -> Unit) {
@@ -597,3 +817,9 @@ private fun opLabel(op: RuleOp): Int = when (op) {
     RuleOp.AtMost -> R.string.smart_at_most
     RuleOp.WithinDays -> R.string.smart_within_days
 }
+
+/** How many songs the home screen lists per chip. */
+private const val HOME_SHOWN = 15
+
+/** The corner radius of the home screen's cards and tiles. */
+private val HOME_RADIUS = 20.dp

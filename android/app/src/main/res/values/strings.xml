@@ -22,6 +22,11 @@
         <item quantity="other">%d songs</item>
     </plurals>
 
+    <plurals name="duration_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+
     <string name="action_play">Play</string>
     <string name="action_pause">Pause</string>
     <string name="action_next">Next</string>
@@ -52,12 +57,16 @@
     <string name="radio_live">Live</string>
     <string name="radio_station">Radio station</string>
 
+    <string name="quality_bit_depth">%1$d-bit</string>
+    <string name="song_playing">Playing</string>
     <string name="quality_lossless">Lossless</string>
     <string name="quality_bitrate">%1$d kbps</string>
     <string name="quality_hires">%1$d-bit · %2$s kHz</string>
 
     <string name="widget_idle">Tap to open</string>
-    <string name="widget_description">Now playing, with previous, play and next</string>
+    <string name="widget_description">Now playing, with shuffle, previous, play, next and repeat</string>
+    <string name="widget_description_compact">Now playing, with previous, play and next</string>
+    <string name="widget_description_large">Now playing with a larger cover, its progress and the full transport</string>
 
     <string name="filter_all">All</string>
     <string name="filter_no_album">No album</string>
@@ -166,6 +175,16 @@
     <string name="page_history">Recently played</string>
     <string name="page_folders">Folders</string>
     <string name="page_genres">Genres</string>
+    <string name="page_home">Home</string>
+    <string name="home_continue">Continue listening</string>
+    <string name="home_progress">%1$d of %2$d songs played</string>
+    <string name="home_today">today</string>
+    <string name="home_week">this week</string>
+    <string name="home_top_artist">top artist</string>
+    <string name="home_made">Made for this week</string>
+    <string name="home_most_played">Most played</string>
+    <string name="home_recently_played">Recently played</string>
+    <string name="home_recently_added">Recently added</string>
     <string name="unknown_genre">Unknown genre</string>
     <string name="genres_empty">Songs have no genre tags yet.</string>
     <string name="history_empty">Nothing played yet.</string>

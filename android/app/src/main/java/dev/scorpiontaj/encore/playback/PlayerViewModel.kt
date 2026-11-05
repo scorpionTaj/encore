@@ -23,7 +23,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import dev.scorpiontaj.encore.library.Album
 import dev.scorpiontaj.encore.library.History
+import dev.scorpiontaj.encore.library.SONG_PREFIX
 import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.library.LyricLine
 import dev.scorpiontaj.encore.library.LyricsFiles
@@ -95,6 +97,12 @@ sealed interface LyricsState {
 /** A short message for the snackbar: a string resource and the values it names. */
 data class Notice(val message: Int, val args: List<Any> = emptyList())
 
+/** The album the home screen offers to carry on with, and how far into it the listening got. */
+data class ResumeCard(val album: Album, val played: Int, val startIndex: Int)
+
+/** The listening the home screen opens with: today, this week and the artist leading the week. */
+data class HomeStats(val todayMs: Long, val weekMs: Long, val topArtist: String?)
+
 sealed interface UpdateState {
     data object Quiet : UpdateState
     data object Checking : UpdateState
@@ -126,6 +134,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _recent = MutableStateFlow<List<TopSong>?>(null)
     val recent: StateFlow<List<TopSong>?> = _recent.asStateFlow()
+
+    /** The home screen's resume card, this week's numbers and its song lists, read when Home opens. */
+    private val _resume = MutableStateFlow<ResumeCard?>(null)
+    val resume: StateFlow<ResumeCard?> = _resume.asStateFlow()
+    private val _homeStats = MutableStateFlow<HomeStats?>(null)
+    val homeStats: StateFlow<HomeStats?> = _homeStats.asStateFlow()
+    private val _homeSongs = MutableStateFlow<List<TopSong>?>(null)
+    val homeSongs: StateFlow<List<TopSong>?> = _homeSongs.asStateFlow()
 
     /** Ids of library songs with no embedded cover, worked out when the No cover filter is first used. */
     private val _missingCovers = MutableStateFlow<Set<Long>?>(null)
@@ -659,6 +675,38 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Reads what the home screen shows: the album to resume, the week's numbers and the songs. */
+    fun loadHome() {
+        viewModelScope.launch {
+            val library = _library.value ?: return@launch
+            val result = withContext(Dispatchers.IO) {
+                val last = history.recent(limit = 1).firstOrNull()
+                val album = last?.let { entry ->
+                    library.song(entry.mediaId)?.albumId?.let { albumId -> library.albums.firstOrNull { it.id == albumId } }
+                }
+                val resume = album?.let { album ->
+                    val playedIds = history.playedIds()
+                    val played = album.songs.count { "$SONG_PREFIX${it.id}" in playedIds }
+                    val startIndex = album.songs.indexOfFirst { "$SONG_PREFIX${it.id}" !in playedIds }
+                        .takeIf { it >= 0 } ?: 0
+                    ResumeCard(album, played, startIndex)
+                }
+                val midnight = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val todayMs = history.totals(midnight).second
+                val week = history.summary(dev.scorpiontaj.encore.library.Period.Week)
+                Triple(resume, HomeStats(todayMs, week.listenedMs, week.artists.firstOrNull()?.name), history.recent(HOME_SONGS))
+            }
+            _resume.value = result.first
+            _homeStats.value = result.second
+            _homeSongs.value = result.third
+        }
+    }
+
     // Playback
 
     fun play(songs: List<Song>, start: Int = 0, shuffle: Boolean = false) {
@@ -840,5 +888,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         const val TAG = "encore"
         const val LIBRARY_DEBOUNCE_MS = 750L
         const val ARTWORK_MAX_PX = 1024
+        const val HOME_SONGS = 15
     }
 }

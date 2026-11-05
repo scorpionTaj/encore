@@ -102,6 +102,10 @@ import dev.scorpiontaj.encore.ui.isDark
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import dev.scorpiontaj.encore.ui.FoldersScreen
 import dev.scorpiontaj.encore.ui.GenresScreen
+import dev.scorpiontaj.encore.ui.HomeScreen
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.HorizontalDivider
 import dev.scorpiontaj.encore.ui.HistoryScreen
 import dev.scorpiontaj.encore.ui.Loading
 import dev.scorpiontaj.encore.ui.MiniPlayer
@@ -174,6 +178,7 @@ class MainActivity : ComponentActivity() {
 
 /** The bottom-bar tabs, in order. */
 private enum class Tab(val label: Int, val icon: Int) {
+    Home(R.string.page_home, R.drawable.ic_home),
     Songs(R.string.tab_songs, R.drawable.ic_music_note),
     Albums(R.string.tab_albums, R.drawable.ic_album),
     Artists(R.string.tab_artists, R.drawable.ic_person),
@@ -252,6 +257,9 @@ private fun EncoreApp(vm: PlayerViewModel) {
     val recording by vm.recording.collectAsStateWithLifecycle()
     val smart by vm.smartPlaylists.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
+    val resume by vm.resume.collectAsStateWithLifecycle()
+    val homeStats by vm.homeStats.collectAsStateWithLifecycle()
+    val homeSongs by vm.homeSongs.collectAsStateWithLifecycle()
     val missingCovers by vm.missingCovers.collectAsStateWithLifecycle()
     var folder by rememberSaveable { mutableStateOf("") }
     /** The genre whose songs the Genres page shows, or the list of all genres. */
@@ -349,6 +357,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
 
     LaunchedEffect(granted) { if (granted && vm.library.value == null) vm.loadLibrary() }
     LaunchedEffect(tab, page) { if (Tab.entries[tab] == Tab.Radio || page == Page.Search) vm.loadRadio() }
+    LaunchedEffect(tab) { if (Tab.entries[tab] == Tab.Home) vm.loadHome() }
     LaunchedEffect(page) {
         if (page == Page.Stats) vm.loadStats()
         if (page == Page.History) vm.loadRecent()
@@ -382,9 +391,15 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             when {
                                 open == Page.Settings && section != null -> stringResource(section.title)
                                 open != null -> stringResource(open.title)
-                                detail != null -> stringResource(Tab.entries[tab].label)
-                                else -> stringResource(R.string.app_name)
+                                else -> stringResource(Tab.entries[tab].label)
                             },
+                            // A tab's own page carries its name large, as the page's heading.
+                            style = if (page == null && detail == null) {
+                                MaterialTheme.typography.headlineMedium
+                            } else {
+                                MaterialTheme.typography.titleLarge
+                            },
+                            fontWeight = FontWeight.SemiBold,
                         )
                     },
                     navigationIcon = {
@@ -435,13 +450,21 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
                         exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
                     ) { MiniPlayer(player, library, vm) { nowPlaying = true } }
-                    NavigationBar {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                        val colors = MaterialTheme.colorScheme
                         Tab.entries.forEachIndexed { index, entry ->
                             NavigationBarItem(
                                 selected = tab == index && page == null,
                                 onClick = { haptic(HapticFeedbackType.TextHandleMove); tab = index; detail = null; page = null },
                                 icon = { Icon(icon(entry.icon), null) },
                                 label = { Text(stringResource(entry.label), maxLines = 1) },
+                                // The chosen tab shows in the accent colour alone, without the pill behind it.
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = colors.primary,
+                                    selectedTextColor = colors.primary,
+                                    indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                ),
                             )
                         }
                     }
@@ -580,6 +603,15 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         !granted -> PermissionPrompt { request.launch(AUDIO_PERMISSION) }
                         lib == null -> Loading(stringResource(R.string.library_loading))
                         else -> when (Tab.entries[tab]) {
+                            Tab.Home -> HomeScreen(
+                                resume = resume,
+                                stats = homeStats,
+                                played = homeSongs,
+                                library = lib,
+                                current = current,
+                                actions = actions,
+                                onLoad = vm::loadHome,
+                            )
                             Tab.Songs -> SongsScreen(
                                 lib.songs, lib.duplicates, missingCovers, current, actions, vm::findMissingCovers,
                                 sortName = settings.songSort,

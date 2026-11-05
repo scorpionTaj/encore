@@ -42,6 +42,8 @@ private val NAMES = mapOf(
     R.drawable.ic_shuffle to "shuffle",
     R.drawable.ic_repeat to "repeat",
     R.drawable.ic_repeat_one to "repeat-one",
+    R.drawable.ic_home to "house",
+    R.drawable.ic_audio_lines to "guitar",
     R.drawable.ic_music_note to "music",
     R.drawable.ic_album to "disc-3",
     R.drawable.ic_person to "user-round",
