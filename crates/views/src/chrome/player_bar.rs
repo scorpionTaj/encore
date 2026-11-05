@@ -1,4 +1,4 @@
-use router::{Destination, Link, navigate};
+use router::{Destination, navigate};
 use std::time::Duration;
 use ui::ActiveTheme as _;
 use ui::Tails as _;
@@ -332,9 +332,7 @@ impl PlayerBar {
                 .aria_label(SharedString::from(track.name.clone()))
                 // The name opens the full Now playing, like the cover beside it.
                 .role(Role::Button)
-                .on_click(|_, window, cx| {
-                    window.dispatch_action(Box::new(ToggleFullscreen), cx)
-                })
+                .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleFullscreen), cx))
                 .hover(|style| style.cursor_pointer())
                 .on_mouse_down(
                     MouseButton::Right,

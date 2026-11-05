@@ -166,9 +166,9 @@ impl Updates {
             }
         }));
         self.task = Some(cx.spawn(async move |this, cx| {
-            let fetched = join(io.spawn(async move {
-                download(&http, &package, &sums, &version, sender).await
-            }))
+            let fetched = join(
+                io.spawn(async move { download(&http, &package, &sums, &version, sender).await }),
+            )
             .await;
             let applied = match fetched {
                 Ok(path) => join(io.spawn_blocking(move || Install::current().apply(&path))).await,

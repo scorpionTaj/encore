@@ -109,7 +109,9 @@ impl AppNotice {
         let working = matches!(state, UpdateState::Fetching { .. });
         let progress = match state.clone() {
             UpdateState::Fetching { received, total } => Some(Progress {
-                fraction: total.filter(|total| *total > 0).map(|total| received as f32 / total as f32),
+                fraction: total
+                    .filter(|total| *total > 0)
+                    .map(|total| received as f32 / total as f32),
                 label: match total {
                     Some(total) if total > 0 => t!(
                         "update-progress",
@@ -301,41 +303,36 @@ fn card_element(card: Card, cx: &App) -> AnyElement {
         .when_some(progress, |this, progress| {
             let bar = theme.metrics.pad / 2.;
             this.child(
-                div()
-                    .px(SMALL_INSET)
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .h(bar)
-                                    .rounded(corners(theme.radius))
-                                    .bg(theme.muted)
-                                    .overflow_hidden()
-                                    .child(
-                                        div()
-                                            .h_full()
-                                            .rounded(corners(theme.radius))
-                                            .bg(theme.progress_bar)
-                                            .when_some(progress.fraction, |this, fraction| {
-                                                this.w(gpui::relative(fraction.clamp(0., 1.)))
-                                            }),
-                                    ),
-                            )
-                            .child(Spinner::new("update-progress"))
-                            .child(
-                                div()
-                                    .text_size(theme.text(Text::Small))
-                                    .text_color(theme.muted_foreground)
-                                    .child(progress.label),
-                            ),
-                    ),
+                div().px(SMALL_INSET).flex().flex_col().gap_1().child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex_1()
+                                .h(bar)
+                                .rounded(corners(theme.radius))
+                                .bg(theme.muted)
+                                .overflow_hidden()
+                                .child(
+                                    div()
+                                        .h_full()
+                                        .rounded(corners(theme.radius))
+                                        .bg(theme.progress_bar)
+                                        .when_some(progress.fraction, |this, fraction| {
+                                            this.w(gpui::relative(fraction.clamp(0., 1.)))
+                                        }),
+                                ),
+                        )
+                        .child(Spinner::new("update-progress"))
+                        .child(
+                            div()
+                                .text_size(theme.text(Text::Small))
+                                .text_color(theme.muted_foreground)
+                                .child(progress.label),
+                        ),
+                ),
             )
         })
         .child(
