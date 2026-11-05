@@ -24,6 +24,10 @@ use crate::{
     ProviderSession, Shape, SignIn, Track, UserProfile,
 };
 
+/// The engine for files on disk, for a host that plays a file without a library. Only the
+/// Android spike (`crates/android-core`) uses it; the app reaches it through `LocalProvider`.
+pub use playback::Factory as FilePlayback;
+
 pub struct LocalProvider {
     cache_dir: PathBuf,
     database: Database,

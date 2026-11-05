@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: the Rust-core spike's developer screen, started over adb. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".core.RustCoreActivity"
+            android:exported="true"
+            android:label="@string/rust_core_play" />
+    </application>
+</manifest>

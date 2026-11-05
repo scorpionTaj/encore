@@ -14,3 +14,6 @@ __pycache__/
 
 # macOS Finder metadata
 .DS_Store
+
+# The Rust-core spike library, built by scripts/build-android-core.sh
+/android/app/src/debug/jniLibs

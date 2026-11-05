@@ -178,6 +178,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "android-core"
+version = "1.9.0"
+dependencies = [
+ "anyhow",
+ "jni",
+ "music",
+ "ndk-context",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
