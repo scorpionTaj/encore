@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.1]
+
 ### Fixed
 
 - The cover on Android's Now Playing screen no longer slides up over the buttons at the top on
