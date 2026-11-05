@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import dev.scorpiontaj.encore.BuildConfig
 import dev.scorpiontaj.encore.R
+import dev.scorpiontaj.encore.Tab
 import dev.scorpiontaj.encore.playback.EqualizerState
 import dev.scorpiontaj.encore.playback.UpdateState
 import dev.scorpiontaj.encore.settings.LyricsSource
@@ -176,6 +177,14 @@ private fun LazyListScope.general(model: SettingsModel) {
                 onPick = { model.onLanguage(tag) },
             )
         }
+    }
+    item { Group(R.string.settings_start_tab, first = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) }
+    items(Tab.entries) { entry ->
+        Choice(
+            title = stringResource(entry.label),
+            selected = model.settings.startTab == entry.name,
+            onPick = { model.onSettings { it.copy(startTab = entry.name) } },
+        )
     }
     item { Group(R.string.settings_updates) }
     item {

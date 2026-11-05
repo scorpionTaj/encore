@@ -112,6 +112,7 @@
     <string name="stats_empty">شغّل بعض الموسيقى وستظهر إحصائياتك هنا.</string>
     <string name="stats_top_songs">الأغاني الأكثر استماعًا</string>
     <string name="stats_top_artists">الفنانون الأكثر استماعًا</string>
+    <string name="settings_start_tab">الفتح على</string>
     <string name="settings_updates">التحديثات</string>
     <string name="settings_version">الإصدار %1$s</string>
     <string name="update_checking">جارٍ البحث عن تحديثات…</string>

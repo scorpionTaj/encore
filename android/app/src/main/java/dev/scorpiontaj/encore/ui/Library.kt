@@ -186,13 +186,6 @@ fun SongsScreen(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.width(8.dp))
-                // Tapping the chosen filter again clears it, so "All" needs no link of its own.
-                SongFilter.entries.filter { it != SongFilter.All }.forEach { entry ->
-                    FilterLink(stringResource(entry.label), filter == entry) {
-                        onSortFilter(sort.name, if (filter == entry) SongFilter.All.name else entry.name)
-                    }
-                    FilterDot()
-                }
                 Box {
                     FilterLink(stringResource(R.string.action_sort), sortMenu) { sortMenu = true }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
@@ -208,6 +201,14 @@ fun SongsScreen(
                             )
                         }
                     }
+                }
+                FilterDot()
+                // Tapping the chosen filter again clears it, so "All" needs no link of its own.
+                SongFilter.entries.filter { it != SongFilter.All }.forEach { entry ->
+                    FilterLink(stringResource(entry.label), filter == entry) {
+                        onSortFilter(sort.name, if (filter == entry) SongFilter.All.name else entry.name)
+                    }
+                    if (entry != SongFilter.entries.last()) FilterDot()
                 }
             }
         }

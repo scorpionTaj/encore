@@ -177,8 +177,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** The bottom-bar tabs, in order. */
-private enum class Tab(val label: Int, val icon: Int) {
+/** The bottom-bar tabs, in order. Settings → General picks the one the app opens on. */
+internal enum class Tab(val label: Int, val icon: Int) {
     Home(R.string.page_home, R.drawable.ic_home),
     Songs(R.string.tab_songs, R.drawable.ic_music_note),
     Albums(R.string.tab_albums, R.drawable.ic_album),
@@ -283,7 +283,9 @@ private fun EncoreApp(vm: PlayerViewModel) {
         vm.pendingDelete = null
         if (result.resultCode == Activity.RESULT_OK) vm.songDeleted(song)
     }
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable {
+        mutableIntStateOf(Tab.entries.indexOfFirst { it.name == vm.settings.value.startTab }.coerceAtLeast(0))
+    }
     var page by rememberSaveable { mutableStateOf<Page?>(null) }
     var detail by rememberSaveable(stateSaver = DetailSaver) { mutableStateOf<Detail?>(null) }
     var nowPlaying by rememberSaveable { mutableStateOf(false) }

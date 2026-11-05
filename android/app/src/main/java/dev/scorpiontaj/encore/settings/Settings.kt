@@ -63,6 +63,8 @@ data class SettingsState(
     val songSort: String = "Title",
     val songFilter: String = "All",
     // General
+    /** The bottom-bar tab the app opens on, by its name. */
+    val startTab: String = "Home",
     /** Looks for a newer release when the app starts. */
     val checkUpdates: Boolean = true,
 )
@@ -117,6 +119,7 @@ object Settings {
             watchFolders = prefs.getBoolean(WATCH_FOLDERS, defaults.watchFolders),
             songSort = prefs.getString(SONG_SORT, null) ?: defaults.songSort,
             songFilter = prefs.getString(SONG_FILTER, null) ?: defaults.songFilter,
+            startTab = prefs.getString(START_TAB, null) ?: defaults.startTab,
             checkUpdates = prefs.getBoolean(CHECK_UPDATES, defaults.checkUpdates),
         )
     }
@@ -150,6 +153,7 @@ object Settings {
             putBoolean(WATCH_FOLDERS, next.watchFolders)
             putString(SONG_SORT, next.songSort)
             putString(SONG_FILTER, next.songFilter)
+            putString(START_TAB, next.startTab)
             putBoolean(CHECK_UPDATES, next.checkUpdates)
         }
     }
@@ -178,4 +182,5 @@ object Settings {
     private const val SONG_SORT = "song_sort"
     private const val SONG_FILTER = "song_filter"
     private const val CHECK_UPDATES = "check_updates"
+    private const val START_TAB = "start_tab"
 }

@@ -163,6 +163,9 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.previous() }) {
+                    Icon(icon(R.drawable.ic_skip_previous), stringResource(R.string.action_previous))
+                }
                 PlayPauseButton(state.playing, vm::togglePlay, filled = false)
                 IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.next() }) {
                     Icon(icon(R.drawable.ic_skip_next), stringResource(R.string.action_next))
