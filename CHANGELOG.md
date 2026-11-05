@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0]
+
 ### Added
 
 - Control the desktop app from your phone: turn on Settings → General → Remote control, open the
