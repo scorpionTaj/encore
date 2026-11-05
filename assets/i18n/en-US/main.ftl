@@ -1136,6 +1136,9 @@ update-detail-notes = You are on { $running }. Read what changed, then update En
 update-notes = What's new
 update-now = Update
 update-working = Downloading the update…
+update-working = Downloading the update…
+update-progress = {$received} of {$total} downloaded
+update-progress-unknown = {$received} downloaded
 update-failed = The update could not be installed. Try again from the releases page.
 update-never = Don't check for updates
 update-current = You're on the latest version of Encore
@@ -1252,3 +1255,17 @@ response-graph-readout = { $frequency } · { $direction ->
         [down] -{ $gain }
        *[flat] { $gain }
     } dB
+
+## The remote page served to phones on the local network
+settings-group-remote = Remote control
+settings-web-remote = Control from your phone
+settings-web-remote-detail = Serve a small page on your local network, so a phone or another computer can see what plays and play, pause, skip, seek and change the volume. Only someone with the address below can use it
+settings-web-remote-address = Address to open
+settings-web-remote-address-detail = Open this in a browser on the same network. Press to copy it; it carries a secret, so share it only with people you trust
+remote-page-title = Encore remote
+remote-page-idle = Nothing is playing
+remote-page-play = Play
+remote-page-pause = Pause
+remote-page-previous = Previous
+remote-page-next = Next
+remote-page-volume = Volume

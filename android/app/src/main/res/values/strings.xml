@@ -22,6 +22,11 @@
         <item quantity="other">%d songs</item>
     </plurals>
 
+    <plurals name="duration_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+
     <string name="action_play">Play</string>
     <string name="action_pause">Pause</string>
     <string name="action_next">Next</string>
@@ -52,12 +57,16 @@
     <string name="radio_live">Live</string>
     <string name="radio_station">Radio station</string>
 
+    <string name="quality_bit_depth">%1$d-bit</string>
+    <string name="song_playing">Playing</string>
     <string name="quality_lossless">Lossless</string>
     <string name="quality_bitrate">%1$d kbps</string>
     <string name="quality_hires">%1$d-bit · %2$s kHz</string>
 
     <string name="widget_idle">Tap to open</string>
-    <string name="widget_description">Now playing, with previous, play and next</string>
+    <string name="widget_description">Now playing, with shuffle, previous, play, next and repeat</string>
+    <string name="widget_description_compact">Now playing, with previous, play and next</string>
+    <string name="widget_description_large">Now playing with a larger cover, its progress and the full transport</string>
 
     <string name="filter_all">All</string>
     <string name="filter_no_album">No album</string>
@@ -103,6 +112,8 @@
     <string name="update_current">Encore is up to date.</string>
     <string name="update_failed">Could not update. Try again later.</string>
     <string name="update_downloading">Downloading the update…</string>
+    <string name="update_installing">Installing update…</string>
+    <string name="update_sizes">%1$s of %2$s</string>
     <string name="update_available">Encore %1$s is available</string>
     <string name="update_check">Check for updates</string>
     <string name="update_install">Update</string>
@@ -163,6 +174,21 @@
     <string name="action_cancel">Cancel</string>
     <string name="page_history">Recently played</string>
     <string name="page_folders">Folders</string>
+    <string name="page_genres">Genres</string>
+    <string name="page_home">Home</string>
+    <string name="home_continue">Continue listening</string>
+    <plurals name="home_progress">
+        <item quantity="one">%1$d of %2$d song played</item>
+        <item quantity="other">%1$d of %2$d songs played</item>
+    </plurals>
+    <string name="home_today">today</string>
+    <string name="home_week">this week</string>
+    <string name="home_top_artist">top artist</string>
+    <string name="home_made">Made for this week</string>
+    <string name="home_most_played">Most played</string>
+    <string name="home_recently_played">Recently played</string>
+    <string name="home_recently_added">Recently added</string>
+    <string name="genres_empty">Songs have no genre tags yet.</string>
     <string name="history_empty">Nothing played yet.</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_normalize">Loudness normalisation</string>
@@ -288,7 +314,10 @@
     <string name="settings_license_body">GNU General Public License, version 3 or later</string>
     <string name="settings_report">Report a problem</string>
     <string name="notice_folder_hidden">%1$s hidden</string>
-    <string name="notice_sleep_set">Playback stops in %1$d minutes</string>
+    <plurals name="notice_sleep_set">
+        <item quantity="one">Playback stops in %1$d minute</item>
+        <item quantity="other">Playback stops in %1$d minutes</item>
+    </plurals>
     <string name="notice_recording_saved">Recording saved to Music, Encore Recordings</string>
     <string name="notice_playlist_saved">%1$s saved</string>
     <string name="notice_favourite_added">%1$s added to favourites</string>

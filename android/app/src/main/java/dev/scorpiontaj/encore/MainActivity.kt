@@ -78,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -101,6 +102,11 @@ import dev.scorpiontaj.encore.ui.icon
 import dev.scorpiontaj.encore.ui.isDark
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import dev.scorpiontaj.encore.ui.FoldersScreen
+import dev.scorpiontaj.encore.ui.GenresScreen
+import dev.scorpiontaj.encore.ui.HomeScreen
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.HorizontalDivider
 import dev.scorpiontaj.encore.ui.HistoryScreen
 import dev.scorpiontaj.encore.ui.Loading
 import dev.scorpiontaj.encore.ui.MiniPlayer
@@ -112,6 +118,7 @@ import dev.scorpiontaj.encore.ui.SmartPlaylistDialog
 import dev.scorpiontaj.encore.ui.SongDetailsDialog
 import dev.scorpiontaj.encore.ui.StatsScreen
 import dev.scorpiontaj.encore.ui.UpdateCard
+import dev.scorpiontaj.encore.ui.UpdateProgressCard
 import dev.scorpiontaj.encore.ui.SongActions
 import dev.scorpiontaj.encore.ui.SongsScreen
 import dev.scorpiontaj.encore.ui.orUnknown
@@ -172,6 +179,7 @@ class MainActivity : ComponentActivity() {
 
 /** The bottom-bar tabs, in order. */
 private enum class Tab(val label: Int, val icon: Int) {
+    Home(R.string.page_home, R.drawable.ic_home),
     Songs(R.string.tab_songs, R.drawable.ic_music_note),
     Albums(R.string.tab_albums, R.drawable.ic_album),
     Artists(R.string.tab_artists, R.drawable.ic_person),
@@ -222,6 +230,7 @@ private enum class Page(val title: Int, val icon: Int) {
     Search(R.string.action_search, R.drawable.ic_search),
     Stats(R.string.page_stats, R.drawable.ic_bar_chart),
     History(R.string.page_history, R.drawable.ic_history),
+    Genres(R.string.page_genres, R.drawable.ic_audio_lines),
     Folders(R.string.page_folders, R.drawable.ic_folder),
     Settings(R.string.page_settings, R.drawable.ic_settings),
 }
@@ -230,6 +239,7 @@ private enum class Page(val title: Int, val icon: Int) {
 @Composable
 private fun EncoreApp(vm: PlayerViewModel) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     var granted by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, AUDIO_PERMISSION) == PackageManager.PERMISSION_GRANTED)
     }
@@ -249,8 +259,13 @@ private fun EncoreApp(vm: PlayerViewModel) {
     val recording by vm.recording.collectAsStateWithLifecycle()
     val smart by vm.smartPlaylists.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
+    val resume by vm.resume.collectAsStateWithLifecycle()
+    val homeStats by vm.homeStats.collectAsStateWithLifecycle()
+    val homeSongs by vm.homeSongs.collectAsStateWithLifecycle()
     val missingCovers by vm.missingCovers.collectAsStateWithLifecycle()
     var folder by rememberSaveable { mutableStateOf("") }
+    /** The genre whose songs the Genres page shows, or the list of all genres. */
+    var genre by rememberSaveable { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<SmartPlaylist?>(null) }
     var creating by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
@@ -336,7 +351,10 @@ private fun EncoreApp(vm: PlayerViewModel) {
         val shown = notice ?: return@LaunchedEffect
         // Clearing first would restart this effect and cancel the snackbar, so clear once it is done.
         snackbar.currentSnackbarData?.dismiss()
-        snackbar.showSnackbar(context.getString(shown.message, *shown.args.toTypedArray()))
+        snackbar.showSnackbar(
+            shown.count?.let { resources.getQuantityString(shown.message, it, *shown.args.toTypedArray()) }
+                ?: resources.getString(shown.message, *shown.args.toTypedArray()),
+        )
         vm.clearNotice()
     }
     // A radio stream's current song, which the service puts in the artist field.
@@ -344,6 +362,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
 
     LaunchedEffect(granted) { if (granted && vm.library.value == null) vm.loadLibrary() }
     LaunchedEffect(tab, page) { if (Tab.entries[tab] == Tab.Radio || page == Page.Search) vm.loadRadio() }
+    LaunchedEffect(tab) { if (Tab.entries[tab] == Tab.Home) vm.loadHome() }
     LaunchedEffect(page) {
         if (page == Page.Stats) vm.loadStats()
         if (page == Page.History) vm.loadRecent()
@@ -353,9 +372,13 @@ private fun EncoreApp(vm: PlayerViewModel) {
     BackHandler(enabled = page == Page.Folders && folder.isNotEmpty() && detail == null && !nowPlaying) {
         folder = folder.removeSuffix("/").substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
     }
+    BackHandler(enabled = page == Page.Genres && genre != null && detail == null && !nowPlaying) {
+        genre = null
+    }
     BackHandler(
         enabled = page != null && detail == null && !nowPlaying &&
-            !(page == Page.Folders && folder.isNotEmpty()) && !(page == Page.Settings && settingsPage != null),
+            !(page == Page.Folders && folder.isNotEmpty()) && !(page == Page.Settings && settingsPage != null) &&
+            !(page == Page.Genres && genre != null),
     ) {
         page = null
     }
@@ -373,9 +396,15 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             when {
                                 open == Page.Settings && section != null -> stringResource(section.title)
                                 open != null -> stringResource(open.title)
-                                detail != null -> stringResource(Tab.entries[tab].label)
-                                else -> stringResource(R.string.app_name)
+                                else -> stringResource(Tab.entries[tab].label)
                             },
+                            // A tab's own page carries its name large, as the page's heading.
+                            style = if (page == null && detail == null) {
+                                MaterialTheme.typography.headlineMedium
+                            } else {
+                                MaterialTheme.typography.titleLarge
+                            },
+                            fontWeight = FontWeight.SemiBold,
                         )
                     },
                     navigationIcon = {
@@ -384,6 +413,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                                 when {
                                     detail != null -> detail = null
                                     page == Page.Settings && settingsPage != null -> settingsPage = null
+                                    page == Page.Genres && genre != null -> genre = null
                                     else -> page = null
                                 }
                             }) {
@@ -425,13 +455,21 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
                         exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
                     ) { MiniPlayer(player, library, vm) { nowPlaying = true } }
-                    NavigationBar {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+                        val colors = MaterialTheme.colorScheme
                         Tab.entries.forEachIndexed { index, entry ->
                             NavigationBarItem(
                                 selected = tab == index && page == null,
                                 onClick = { haptic(HapticFeedbackType.TextHandleMove); tab = index; detail = null; page = null },
                                 icon = { Icon(icon(entry.icon), null) },
                                 label = { Text(stringResource(entry.label), maxLines = 1) },
+                                // The chosen tab shows in the accent colour alone, without the pill behind it.
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = colors.primary,
+                                    selectedTextColor = colors.primary,
+                                    indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                ),
                             )
                         }
                     }
@@ -441,6 +479,11 @@ private fun EncoreApp(vm: PlayerViewModel) {
             Column(Modifier.padding(padding).fillMaxSize()) {
                 (update as? UpdateState.Offered)?.takeIf { page == null }?.let {
                     UpdateCard(it, onInstall = vm::installUpdate, onDismiss = vm::dismissUpdate)
+                }
+                when {
+                    page == null && update is UpdateState.Downloading -> UpdateProgressCard(update, onCancel = vm::cancelUpdateDownload)
+                    page == null && update is UpdateState.Installing -> UpdateProgressCard(update, onCancel = null)
+                    else -> {}
                 }
                 val current = player.mediaId
                 val lib = library
@@ -498,6 +541,20 @@ private fun EncoreApp(vm: PlayerViewModel) {
                             lib?.song(id)?.let { vm.play(listOf(it)) }
                                 ?: (radio as? RadioState.Loaded)?.stations?.firstOrNull { it.mediaId == id }?.let(vm::play)
                         }
+                        page == Page.Genres -> when (lib) {
+                            null -> Loading(stringResource(R.string.library_loading))
+                            else -> when (val open = genre) {
+                                null -> GenresScreen(lib) { genre = it }
+                                else -> CollectionScreen(
+                                    open,
+                                    "",
+                                    lib.songs.filter { it.genre == open }
+                                        .sortedWith(compareBy({ it.album.lowercase() }, { it.track })),
+                                    current,
+                                    actions,
+                                )
+                            }
+                        }
                         page == Page.Folders -> when (lib) {
                             null -> Loading(stringResource(R.string.library_loading))
                             else -> FoldersScreen(lib, folder, current, actions, onFolder = { folder = it }, onHide = vm::hideFolder)
@@ -515,6 +572,7 @@ private fun EncoreApp(vm: PlayerViewModel) {
                                     onSettings = vm::updateSettings,
                                     onCheckUpdates = { vm.checkForUpdates(asked = true) },
                                     onInstallUpdate = vm::installUpdate,
+                                    onCancelUpdate = vm::cancelUpdateDownload,
                                     onEqualizerEnabled = vm::setEqualizerEnabled,
                                     onBandLevel = vm::setBandLevel,
                                     onPreset = vm::useEqualizerPreset,
@@ -550,6 +608,15 @@ private fun EncoreApp(vm: PlayerViewModel) {
                         !granted -> PermissionPrompt { request.launch(AUDIO_PERMISSION) }
                         lib == null -> Loading(stringResource(R.string.library_loading))
                         else -> when (Tab.entries[tab]) {
+                            Tab.Home -> HomeScreen(
+                                resume = resume,
+                                stats = homeStats,
+                                played = homeSongs,
+                                library = lib,
+                                current = current,
+                                actions = actions,
+                                onLoad = vm::loadHome,
+                            )
                             Tab.Songs -> SongsScreen(
                                 lib.songs, lib.duplicates, missingCovers, current, actions, vm::findMissingCovers,
                                 sortName = settings.songSort,

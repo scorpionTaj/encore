@@ -1130,6 +1130,9 @@ update-detail-notes = Vous êtes en { $running }. Voyez ce qui a changé, puis m
 update-notes = Nouveautés
 update-now = Mettre à jour
 update-working = Téléchargement de la mise à jour…
+update-working = Téléchargement de la mise à jour…
+update-progress = {$received} sur {$total} téléchargés
+update-progress-unknown = {$received} téléchargés
 update-failed = La mise à jour n'a pas pu être installée. Réessayez depuis la page des versions.
 update-never = Ne pas rechercher de mises à jour
 update-current = Vous avez la dernière version d'Encore
@@ -1256,3 +1259,17 @@ theme-install-confirm = Installer
 toast-theme-link-unreadable = Ce lien de thème est endommagé ou ne contient pas de thème
 toast-theme-install-failed = Impossible d'installer { $name }
 toast-theme-delete-failed = Impossible de supprimer { $name }
+
+## The remote page served to phones on the local network
+settings-group-remote = Télécommande
+settings-web-remote = Contrôler depuis votre téléphone
+settings-web-remote-detail = Sert une petite page sur votre réseau local, pour qu’un téléphone ou un autre ordinateur voie ce qui joue et puisse lire, mettre en pause, passer, avancer et régler le volume. Seule une personne qui a l’adresse ci-dessous peut l’utiliser
+settings-web-remote-address = Adresse à ouvrir
+settings-web-remote-address-detail = Ouvrez-la dans un navigateur sur le même réseau. Appuyez pour la copier ; elle contient un secret, ne la partagez qu’avec des personnes de confiance
+remote-page-title = Télécommande Encore
+remote-page-idle = Rien ne joue
+remote-page-play = Lire
+remote-page-pause = Pause
+remote-page-previous = Précédent
+remote-page-next = Suivant
+remote-page-volume = Volume

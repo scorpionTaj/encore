@@ -27,13 +27,17 @@ const val WIDGET_SHUFFLE = "dev.scorpiontaj.encore.widget.SHUFFLE"
 const val WIDGET_REPEAT = "dev.scorpiontaj.encore.widget.REPEAT"
 
 /**
- * The 5x1 home-screen player with shuffle and repeat on either side of the transport. PlaybackService pushes every track and play-state change through
- * [publish]; the buttons send service intents straight to [PlaybackService], which applies them
- * to its own player.
+ * The 5x1 home-screen player with shuffle and repeat on either side of the transport, and the base
+ * of the other sizes. PlaybackService pushes every track and play-state change through [publish];
+ * the buttons send service intents straight to [PlaybackService], which applies them to its own
+ * player. Every size's layout carries the same view ids, hiding the ones it does not show.
  */
-class EncoreWidget : AppWidgetProvider() {
+open class EncoreWidget : AppWidgetProvider() {
+    /** The layout this size of widget draws with. */
+    protected open val layout: Int = R.layout.widget
+
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        manager.updateAppWidget(ids, render(context, current))
+        manager.updateAppWidget(ids, render(context, current, layout))
     }
 
     /** What the widget shows: null while nothing is loaded in the player. */
@@ -50,6 +54,13 @@ class EncoreWidget : AppWidgetProvider() {
         private const val ART_SIZE_PX = 192
 
         private const val PROGRESS_MAX = 1000
+
+        /** Every widget size, by its provider and the layout it draws with. */
+        private val SIZES = listOf(
+            EncoreWidget::class.java to R.layout.widget,
+            EncoreWidgetCompact::class.java to R.layout.widget_compact,
+            EncoreWidgetLarge::class.java to R.layout.widget_large,
+        )
 
         @Volatile private var current: Snapshot? = null
 
@@ -77,8 +88,10 @@ class EncoreWidget : AppWidgetProvider() {
             current = snapshot
             progress = progressOf(player)
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, EncoreWidget::class.java))
-            if (ids.isNotEmpty()) manager.updateAppWidget(ids, render(context, snapshot))
+            SIZES.forEach { (provider, layout) ->
+                val ids = manager.getAppWidgetIds(ComponentName(context, provider))
+                if (ids.isNotEmpty()) manager.updateAppWidget(ids, render(context, snapshot, layout))
+            }
         }
 
         /**
@@ -90,9 +103,12 @@ class EncoreWidget : AppWidgetProvider() {
             if (value == progress) return
             progress = value
             val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, EncoreWidget::class.java))
-            if (ids.isEmpty()) return
-            manager.partiallyUpdateAppWidget(ids, RemoteViews(context.packageName, R.layout.widget).apply { showProgress(value) })
+            SIZES.forEach { (provider, layout) ->
+                val ids = manager.getAppWidgetIds(ComponentName(context, provider))
+                if (ids.isNotEmpty()) {
+                    manager.partiallyUpdateAppWidget(ids, RemoteViews(context.packageName, layout).apply { showProgress(value) })
+                }
+            }
         }
 
         private fun progressOf(player: Player?): Int? {
@@ -122,8 +138,8 @@ class EncoreWidget : AppWidgetProvider() {
             return art
         }
 
-        private fun render(context: Context, snapshot: Snapshot?): RemoteViews =
-            RemoteViews(context.packageName, R.layout.widget).apply {
+        private fun render(context: Context, snapshot: Snapshot?, layout: Int): RemoteViews =
+            RemoteViews(context.packageName, layout).apply {
                 showProgress(snapshot?.let { progress })
                 setTextViewText(R.id.widget_title, snapshot?.title ?: context.getString(R.string.app_name))
                 setTextViewText(R.id.widget_artist, snapshot?.artist ?: context.getString(R.string.widget_idle))
@@ -185,4 +201,14 @@ class EncoreWidget : AppWidgetProvider() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }
+}
+
+/** The 4x1 player: cover, song and previous, play and next. */
+class EncoreWidgetCompact : EncoreWidget() {
+    override val layout: Int = R.layout.widget_compact
+}
+
+/** The 4x2 player: a larger cover over the song, its progress and the full transport. */
+class EncoreWidgetLarge : EncoreWidget() {
+    override val layout: Int = R.layout.widget_large
 }

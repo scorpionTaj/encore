@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -44,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import android.text.format.Formatter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -82,6 +85,7 @@ class SettingsModel(
     val onSettings: ((SettingsState) -> SettingsState) -> Unit,
     val onCheckUpdates: () -> Unit,
     val onInstallUpdate: () -> Unit,
+    val onCancelUpdate: () -> Unit,
     val onEqualizerEnabled: (Boolean) -> Unit,
     val onBandLevel: (Int, Int) -> Unit,
     val onPreset: (Int) -> Unit,
@@ -585,20 +589,56 @@ private fun UpdateRow(model: SettingsModel) {
                 UpdateState.Checking -> stringResource(R.string.update_checking)
                 UpdateState.Current -> stringResource(R.string.update_current)
                 UpdateState.Failed -> stringResource(R.string.update_failed)
-                UpdateState.Downloading -> stringResource(R.string.update_downloading)
+                is UpdateState.Downloading -> stringResource(R.string.update_downloading)
+                UpdateState.Installing -> stringResource(R.string.update_installing)
                 is UpdateState.Offered -> stringResource(R.string.update_available, update.release.version)
                 UpdateState.Quiet -> stringResource(R.string.settings_version, BuildConfig.VERSION_NAME)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // How much of the update has arrived, with a spinner when the size is unknown.
+        if (update is UpdateState.Downloading) {
+            val context = LocalContext.current
+            val fraction = update.total?.takeIf { it > 0 }?.let { total -> update.received.toFloat() / total }
+            when (fraction) {
+                null -> LinearProgressIndicator(
+                    Modifier.fillMaxWidth().padding(top = 8.dp).height(5.dp).clip(RoundedCornerShape(3.dp)),
+                )
+                else -> LinearProgressIndicator(
+                    progress = { fraction.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(5.dp).clip(RoundedCornerShape(3.dp)),
+                    drawStopIndicator = {},
+                    gapSize = 0.dp,
+                )
+            }
+            update.total?.let { total ->
+                Text(
+                    stringResource(
+                        R.string.update_sizes,
+                        Formatter.formatShortFileSize(context, update.received),
+                        Formatter.formatShortFileSize(context, total),
+                    ),
+                    Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Row(Modifier.padding(top = 8.dp)) {
-            Button(onClick = model.onCheckUpdates, enabled = update != UpdateState.Checking && update != UpdateState.Downloading) {
+            Button(
+                onClick = model.onCheckUpdates,
+                enabled = update != UpdateState.Checking && update !is UpdateState.Downloading && update != UpdateState.Installing,
+            ) {
                 Text(stringResource(R.string.update_check))
             }
             if (update is UpdateState.Offered) {
                 Spacer(Modifier.width(8.dp))
                 Button(onClick = model.onInstallUpdate) { Text(stringResource(R.string.update_install)) }
+            }
+            if (update is UpdateState.Downloading) {
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = model.onCancelUpdate) { Text(stringResource(R.string.action_cancel)) }
             }
         }
     }

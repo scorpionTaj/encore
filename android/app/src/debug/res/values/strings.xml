@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Rust-core spike's developer screen, in debug builds only; never translated. -->
+<resources>
+    <string name="rust_core_play" translatable="false">Play the first song through Rust</string>
+    <string name="rust_core_stop" translatable="false">Stop</string>
+    <string name="rust_core_ready" translatable="false">The Rust engine is loaded.</string>
+    <string name="rust_core_missing" translatable="false">This build has no Rust engine. Run scripts/build-android-core.sh first.</string>
+    <string name="rust_core_no_song" translatable="false">No song on this device.</string>
+    <string name="rust_core_playing" translatable="false">Playing through Rust: %1$s</string>
+    <string name="rust_core_failed" translatable="false">The Rust engine could not play it: %1$s</string>
+    <string name="rust_core_stopped" translatable="false">Stopped.</string>
+</resources>

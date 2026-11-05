@@ -21,6 +21,12 @@
         <item quantity="other">%d titres</item>
     </plurals>
 
+    <plurals name="duration_days">
+        <item quantity="one">%d jour</item>
+        <item quantity="many">%d jours</item>
+        <item quantity="other">%d jours</item>
+    </plurals>
+
     <string name="action_play">Lecture</string>
     <string name="action_pause">Pause</string>
     <string name="action_next">Suivant</string>
@@ -51,12 +57,16 @@
     <string name="radio_live">En direct</string>
     <string name="radio_station">Station de radio</string>
 
+    <string name="quality_bit_depth">%1$d bits</string>
+    <string name="song_playing">En cours</string>
     <string name="quality_lossless">Sans perte</string>
     <string name="quality_bitrate">%1$d kbit/s</string>
     <string name="quality_hires">%1$d bits · %2$s kHz</string>
 
     <string name="widget_idle">Touchez pour ouvrir</string>
-    <string name="widget_description">Lecture en cours, avec précédent, lecture et suivant</string>
+    <string name="widget_description">Lecture en cours, avec aléatoire, précédent, lecture, suivant et répétition</string>
+    <string name="widget_description_compact">Lecture en cours, avec précédent, lecture et suivant</string>
+    <string name="widget_description_large">Lecture en cours avec une grande pochette, la progression et toutes les commandes</string>
 
     <string name="filter_all">Tout</string>
     <string name="filter_no_album">Sans album</string>
@@ -102,6 +112,8 @@
     <string name="update_current">Encore est à jour.</string>
     <string name="update_failed">Mise à jour impossible. Réessayez plus tard.</string>
     <string name="update_downloading">Téléchargement de la mise à jour…</string>
+    <string name="update_installing">Installation de la mise à jour…</string>
+    <string name="update_sizes">%1$s sur %2$s</string>
     <string name="update_available">Encore %1$s est disponible</string>
     <string name="update_check">Rechercher des mises à jour</string>
     <string name="update_install">Mettre à jour</string>
@@ -165,6 +177,22 @@
     <string name="action_cancel">Annuler</string>
     <string name="page_history">Écoutés récemment</string>
     <string name="page_folders">Dossiers</string>
+    <string name="page_genres">Genres</string>
+    <string name="page_home">Accueil</string>
+    <string name="home_continue">Reprendre l\'écoute</string>
+    <plurals name="home_progress">
+        <item quantity="one">%1$d morceau joué sur %2$d</item>
+        <item quantity="many">%1$d morceaux joués sur %2$d</item>
+        <item quantity="other">%1$d morceaux joués sur %2$d</item>
+    </plurals>
+    <string name="home_today">aujourd\'hui</string>
+    <string name="home_week">cette semaine</string>
+    <string name="home_top_artist">artiste n°1</string>
+    <string name="home_made">Fait pour cette semaine</string>
+    <string name="home_most_played">Les plus joués</string>
+    <string name="home_recently_played">Joués récemment</string>
+    <string name="home_recently_added">Ajoutés récemment</string>
+    <string name="genres_empty">Aucun morceau n\'a encore de genre.</string>
     <string name="history_empty">Rien n’a encore été écouté.</string>
     <string name="settings_playback">Lecture</string>
     <string name="settings_normalize">Normalisation du volume</string>
@@ -292,7 +320,11 @@
     <string name="settings_license_body">Licence publique générale GNU, version 3 ou ultérieure</string>
     <string name="settings_report">Signaler un problème</string>
     <string name="notice_folder_hidden">%1$s masqué</string>
-    <string name="notice_sleep_set">La lecture s’arrête dans %1$d minutes</string>
+    <plurals name="notice_sleep_set">
+        <item quantity="one">La lecture s’arrête dans %1$d minute</item>
+        <item quantity="many">La lecture s’arrête dans %1$d minutes</item>
+        <item quantity="other">La lecture s’arrête dans %1$d minutes</item>
+    </plurals>
     <string name="notice_recording_saved">Enregistrement placé dans Musique, Encore Recordings</string>
     <string name="notice_playlist_saved">%1$s enregistrée</string>
     <string name="notice_favourite_added">%1$s ajoutée aux favoris</string>

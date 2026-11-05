@@ -9,7 +9,7 @@ use gpui::{
 };
 use i18n::t;
 use state::{AppSettings, Encore, Requirement, Requirements, UpdateState, Updates};
-use ui::{ActiveTheme as _, Button, SMALL_INSET, Text, corners};
+use ui::{ActiveTheme as _, Button, SMALL_INSET, Spinner, Text, corners};
 
 const ICON: Pixels = px(18.);
 const REACH: Pixels = px(400.);
@@ -30,6 +30,8 @@ struct Card {
     icon: &'static str,
     title: SharedString,
     detail: Option<SharedString>,
+    /// Work under way in the card, shown as a bar and how far along it is.
+    progress: Option<Progress>,
     close: Handler,
     never: SharedString,
     silence: Handler,
@@ -37,6 +39,13 @@ struct Card {
     link: Option<Button>,
     /// What the card is about, in the bottom row after the never-again button.
     actions: Vec<Button>,
+}
+
+/// The update coming over the network: how full the bar is and the sizes behind it.
+struct Progress {
+    /// From 0 to 1, or `None` when the size is unknown and the bar only paces.
+    fraction: Option<f32>,
+    label: SharedString,
 }
 
 impl AppNotice {
@@ -71,6 +80,7 @@ impl AppNotice {
             icon,
             title,
             detail: Some(detail),
+            progress: None,
             close: Box::new(move |_, _, cx| {
                 close.update(cx, |requirements, cx| requirements.dismiss(requirement, cx));
             }),
@@ -96,7 +106,23 @@ impl AppNotice {
             ),
             _ => (String::new(), String::new(), Vec::new()),
         };
-        let working = matches!(state, UpdateState::Fetching);
+        let working = matches!(state, UpdateState::Fetching { .. });
+        let progress = match state.clone() {
+            UpdateState::Fetching { received, total } => Some(Progress {
+                fraction: total
+                    .filter(|total| *total > 0)
+                    .map(|total| received as f32 / total as f32),
+                label: match total {
+                    Some(total) if total > 0 => t!(
+                        "update-progress",
+                        received = megabytes(received),
+                        total = megabytes(total),
+                    ),
+                    _ => t!("update-progress-unknown", received = megabytes(received)),
+                },
+            }),
+            _ => None,
+        };
         let failed = matches!(state, UpdateState::Failed);
 
         let title = match failed {
@@ -145,6 +171,7 @@ impl AppNotice {
             icon: "icons/refresh-cw.svg",
             title,
             detail,
+            progress,
             close: Box::new(move |_, _, cx| {
                 close.update(cx, |updates, cx| updates.dismiss(cx));
             }),
@@ -200,6 +227,7 @@ fn card_element(card: Card, cx: &App) -> AnyElement {
         icon,
         title,
         detail,
+        progress,
         close,
         never,
         silence,
@@ -272,6 +300,41 @@ fn card_element(card: Card, cx: &App) -> AnyElement {
                     .child(detail),
             )
         })
+        .when_some(progress, |this, progress| {
+            let bar = theme.metrics.pad / 2.;
+            this.child(
+                div().px(SMALL_INSET).flex().flex_col().gap_1().child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex_1()
+                                .h(bar)
+                                .rounded(corners(theme.radius))
+                                .bg(theme.muted)
+                                .overflow_hidden()
+                                .child(
+                                    div()
+                                        .h_full()
+                                        .rounded(corners(theme.radius))
+                                        .bg(theme.progress_bar)
+                                        .when_some(progress.fraction, |this, fraction| {
+                                            this.w(gpui::relative(fraction.clamp(0., 1.)))
+                                        }),
+                                ),
+                        )
+                        .child(Spinner::new("update-progress"))
+                        .child(
+                            div()
+                                .text_size(theme.text(Text::Small))
+                                .text_color(theme.muted_foreground)
+                                .child(progress.label),
+                        ),
+                ),
+            )
+        })
         .child(
             div()
                 .flex()
@@ -302,4 +365,14 @@ fn link(id: SharedString, label: SharedString, url: String) -> Button {
         .label(label)
         .icon("icons/external-link.svg")
         .on_click(move |_, _, cx| cx.open_url(&url))
+}
+
+/// Bytes as a short size, the way it reads beside the download bar.
+fn megabytes(bytes: u64) -> String {
+    let mb = bytes as f64 / 1_048_576.0;
+    match mb {
+        size if size >= 10. => format!("{size:.0} MB"),
+        size if size >= 1. => format!("{size:.1} MB"),
+        _ => format!("{} KB", bytes / 1024),
+    }
 }

@@ -24,6 +24,15 @@
         <item quantity="other">%d أغنية</item>
     </plurals>
 
+    <plurals name="duration_days">
+        <item quantity="zero">%d يوم</item>
+        <item quantity="one">يوم واحد</item>
+        <item quantity="two">يومان</item>
+        <item quantity="few">%d أيام</item>
+        <item quantity="many">%d يومًا</item>
+        <item quantity="other">%d يوم</item>
+    </plurals>
+
     <string name="action_play">تشغيل</string>
     <string name="action_pause">إيقاف مؤقت</string>
     <string name="action_next">التالي</string>
@@ -54,12 +63,16 @@
     <string name="radio_live">مباشر</string>
     <string name="radio_station">محطة راديو</string>
 
+    <string name="quality_bit_depth">%1$d بت</string>
+    <string name="song_playing">قيد التشغيل</string>
     <string name="quality_lossless">بدون فقدان</string>
     <string name="quality_bitrate">%1$d كيلوبت/ث</string>
     <string name="quality_hires">%1$d بت · %2$s كيلوهرتز</string>
 
     <string name="widget_idle">اضغط للفتح</string>
-    <string name="widget_description">قيد التشغيل، مع السابق والتشغيل والتالي</string>
+    <string name="widget_description">قيد التشغيل، مع الخلط والسابق والتشغيل والتالي والتكرار</string>
+    <string name="widget_description_compact">قيد التشغيل، مع السابق والتشغيل والتالي</string>
+    <string name="widget_description_large">قيد التشغيل مع غلاف أكبر وتقدّم الأغنية وكل أزرار التحكم</string>
 
     <string name="filter_all">الكل</string>
     <string name="filter_no_album">بدون ألبوم</string>
@@ -105,6 +118,8 @@
     <string name="update_current">Encore محدّث.</string>
     <string name="update_failed">تعذّر التحديث. حاول لاحقًا.</string>
     <string name="update_downloading">جارٍ تنزيل التحديث…</string>
+    <string name="update_installing">جارٍ تثبيت التحديث…</string>
+    <string name="update_sizes">%1$s من %2$s</string>
     <string name="update_available">الإصدار %1$s من Encore متاح</string>
     <string name="update_check">البحث عن تحديثات</string>
     <string name="update_install">تحديث</string>
@@ -177,6 +192,25 @@
     <string name="action_cancel">إلغاء</string>
     <string name="page_history">استمعت إليه مؤخرًا</string>
     <string name="page_folders">المجلدات</string>
+    <string name="page_genres">الأنواع</string>
+    <string name="page_home">الرئيسية</string>
+    <string name="home_continue">متابعة الاستماع</string>
+    <plurals name="home_progress">
+        <item quantity="zero">تم تشغيل %1$d من أصل %2$d</item>
+        <item quantity="one">تم تشغيل %1$d من أصل أغنية واحدة</item>
+        <item quantity="two">تم تشغيل %1$d من أصل أغنيتين</item>
+        <item quantity="few">تم تشغيل %1$d من أصل %2$d أغانٍ</item>
+        <item quantity="many">تم تشغيل %1$d من أصل %2$d أغنية</item>
+        <item quantity="other">تم تشغيل %1$d من أصل %2$d أغنية</item>
+    </plurals>
+    <string name="home_today">اليوم</string>
+    <string name="home_week">هذا الأسبوع</string>
+    <string name="home_top_artist">الأكثر استماعًا</string>
+    <string name="home_made">مخصص لهذا الأسبوع</string>
+    <string name="home_most_played">الأكثر تشغيلًا</string>
+    <string name="home_recently_played">شُغّلت حديثًا</string>
+    <string name="home_recently_added">أُضيفت حديثًا</string>
+    <string name="genres_empty">لا توجد أغاني مصنفة بضمن نوع بعد.</string>
     <string name="history_empty">لم يتم تشغيل أي شيء بعد.</string>
     <string name="settings_playback">التشغيل</string>
     <string name="settings_normalize">توحيد مستوى الصوت</string>
@@ -310,7 +344,14 @@
     <string name="settings_license_body">رخصة جنو العمومية، الإصدار 3 أو أحدث</string>
     <string name="settings_report">الإبلاغ عن مشكلة</string>
     <string name="notice_folder_hidden">تم إخفاء %1$s</string>
-    <string name="notice_sleep_set">يتوقف التشغيل بعد %1$d دقيقة</string>
+    <plurals name="notice_sleep_set">
+        <item quantity="zero">يتوقف التشغيل بعد %1$d دقيقة</item>
+        <item quantity="one">يتوقف التشغيل بعد دقيقة واحدة</item>
+        <item quantity="two">يتوقف التشغيل بعد دقيقتين</item>
+        <item quantity="few">يتوقف التشغيل بعد %1$d دقائق</item>
+        <item quantity="many">يتوقف التشغيل بعد %1$d دقيقة</item>
+        <item quantity="other">يتوقف التشغيل بعد %1$d دقيقة</item>
+    </plurals>
     <string name="notice_recording_saved">تم حفظ التسجيل في الموسيقى، Encore Recordings</string>
     <string name="notice_playlist_saved">تم حفظ %1$s</string>
     <string name="notice_favourite_added">تمت إضافة %1$s إلى المفضلة</string>

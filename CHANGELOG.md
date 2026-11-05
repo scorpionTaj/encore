@@ -7,6 +7,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Control the desktop app from your phone: turn on Settings → General → Remote control, open the
+  address it shows in a browser on the same network, and play, pause, skip, seek or change the
+  volume from there.
+- A Home tab on Android that opens on the album to carry on with, this week's listening time and
+  top artist, and your most played, recently played or recently added songs.
+- 4×1 and 4×2 home-screen widgets on Android beside the existing one, the larger with a bigger
+  cover, the song's progress and every playback button.
+- Browse your library by genre on Android, from the menu at the top of the screen.
+- Drag songs up and down the queue on Android to reorder it.
+- Clicking the cover or title in the desktop player bar opens the full Now Playing view.
+- Downloading an update shows how far along it is, on the desktop and on Android.
+
+### Changed
+
+- Android has a new look: songs sit on rounded cards with a "Playing" pill and a lossless badge,
+  each tab shows its own name as a large title, the Songs tab filters from a single line of words,
+  and the mini player floats above the tabs in the accent colour.
+
 ## [1.9.0]
 
 ### Added

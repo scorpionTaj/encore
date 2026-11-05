@@ -45,7 +45,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -77,6 +82,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
@@ -118,36 +125,40 @@ fun hapticFeedback(): (HapticFeedbackType) -> Unit {
 fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpen: () -> Unit) {
     val haptic = hapticFeedback()
     val position = rememberPosition(state, vm)
-    Surface(tonalElevation = 3.dp) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(MINI_RADIUS),
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+    ) {
         Column {
-            if (state.durationMs > 0) {
-                LinearProgressIndicator(
-                    progress = { (position.toFloat() / state.durationMs).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    drawStopIndicator = {},
-                    gapSize = 0.dp,
-                )
-            }
             Row(
                 Modifier
                     .fillMaxWidth()
                     .swipeUpToOpen { haptic(HapticFeedbackType.LongPress); onOpen() }
                     .clickable(onClick = onOpen)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val song = library?.song(state.mediaId)
                 val artworkUri = state.metadata.artworkUri?.toString()
                 when {
-                    song == null && artworkUri != null -> StationArtwork(artworkUri, size = 44.dp)
-                    else -> Artwork(song?.uri, size = 44.dp, bitmap = state.artwork)
+                    song == null && artworkUri != null -> StationArtwork(artworkUri, size = 48.dp)
+                    else -> Artwork(song?.uri, size = 48.dp, bitmap = state.artwork)
                 }
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(title(state), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    Text(
+                        title(state),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Text(
                         subtitle(state),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = LocalContentColor.current.copy(alpha = MINI_MUTED),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -156,6 +167,16 @@ fun MiniPlayer(state: PlayerState, library: Library?, vm: PlayerViewModel, onOpe
                 IconButton(onClick = { haptic(HapticFeedbackType.TextHandleMove); vm.next() }) {
                     Icon(icon(R.drawable.ic_skip_next), stringResource(R.string.action_next))
                 }
+            }
+            if (state.durationMs > 0) {
+                LinearProgressIndicator(
+                    progress = { (position.toFloat() / state.durationMs).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    color = colors.onPrimaryContainer,
+                    trackColor = colors.onPrimaryContainer.copy(alpha = MINI_TRACK),
+                    drawStopIndicator = {},
+                    gapSize = 0.dp,
+                )
             }
         }
     }
@@ -449,8 +470,15 @@ fun NowPlayingScreen(
                 Message(stringResource(R.string.queue_empty))
             } else {
                 val list = rememberLazyListState(initialFirstVisibleItemIndex = state.index.coerceAtLeast(0))
-                LazyColumn(state = list) {
+                // Dragging a row after a long press moves it about: the rows are one height, so
+                // the drag translates into whole-row moves, handed to the queue as they happen.
+                val rowHeight = with(LocalDensity.current) { QUEUE_ROW.dp.toPx() }
+                var dragFrom by remember { mutableIntStateOf(-1) }
+                var dragOffset by remember { mutableFloatStateOf(0f) }
+                LazyColumn(state = list, modifier = Modifier.fillMaxWidth()) {
                     itemsIndexed(state.queue, key = { index, item -> "$index:${item.mediaId}" }) { index, item ->
+                        val here = remember { mutableIntStateOf(index) }
+                        here.intValue = index
                         val dismiss = rememberSwipeToDismissBoxState(
                             confirmValueChange = { value ->
                                 if (value == SwipeToDismissBoxValue.EndToStart) {
@@ -465,6 +493,41 @@ fun NowPlayingScreen(
                         SwipeToDismissBox(
                             state = dismiss,
                             enableDismissFromStartToEnd = false,
+                            modifier = Modifier
+                                .zIndex(if (index == dragFrom) 1f else 0f)
+                                .graphicsLayer { translationY = if (index == dragFrom) dragOffset else 0f }
+                                .pointerInput(vm) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            if (state.queue.size > 1) {
+                                                dragFrom = here.intValue
+                                                dragOffset = 0f
+                                                haptic(HapticFeedbackType.LongPress)
+                                            }
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            if (dragFrom < 0) return@detectDragGesturesAfterLongPress
+                                            dragOffset += amount.y
+                                            val to = (dragFrom + (dragOffset / rowHeight).toInt())
+                                                .coerceIn(0, state.queue.size - 1)
+                                            if (to != dragFrom) {
+                                                vm.moveInQueue(dragFrom, to)
+                                                dragOffset -= (to - dragFrom) * rowHeight
+                                                dragFrom = to
+                                                haptic(HapticFeedbackType.TextHandleMove)
+                                            }
+                                        },
+                                        onDragEnd = {
+                                            dragFrom = -1
+                                            dragOffset = 0f
+                                        },
+                                        onDragCancel = {
+                                            dragFrom = -1
+                                            dragOffset = 0f
+                                        },
+                                    )
+                                },
                             backgroundContent = {
                                 Box(
                                     Modifier.fillMaxSize().padding(horizontal = 24.dp),
@@ -678,6 +741,9 @@ private fun subtitle(state: PlayerState): String {
 
 private const val POSITION_POLL_MS = 500L
 
+/** The height of a queue row, the unit whole-row drags move by, in dp. */
+private const val QUEUE_ROW = 64
+
 /** How far up the mini player travels before it opens, and down a screen before it closes, in dp. */
 private const val OPEN_SWIPE = 56
 private const val DISMISS_DRAG = 120
@@ -685,3 +751,10 @@ private const val DISMISS_DRAG = 120
 /** How far sideways the cover travels before the track changes, in dp. */
 private const val SWIPE_TRACK = 80
 private val SLEEP_MINUTES = listOf(15, 30, 45, 60, 90)
+
+/** The corner radius of the floating mini player. */
+private val MINI_RADIUS = 18.dp
+
+/** How strongly the mini player's subtitle and progress track show against the accent. */
+private const val MINI_MUTED = 0.8f
+private const val MINI_TRACK = 0.25f

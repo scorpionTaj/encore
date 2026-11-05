@@ -2,6 +2,7 @@ mod install;
 
 use std::io::Write as _;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
 use gpui::{Context, Entity, Task};
@@ -15,6 +16,8 @@ use install::Install;
 /// The newest published release of Encore, which every copy updates from.
 const LATEST: &str = "https://api.github.com/repos/scorpionTaj/encore/releases/latest";
 const SUMS: &str = "SHA256SUMS";
+/// How often the download's progress reaches the screen when the bar would not move a percent.
+const REFRESH: Duration = Duration::from_millis(250);
 const AGENT: &str = concat!(
     "encore/",
     env!("CARGO_PKG_VERSION"),
@@ -42,8 +45,20 @@ pub struct Release {
 pub enum UpdateState {
     Quiet,
     Offered(Release),
-    Fetching,
+    /// The update is coming over the network: how much has arrived and, when the server said,
+    /// how big it is. The sizes are bytes.
+    Fetching {
+        received: u64,
+        total: Option<u64>,
+    },
     Failed,
+}
+
+/// How far the update download has come, as the engine reports it and the state shows it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DownloadProgress {
+    pub received: u64,
+    pub total: Option<u64>,
 }
 
 /// Looks for a newer release of Encore on GitHub once at startup and, when asked, installs it.
@@ -52,6 +67,8 @@ pub struct Updates {
     http: reqwest::Client,
     io: Io,
     task: Option<Task<()>>,
+    /// Reads the download's progress while it runs, until the sender is dropped with it.
+    progress: Option<Task<()>>,
     /// Whether the person asked for this check, so it answers even when there is nothing new.
     asked: bool,
 }
@@ -63,6 +80,7 @@ impl Updates {
             http: reqwest::Client::new(),
             io,
             task: None,
+            progress: None,
             asked: false,
         };
         if settings.read(cx).check_updates() {
@@ -91,6 +109,7 @@ impl Updates {
 
     pub fn dismiss(&mut self, cx: &mut Context<Self>) {
         self.task = None;
+        self.progress = None;
         self.state = UpdateState::Quiet;
         cx.notify();
     }
@@ -105,16 +124,52 @@ impl Updates {
         let (Some(package), Some(sums)) = (release.package, release.sums) else {
             return;
         };
-        self.state = UpdateState::Fetching;
+        self.state = UpdateState::Fetching {
+            received: 0,
+            total: None,
+        };
         cx.notify();
 
         let http = self.http.clone();
         let io = self.io.clone();
         let version = release.version;
+        let (sender, receiver) = tokio::sync::watch::channel(DownloadProgress::default());
+        self.progress = Some(cx.spawn({
+            let mut receiver = receiver;
+            async move |this, cx| {
+                // The download writes every chunk; only what would change the bar reaches the
+                // screen, so a fast line does not redraw the whole window hundreds of times.
+                let mut shown = DownloadProgress::default();
+                let mut since = Instant::now();
+                while receiver.changed().await.is_ok() {
+                    let progress = *receiver.borrow_and_update();
+                    let settled = match progress.total {
+                        Some(total) if total > 0 => {
+                            progress.received * 100 / total != shown.received * 100 / total
+                        }
+                        _ => false,
+                    } || Some(progress.received) == progress.total;
+                    if !settled && since.elapsed() < REFRESH {
+                        continue;
+                    }
+                    shown = progress;
+                    since = Instant::now();
+                    this.update(cx, |this, cx| {
+                        this.state = UpdateState::Fetching {
+                            received: progress.received,
+                            total: progress.total,
+                        };
+                        cx.notify();
+                    })
+                    .ok();
+                }
+            }
+        }));
         self.task = Some(cx.spawn(async move |this, cx| {
-            let fetched =
-                join(io.spawn(async move { download(&http, &package, &sums, &version).await }))
-                    .await;
+            let fetched = join(
+                io.spawn(async move { download(&http, &package, &sums, &version, sender).await }),
+            )
+            .await;
             let applied = match fetched {
                 Ok(path) => join(io.spawn_blocking(move || Install::current().apply(&path))).await,
                 Err(error) => Err(error),
@@ -125,6 +180,7 @@ impl Updates {
                     log::warn!("updates: cannot install the new version: {error:#}");
                     this.update(cx, |this, cx| {
                         this.task = None;
+                        this.progress = None;
                         this.state = UpdateState::Failed;
                         cx.notify();
                     })
@@ -137,7 +193,7 @@ impl Updates {
     /// Looks for a newer release because the person asked, and says so when there is none or
     /// GitHub cannot be reached. An install already under way is left alone.
     pub fn check(&mut self, cx: &mut Context<Self>) {
-        if self.state == UpdateState::Fetching {
+        if matches!(self.state, UpdateState::Fetching { .. }) {
             return;
         }
         self.asked = true;
@@ -229,12 +285,14 @@ async fn latest(http: &reqwest::Client) -> Result<Option<Release>> {
 }
 
 /// Streams the asset into the temporary folder while hashing it, and keeps it only when the
-/// hash matches the one the release lists.
+/// hash matches the one the release lists. Every chunk is reported to [DownloadProgress]'s
+/// channel, whose reader shows the bar; the channel closing says the download is over.
 async fn download(
     http: &reqwest::Client,
     package: &Asset,
     sums: &str,
     version: &str,
+    progress: tokio::sync::watch::Sender<DownloadProgress>,
 ) -> Result<PathBuf> {
     let listed = http
         .get(sums)
@@ -266,11 +324,21 @@ async fn download(
     let path = std::env::temp_dir().join(format!("encore-{version}-{}", package.name));
     let mut file = std::fs::File::create(&path).context("cannot keep the update")?;
     let mut hasher = Sha256::new();
+    let total = response.content_length();
+    let mut received = 0u64;
+    progress.send_modify(|progress| {
+        progress.total = total;
+    });
     while let Some(chunk) = response.chunk().await.context("cannot read the update")? {
         hasher.update(&chunk);
         file.write_all(&chunk).context("cannot keep the update")?;
+        received += chunk.len() as u64;
+        progress.send_modify(|progress| {
+            progress.received = received;
+        });
     }
     drop(file);
+    drop(progress);
 
     if hex(&hasher.finalize()) != expected {
         std::fs::remove_file(&path).ok();

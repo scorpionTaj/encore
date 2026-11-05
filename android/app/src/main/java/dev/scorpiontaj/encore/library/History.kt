@@ -81,6 +81,20 @@ class History(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         buildList { while (c.moveToNext()) add(TopSong(c.getString(0), c.getString(1), c.getString(2), c.getInt(3))) }
     }
 
+    /** Plays and listening time since [sinceMs], as the home screen's day and week numbers. */
+    fun totals(sinceMs: Long): Pair<Int, Long> = readableDatabase.rawQuery(
+        "SELECT COUNT(*), COALESCE(SUM(listened_ms), 0) FROM listens WHERE played_at >= ?",
+        arrayOf(sinceMs.toString()),
+    ).use { c -> if (c.moveToFirst()) c.getInt(0) to c.getLong(1) else 0 to 0L }
+
+    /** Every song id a listen was ever recorded for, so the home screen can count an album's progress. */
+    fun playedIds(): Set<String> = readableDatabase.rawQuery(
+        "SELECT DISTINCT media_id FROM listens",
+        null,
+    ).use { c ->
+        buildSet { while (c.moveToNext()) add(c.getString(0)) }
+    }
+
     /** Totals over every listen, and the top songs and artists among library songs only. */
     fun summary(period: Period): Summary {
         val db = readableDatabase

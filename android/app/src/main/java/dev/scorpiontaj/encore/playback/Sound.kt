@@ -1,3 +1,7 @@
+// Virtualizer is deprecated in favour of the system Spatializer, which apps cannot drive on their
+// own audio session; it is still the only way to offer surround on the player's own output.
+@file:Suppress("DEPRECATION")
+
 package dev.scorpiontaj.encore.playback
 
 import android.content.Context

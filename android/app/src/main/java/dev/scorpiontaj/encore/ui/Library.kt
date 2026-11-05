@@ -2,6 +2,8 @@ package dev.scorpiontaj.encore.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +49,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
@@ -146,17 +152,49 @@ fun SongsScreen(
             }
         }
     }
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp)) {
         item {
             Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box {
-                    IconButton(onClick = { sortMenu = true }) {
-                        Icon(icon(R.drawable.ic_sort), stringResource(R.string.action_sort))
+                Icon(icon("disc-3"), null, Modifier.size(SUMMARY_ICON))
+                Text(
+                    pluralStringResource(R.plurals.songs_count, songs.size, songs.size) +
+                        " · " + listeningSpan(songs.sumOf { it.durationMs }),
+                    Modifier.weight(1f).padding(start = 8.dp),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                IconButton(onClick = { actions.shuffle(shown) }, enabled = shown.isNotEmpty()) {
+                    Icon(icon(R.drawable.ic_shuffle), stringResource(R.string.action_shuffle_all))
+                }
+                IconButton(onClick = { actions.play(shown, 0) }, enabled = shown.isNotEmpty()) {
+                    Icon(icon(R.drawable.ic_play), stringResource(R.string.action_play_all))
+                }
+            }
+        }
+        item {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    icon("sliders-horizontal"),
+                    null,
+                    Modifier.size(SUMMARY_ICON),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(8.dp))
+                // Tapping the chosen filter again clears it, so "All" needs no link of its own.
+                SongFilter.entries.filter { it != SongFilter.All }.forEach { entry ->
+                    FilterLink(stringResource(entry.label), filter == entry) {
+                        onSortFilter(sort.name, if (filter == entry) SongFilter.All.name else entry.name)
                     }
+                    FilterDot()
+                }
+                Box {
+                    FilterLink(stringResource(R.string.action_sort), sortMenu) { sortMenu = true }
                     DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         SongSort.entries.forEach { entry ->
                             DropdownMenuItem(
@@ -171,13 +209,6 @@ fun SongsScreen(
                         }
                     }
                 }
-                SongFilter.entries.forEach { entry ->
-                    FilterChip(
-                        selected = filter == entry,
-                        onClick = { onSortFilter(sort.name, entry.name) },
-                        label = { Text(stringResource(entry.label)) },
-                    )
-                }
             }
         }
         if (filter == SongFilter.NoCover && missingCovers == null) {
@@ -185,10 +216,30 @@ fun SongsScreen(
         } else if (shown.isEmpty()) {
             item { Message(stringResource(R.string.filter_empty)) }
         } else {
-            playAllHeader(shown, actions)
             songItems(shown, current, actions)
         }
     }
+}
+
+/** One of the Songs tab's filters, or its sort, as a word in the filter line. */
+@Composable
+private fun FilterLink(label: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        label,
+        Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 2.dp, vertical = 6.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = if (selected) FontWeight.SemiBold else null,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** The dot between two words of the filter line. */
+@Composable
+private fun FilterDot() {
+    Text(" · ", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -552,7 +603,9 @@ fun qualityLine(song: Song): String {
 fun String.orUnknown(fallback: String): String = if (this == UNKNOWN || isBlank()) fallback else this
 
 /** A country's name in the app's language, from its ISO code. */
-fun countryName(code: String): String = Locale("", code).getDisplayCountry(Locale.getDefault()).ifEmpty { code }
+fun countryName(code: String): String =
+    runCatching { Locale.Builder().setRegion(code).build().getDisplayCountry(Locale.getDefault()) }
+        .getOrNull()?.ifEmpty { null } ?: code
 
 /** A MediaStore timestamp, in seconds, as a medium date and short time in the app's language. */
 fun date(seconds: Long): String =
@@ -584,94 +637,165 @@ fun LazyListScope.playAllHeader(songs: List<Song>, actions: SongActions) = item 
     }
 }
 
+/** The library's playing time in one phrase, such as `9 days` or `4 h`. */
+@Composable
+private fun listeningSpan(ms: Long): String {
+    val days = (ms / 86_400_000L).toInt()
+    val hours = (ms / 3_600_000L).toInt()
+    val minutes = (ms / 60_000L).toInt()
+    return when {
+        days >= 2 -> pluralStringResource(R.plurals.duration_days, days, days)
+        hours >= 1 -> pluralStringResource(R.plurals.stats_hours, hours, hours)
+        else -> pluralStringResource(R.plurals.stats_minutes, minutes.coerceAtLeast(1), minutes.coerceAtLeast(1))
+    }
+}
+
 fun LazyListScope.songItems(songs: List<Song>, current: String?, actions: SongActions, onRemove: ((Song) -> Unit)? = null) =
     // The key carries the position: playlists imported from elsewhere may hold one song twice,
     // and a repeated key crashes the list.
     itemsIndexed(songs, key = { index, song -> "$index:${song.id}" }) { index, song ->
-        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, onRemove, Modifier.animateItem()) { actions.play(songs, index) }
+        SongRow(song, current == "$SONG_PREFIX${song.id}", actions, Modifier.animateItem(), onRemove) { actions.play(songs, index) }
     }
 
+/**
+ * A song as every list shows it: a rounded card with its art, the artist and year, a pill for
+ * the song playing or for lossless audio, and the song's menu.
+ */
 @Composable
 fun SongRow(
     song: Song,
     playing: Boolean,
     actions: SongActions,
-    onRemove: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onRemove: ((Song) -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    ListRow(
-        modifier = modifier,
-        title = song.title,
-        subtitle = listOf(
-            song.artist.orUnknown(stringResource(R.string.unknown_artist)),
-            qualityLine(song),
-        ).filter { it.isNotEmpty() }.joinToString(" · "),
-        leading = { Artwork(song.uri) },
-        highlighted = playing,
-        badge = if (song.lossless) stringResource(R.string.quality_lossless) else null,
-        onClick = onClick,
-        trailing = {
-            Box {
-                IconButton(onClick = { menu = true }) {
-                    Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
-                }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        leadingIcon = { Icon(icon("list-start"), null) },
-                        text = { Text(stringResource(R.string.action_play_next)) },
-                        onClick = { menu = false; actions.playNext(song) },
-                    )
-                    DropdownMenuItem(
-                        leadingIcon = { Icon(icon("list-end"), null) },
-                        text = { Text(stringResource(R.string.action_add_to_queue)) },
-                        onClick = { menu = false; actions.addToQueue(song) },
-                    )
-                    DropdownMenuItem(
-                        leadingIcon = { Icon(icon("list-plus"), null) },
-                        text = { Text(stringResource(R.string.playlist_add_to)) },
-                        onClick = { menu = false; actions.addToPlaylist(song) },
-                    )
-                    if (onRemove != null) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.playlist_remove_from)) },
-                            onClick = { menu = false; onRemove(song) },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_go_to_album)) },
-                        leadingIcon = { Icon(icon("disc-3"), null) },
-                        onClick = { menu = false; actions.openAlbum(song) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_go_to_artist)) },
-                        leadingIcon = { Icon(icon("user-round"), null) },
-                        onClick = { menu = false; actions.openArtist(song) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_share)) },
-                        leadingIcon = { Icon(icon("square-arrow-out-up-right"), null) },
-                        onClick = { menu = false; actions.share(song) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.tags_edit)) },
-                        leadingIcon = { Icon(icon("pencil"), null) },
-                        onClick = { menu = false; actions.editTags(song) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_details)) },
-                        leadingIcon = { Icon(icon("info"), null) },
-                        onClick = { menu = false; actions.details(song) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.action_delete_song), color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = { Icon(icon("trash-2"), null, tint = MaterialTheme.colorScheme.error) },
-                        onClick = { menu = false; actions.delete(song) },
-                    )
-                }
+    val shape = RoundedCornerShape(CARD_RADIUS)
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(shape)
+            .background(colors.surfaceContainerHigh)
+            .then(if (playing) Modifier.border(1.5.dp, colors.primary, shape) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(start = 10.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Artwork(song.uri, size = 52.dp)
+        Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
+            Text(
+                song.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                listOfNotNull(
+                    song.artist.orUnknown(stringResource(R.string.unknown_artist)),
+                    song.year?.takeIf { it > 0 }?.toString(),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        when {
+            playing -> Pill(colors.primaryContainer, colors.onPrimaryContainer) {
+                Icon(icon("volume-2"), null, Modifier.size(16.dp))
+                Text(stringResource(R.string.song_playing), style = MaterialTheme.typography.labelLarge)
             }
-        },
+            song.lossless -> Pill(colors.primary.copy(alpha = ACCENT_TINT), colors.primary) {
+                Text(
+                    listOfNotNull(
+                        song.format.ifEmpty { null },
+                        song.bitDepth?.let { stringResource(R.string.quality_bit_depth, it) },
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        Box {
+            IconButton(onClick = { menu = true }) {
+                Icon(icon(R.drawable.ic_more_vert), stringResource(R.string.action_more))
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                SongMenuItems(song, onRemove, actions) { menu = false }
+            }
+        }
+    }
+}
+
+/** A small rounded label beside a song, such as "Playing" or its lossless format. */
+@Composable
+private fun Pill(container: Color, content: Color, body: @Composable RowScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(50), color = container, contentColor = content) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = body,
+        )
+    }
+}
+
+/** Every action a song's menu offers. */
+@Composable
+private fun SongMenuItems(song: Song, onRemove: ((Song) -> Unit)?, actions: SongActions, close: () -> Unit) {
+    DropdownMenuItem(
+        leadingIcon = { Icon(icon("list-start"), null) },
+        text = { Text(stringResource(R.string.action_play_next)) },
+        onClick = { close(); actions.playNext(song) },
+    )
+    DropdownMenuItem(
+        leadingIcon = { Icon(icon("list-end"), null) },
+        text = { Text(stringResource(R.string.action_add_to_queue)) },
+        onClick = { close(); actions.addToQueue(song) },
+    )
+    DropdownMenuItem(
+        leadingIcon = { Icon(icon("list-plus"), null) },
+        text = { Text(stringResource(R.string.playlist_add_to)) },
+        onClick = { close(); actions.addToPlaylist(song) },
+    )
+    if (onRemove != null) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.playlist_remove_from)) },
+            onClick = { close(); onRemove(song) },
+        )
+    }
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.action_go_to_album)) },
+        leadingIcon = { Icon(icon("disc-3"), null) },
+        onClick = { close(); actions.openAlbum(song) },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.action_go_to_artist)) },
+        leadingIcon = { Icon(icon("user-round"), null) },
+        onClick = { close(); actions.openArtist(song) },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.action_share)) },
+        leadingIcon = { Icon(icon("square-arrow-out-up-right"), null) },
+        onClick = { close(); actions.share(song) },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.tags_edit)) },
+        leadingIcon = { Icon(icon("pencil"), null) },
+        onClick = { close(); actions.editTags(song) },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.action_details)) },
+        leadingIcon = { Icon(icon("info"), null) },
+        onClick = { close(); actions.details(song) },
+    )
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.action_delete_song), color = MaterialTheme.colorScheme.error) },
+        leadingIcon = { Icon(icon("trash-2"), null, tint = MaterialTheme.colorScheme.error) },
+        onClick = { close(); actions.delete(song) },
     )
 }
 
@@ -735,3 +859,12 @@ fun ListRow(
 }
 
 private val KHZ = DecimalFormat("0.#")
+
+/** The corner radius of the song cards. */
+private val CARD_RADIUS = 16.dp
+
+/** The size of the icons leading the Songs tab's summary and filter lines. */
+private val SUMMARY_ICON = 20.dp
+
+/** How strongly a soft accent background, such as the lossless pill's, shows the accent colour. */
+const val ACCENT_TINT = 0.18f

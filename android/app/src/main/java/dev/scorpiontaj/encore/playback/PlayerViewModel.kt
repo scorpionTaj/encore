@@ -1,5 +1,6 @@
 package dev.scorpiontaj.encore.playback
 
+import androidx.core.net.toUri
 import android.app.Application
 import android.content.ComponentName
 import android.content.ContentResolver
@@ -23,7 +24,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import dev.scorpiontaj.encore.library.Album
 import dev.scorpiontaj.encore.library.History
+import dev.scorpiontaj.encore.library.SONG_PREFIX
 import dev.scorpiontaj.encore.library.Library
 import dev.scorpiontaj.encore.library.LyricLine
 import dev.scorpiontaj.encore.library.LyricsFiles
@@ -93,14 +96,24 @@ sealed interface LyricsState {
 }
 
 /** A short message for the snackbar: a string resource and the values it names. */
-data class Notice(val message: Int, val args: List<Any> = emptyList())
+/** A message for the snackbar; with [count] it is a plurals resource chosen by that number. */
+data class Notice(val message: Int, val args: List<Any> = emptyList(), val count: Int? = null)
+
+/** The album the home screen offers to carry on with, and how far into it the listening got. */
+data class ResumeCard(val album: Album, val played: Int, val startIndex: Int)
+
+/** The listening the home screen opens with: today, this week and the artist leading the week. */
+data class HomeStats(val todayMs: Long, val weekMs: Long, val topArtist: String?)
 
 sealed interface UpdateState {
     data object Quiet : UpdateState
     data object Checking : UpdateState
     data object Current : UpdateState
     data class Offered(val release: Release) : UpdateState
-    data object Downloading : UpdateState
+
+    /** The update is coming over the network: how much has arrived, and how big it is. */
+    data class Downloading(val received: Long = 0, val total: Long? = null) : UpdateState
+    data object Installing : UpdateState
     data object Failed : UpdateState
 }
 
@@ -123,6 +136,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _recent = MutableStateFlow<List<TopSong>?>(null)
     val recent: StateFlow<List<TopSong>?> = _recent.asStateFlow()
+
+    /** The home screen's resume card, this week's numbers and its song lists, read when Home opens. */
+    private val _resume = MutableStateFlow<ResumeCard?>(null)
+    val resume: StateFlow<ResumeCard?> = _resume.asStateFlow()
+    private val _homeStats = MutableStateFlow<HomeStats?>(null)
+    val homeStats: StateFlow<HomeStats?> = _homeStats.asStateFlow()
+    private val _homeSongs = MutableStateFlow<List<TopSong>?>(null)
+    val homeSongs: StateFlow<List<TopSong>?> = _homeSongs.asStateFlow()
 
     /** Ids of library songs with no embedded cover, worked out when the No cover filter is first used. */
     private val _missingCovers = MutableStateFlow<Set<Long>?>(null)
@@ -170,6 +191,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _update = MutableStateFlow<UpdateState>(UpdateState.Quiet)
     val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    /** The download under way, and the offer it is bringing, so it can be cancelled. */
+    private var updateJob: Job? = null
+    private var updateOffer: UpdateState.Offered? = null
 
     val equalizer: StateFlow<EqualizerState> = Sound.state
 
@@ -270,7 +295,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun sleepAfter(minutes: Int) {
         Sleep.after(minutes)
-        showNotice(R.string.notice_sleep_set, minutes)
+        showCountNotice(R.plurals.notice_sleep_set, minutes)
     }
 
     fun sleepAtEndOfSong() {
@@ -488,6 +513,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _notice.value = Notice(message, args.toList())
     }
 
+    /** Shows the plurals resource [message] for [count], which is also its first argument. */
+    fun showCountNotice(message: Int, count: Int) {
+        _notice.value = Notice(message, listOf(count), count)
+    }
+
     fun clearNotice() {
         _notice.value = null
     }
@@ -571,7 +601,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun forgetLyricsFolder() {
         val tree = Settings.state.value.lyricsTree ?: return
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        runCatching { getApplication<Application>().contentResolver.releasePersistableUriPermission(Uri.parse(tree), flags) }
+        runCatching { getApplication<Application>().contentResolver.releasePersistableUriPermission(tree.toUri(), flags) }
         Settings.update { it.copy(lyricsTree = null) }
     }
 
@@ -593,7 +623,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // Updates
 
     fun checkForUpdates(asked: Boolean) {
-        if (_update.value is UpdateState.Downloading) return
+        if (_update.value is UpdateState.Downloading || _update.value is UpdateState.Installing) return
         if (asked) _update.value = UpdateState.Checking
         viewModelScope.launch {
             val release = runCatching { Updates.latest() }.onFailure { Log.w(TAG, "update: check failed", it) }
@@ -610,29 +640,77 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _update.value = UpdateState.Quiet
     }
 
+    /** Stops the download under way and puts the offer back up. */
+    fun cancelUpdateDownload() {
+        if (_update.value !is UpdateState.Downloading) return
+        updateJob?.cancel()
+        updateJob = null
+        _update.value = updateOffer ?: UpdateState.Quiet
+    }
+
     /**
-     * Downloads and installs the offered release. Android first needs permission to install
-     * packages from Encore; without it this opens that setting and leaves the offer up.
+     * Downloads and installs the offered release, reporting how much has arrived. Android first
+     * needs permission to install packages from Encore; without it this opens that setting and
+     * leaves the offer up.
      */
     fun installUpdate() {
         val offered = _update.value as? UpdateState.Offered ?: return
         val app = getApplication<Application>()
         if (!app.packageManager.canRequestPackageInstalls()) {
             app.startActivity(
-                Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
+                Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:${app.packageName}".toUri())
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
             return
         }
-        _update.value = UpdateState.Downloading
-        viewModelScope.launch {
+        updateOffer = offered
+        _update.value = UpdateState.Downloading()
+        updateJob = viewModelScope.launch {
             runCatching {
-                val apk = Updates.download(app, offered.release)
+                val apk = Updates.download(app, offered.release) { received, total ->
+                    _update.value = UpdateState.Downloading(received, total)
+                }
+                _update.value = UpdateState.Installing
                 Updates.install(app, apk)
             }.onFailure {
                 Log.w(TAG, "update: install failed", it)
                 _update.value = UpdateState.Failed
-            }.onSuccess { _update.value = offered }
+            }.onSuccess {
+                updateJob = null
+                _update.value = offered
+            }
+        }
+    }
+
+    /** Reads what the home screen shows: the album to resume, the week's numbers and the songs. */
+    fun loadHome() {
+        viewModelScope.launch {
+            val library = _library.value ?: return@launch
+            val result = withContext(Dispatchers.IO) {
+                val last = history.recent(limit = 1).firstOrNull()
+                val album = last?.let { entry ->
+                    library.song(entry.mediaId)?.albumId?.let { albumId -> library.albums.firstOrNull { it.id == albumId } }
+                }
+                val resume = album?.let { album ->
+                    val playedIds = history.playedIds()
+                    val played = album.songs.count { "$SONG_PREFIX${it.id}" in playedIds }
+                    val startIndex = album.songs.indexOfFirst { "$SONG_PREFIX${it.id}" !in playedIds }
+                        .takeIf { it >= 0 } ?: 0
+                    ResumeCard(album, played, startIndex)
+                }
+                val midnight = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, 0)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                val todayMs = history.totals(midnight).second
+                val week = history.summary(dev.scorpiontaj.encore.library.Period.Week)
+                Triple(resume, HomeStats(todayMs, week.listenedMs, week.artists.firstOrNull()?.name), history.recent(HOME_SONGS))
+            }
+            _resume.value = result.first
+            _homeStats.value = result.second
+            _homeSongs.value = result.third
         }
     }
 
@@ -729,6 +807,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeFromQueue(index: Int) = controller?.removeMediaItem(index)
 
+    /** Moves a queued item to another spot, as dragging it about does. */
+    fun moveInQueue(from: Int, to: Int) = controller?.moveMediaItem(from, to)
+
     // Equalizer
 
     fun setEqualizerEnabled(enabled: Boolean) = Sound.setEnabled(getApplication(), enabled)
@@ -814,5 +895,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         const val TAG = "encore"
         const val LIBRARY_DEBOUNCE_MS = 750L
         const val ARTWORK_MAX_PX = 1024
+        const val HOME_SONGS = 15
     }
 }
