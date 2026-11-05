@@ -45,6 +45,7 @@ jobs:
 
       # every locale must carry the strings another locale carries
       - name: check the locale strings
+        working-directory: .
         run: python3 scripts/i18n-coverage-android.py
 
       - uses: actions/upload-artifact@v4
