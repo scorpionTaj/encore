@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Choose which tab Encore for Android opens on, in Settings → General → Open on.
+- A previous-song button in the Android mini player.
+
+### Changed
+
+- Sort comes first in the Android Songs tab's filter line.
+
 ## [2.0.0]
 
 ### Added

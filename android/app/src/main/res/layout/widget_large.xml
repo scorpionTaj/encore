@@ -15,8 +15,7 @@
     <LinearLayout
         android:id="@+id/widget_row"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
@@ -64,6 +63,13 @@
                 android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Takes the spare height, so the song stays at the top and the controls at the bottom. -->
+    <FrameLayout
+        android:id="@+id/widget_spacer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
     <ProgressBar
         android:id="@+id/widget_progress"
