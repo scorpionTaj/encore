@@ -1,11 +1,12 @@
 use gpui::prelude::*;
-use gpui::{AnyElement, App, Context, SharedString, Window};
+use gpui::{AnyElement, App, ClipboardItem, Context, SharedString, Window};
 use i18n::{Language, t};
 use router::{NavEntry, Screen};
+use state::Encore;
 use ui::{MenuItem, OptionCard, Pace, Picker, Rounding, Saver, Stillness, Switch};
 
 use super::appearance::corner;
-use super::rows::{grid, segmented};
+use super::rows::{copyable, grid, segmented};
 use super::{Group, LANGUAGES, SettingsView, Slot};
 use crate::shared::popups::matches_query;
 
@@ -13,7 +14,11 @@ const STARTUP: &str = "startup";
 const ENTRIES: &str = "entries";
 
 impl SettingsView {
-    pub(super) fn general_groups(&self, _cx: &App) -> Vec<Group> {
+    pub(super) fn general_groups(&self, cx: &App) -> Vec<Group> {
+        let remote = match Encore::global(cx).web_remote.read(cx).address() {
+            Some(_) => vec![Slot::WebRemote, Slot::WebRemoteAddress],
+            None => vec![Slot::WebRemote],
+        };
         vec![
             Group::new("settings-group-startup", "icons/house.svg").rows([
                 Slot::Startup,
@@ -29,7 +34,46 @@ impl SettingsView {
                 Slot::Saver,
             ]),
             Group::new("settings-group-context-menus", "icons/list.svg").rows([Slot::AdaptiveMenu]),
+            Group::new("settings-group-remote", "icons/smartphone.svg").rows(remote),
         ]
+    }
+
+    pub(super) fn web_remote_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).web_remote();
+
+        self.row(
+            t!("settings-web-remote"),
+            Switch::new("web-remote", on)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_web_remote(!on, cx));
+                }))
+                .into_any_element(),
+        )
+    }
+
+    /// The address to open on a phone, copied when pressed. It carries the remote's secret, so
+    /// it is only shown here and never logged.
+    pub(super) fn web_remote_address_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let address = Encore::global(cx)
+            .web_remote
+            .read(cx)
+            .address()
+            .map(SharedString::new);
+        let copied = address.clone();
+
+        copyable(
+            "web-remote-address",
+            t!("settings-web-remote-address"),
+            address,
+            cx,
+        )
+        .on_click(move |_, _, cx| {
+            if let Some(address) = &copied {
+                cx.write_to_clipboard(ClipboardItem::new_string(address.to_string()));
+            }
+        })
+        .into_any_element()
     }
 
     pub(super) fn startup_row(&self, cx: &mut Context<Self>) -> AnyElement {

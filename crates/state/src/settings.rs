@@ -40,6 +40,9 @@ use crate::pins::PinSort;
 use crate::queue::{Resume, gap_target};
 use crate::{Encore, Outcome, Repeat, Toasts};
 
+/// How many letters and digits the remote page's secret has.
+const TOKEN_LENGTH: usize = 24;
+
 /// What the Discord status calls itself. `Provider` asks the provider the track came from, so
 /// local files say Local Music rather than the provider's own name. `ArtistTitle` shows as
 /// "Artist - Title".
@@ -320,6 +323,11 @@ struct Values {
     #[serde(deserialize_with = "equalizer::read_tone")]
     equalizer_treble: f64,
     discord_presence: bool,
+    /// Whether the desktop serves the remote page to phones and browsers on the local network.
+    web_remote: bool,
+    /// The secret the remote page's address carries, made once when the remote is first turned
+    /// on so an address already opened on a phone keeps working.
+    web_remote_token: String,
     discord_name: DiscordName,
     discord_show_paused: bool,
     discord_badge: bool,
@@ -511,6 +519,8 @@ impl Default for Values {
             equalizer_bass: 0.,
             equalizer_treble: 0.,
             discord_presence: false,
+            web_remote: false,
+            web_remote_token: String::new(),
             discord_name: DiscordName::Encore,
             discord_show_paused: false,
             discord_badge: false,
@@ -850,6 +860,16 @@ impl AppSettings {
 
     pub fn offline_mode(&self) -> bool {
         self.values.offline_mode
+    }
+
+    /// Whether the remote page is served on the local network.
+    pub fn web_remote(&self) -> bool {
+        self.values.web_remote
+    }
+
+    /// The secret every remote request has to carry; empty until the remote is first turned on.
+    pub fn web_remote_token(&self) -> &str {
+        &self.values.web_remote_token
     }
 
     /// Whether the playing track is published to a local Discord client.
@@ -1355,6 +1375,17 @@ impl AppSettings {
 
     pub fn set_offline_mode(&mut self, offline_mode: bool, cx: &mut Context<Self>) {
         self.values.offline_mode = offline_mode;
+        self.schedule_save(cx);
+    }
+
+    /// Turns the remote page on or off, making its secret the first time it is turned on.
+    pub fn set_web_remote(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        self.values.web_remote = enabled;
+        if enabled && self.values.web_remote_token.is_empty() {
+            self.values.web_remote_token = std::iter::repeat_with(fastrand::alphanumeric)
+                .take(TOKEN_LENGTH)
+                .collect();
+        }
         self.schedule_save(cx);
     }
 

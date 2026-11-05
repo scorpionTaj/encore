@@ -276,6 +276,7 @@ fn open_window(cx: &mut App) {
         signal: _,
         updates: _,
         wake: _,
+        web_remote: _,
     } = Encore::global(cx);
     let (session, library, playback, queue) = (
         session.clone(),

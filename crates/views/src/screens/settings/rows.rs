@@ -146,6 +146,16 @@ pub(super) fn outward(
     whole(id, title, value, "icons/external-link.svg", cx)
 }
 
+/// A row whose value is copied to the clipboard when pressed, marked with the copy icon.
+pub(super) fn copyable(
+    id: impl Into<ElementId>,
+    title: SharedString,
+    value: Option<SharedString>,
+    cx: &App,
+) -> Button {
+    whole(id, title, value, "icons/copy.svg", cx)
+}
+
 /// A row that is one button from edge to edge, ending in `trailing`. Its hover reaches a little
 /// past the column on both sides, so the label still lines up with the rows around it.
 fn whole(

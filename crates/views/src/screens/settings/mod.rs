@@ -111,6 +111,8 @@ enum Slot {
     Pace,
     Saver,
     AdaptiveMenu,
+    WebRemote,
+    WebRemoteAddress,
     Version,
     Updates,
     Log,
@@ -241,6 +243,11 @@ impl SettingsView {
         cx.observe(&playback, |_, _, cx| cx.notify()).detach();
         cx.observe(&Scan::global(cx), |this, _, cx| this.remeasure(cx))
             .detach();
+        // The remote's address appears once its port is open, after the switch is flipped.
+        cx.observe(&Encore::global(cx).web_remote.clone(), |this, _, cx| {
+            this.remeasure(cx)
+        })
+        .detach();
         let chrome = Chrome::entity(cx);
         cx.observe(&chrome, |_, _, cx| cx.notify()).detach();
         let me = cx.entity_id();
@@ -674,6 +681,11 @@ impl SettingsView {
                 t!("settings-lyrics-for-local-files-detail"),
             ),
             Slot::Discord => (t!("settings-discord"), t!("settings-discord-detail")),
+            Slot::WebRemote => (t!("settings-web-remote"), t!("settings-web-remote-detail")),
+            Slot::WebRemoteAddress => (
+                t!("settings-web-remote-address"),
+                t!("settings-web-remote-address-detail"),
+            ),
             Slot::DiscordName => (
                 t!("settings-discord-name"),
                 t!("settings-discord-name-detail"),
@@ -770,6 +782,8 @@ impl SettingsView {
             Slot::ArtworkForLocal => self.artwork_for_local_files_row(cx),
             Slot::DiscordAnonymous => self.discord_anonymous_row(cx),
             Slot::Updates => self.updates_row(cx),
+            Slot::WebRemote => self.web_remote_row(cx),
+            Slot::WebRemoteAddress => self.web_remote_address_row(cx),
             Slot::Version => self.version_row(),
             Slot::Log => self.log_row(cx),
             Slot::License => self.license_row(cx),

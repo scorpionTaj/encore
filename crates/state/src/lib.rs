@@ -37,6 +37,7 @@ mod toast;
 mod updates;
 mod wake;
 mod watch;
+mod web_remote;
 mod window_shape;
 
 pub use artist::{ArtistDetail, ArtistDetailEvent};
@@ -79,6 +80,7 @@ pub use toast::{Outcome, Target, Toast, ToastAction, Toasts};
 pub use updates::{Release, UpdateState, Updates, updates_itself};
 pub use wake::Wake;
 pub use watch::FolderWatch;
+pub use web_remote::WebRemote;
 pub use window_shape::{apply_window_rounding, install_rounded_window_hook};
 
 use std::future::Future;
@@ -203,6 +205,7 @@ pub struct Encore {
     pub signal: Entity<Signal>,
     pub updates: Entity<Updates>,
     pub wake: Entity<Wake>,
+    pub web_remote: Entity<WebRemote>,
 }
 
 impl Global for Encore {}
@@ -281,6 +284,8 @@ pub fn init(
     let updates = cx.new(|cx| Updates::new(settings.clone(), io.clone(), cx));
     let radio = cx.new(|_| Radio::new(settings.clone(), io.clone()));
     let links = cx.new(|cx| Links::new(settings.clone(), cx));
+    let web_remote =
+        cx.new(|cx| WebRemote::new(settings.clone(), playback.clone(), io.clone(), cx));
     discord::attach(
         playback.clone(),
         settings.clone(),
@@ -314,5 +319,6 @@ pub fn init(
         signal,
         updates,
         wake,
+        web_remote,
     });
 }
