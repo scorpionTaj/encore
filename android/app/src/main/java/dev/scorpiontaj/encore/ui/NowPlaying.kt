@@ -82,6 +82,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.Modifier
@@ -247,12 +251,27 @@ fun NowPlayingScreen(
                 IconButton(onClick = onClose) {
                     Icon(icon(R.drawable.ic_expand_more), stringResource(R.string.action_close))
                 }
-                Text(
-                    stringResource(R.string.now_playing),
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                )
+                // Up to six buttons share this row: on a narrow phone the title shrinks to stay on
+                // one line, and where even its smallest size would not fit, the row shows none.
+                val title = stringResource(R.string.now_playing)
+                val titleStyle = MaterialTheme.typography.titleMedium
+                val measurer = rememberTextMeasurer()
+                BoxWithConstraints(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    val fits = measurer.measure(title, titleStyle.copy(fontSize = TITLE_MIN_SP.sp), maxLines = 1)
+                        .size.width <= constraints.maxWidth
+                    if (fits) {
+                        Text(
+                            title,
+                            style = titleStyle,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            autoSize = TextAutoSize.StepBased(
+                                minFontSize = TITLE_MIN_SP.sp,
+                                maxFontSize = titleStyle.fontSize,
+                            ),
+                        )
+                    }
+                }
                 if (song != null) {
                     IconButton(onClick = { showLyrics = !showLyrics }) {
                         Icon(
@@ -349,12 +368,13 @@ fun NowPlayingScreen(
             ) { showingLyrics ->
                 when (showingLyrics) {
                     true -> LyricsView(lyrics, position, settings.lyricsScale, Modifier.fillMaxSize()) { vm.seekTo(it) }
-                    false -> Column(Modifier.fillMaxSize()) {
-                        Spacer(Modifier.weight(1f))
+                    // The cover is the largest square the space allows: a phone whose controls need
+                    // more height gets a smaller cover instead of one pushed up over the header.
+                    false -> BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        val side = minOf(maxWidth, maxHeight, COVER_MAX)
                         Box(
                             Modifier
-                                .widthIn(max = 420.dp)
-                                .fillMaxWidth()
+                                .size(side)
                                 .dragToDismiss { haptic(HapticFeedbackType.LongPress); onClose() }
                                 .swipeToTrack(
                                     onPrevious = { haptic(HapticFeedbackType.TextHandleMove); vm.previous() },
@@ -364,8 +384,8 @@ fun NowPlayingScreen(
                         ) {
                             val artworkUri = state.metadata.artworkUri?.toString()
                             when {
-                                song == null && artworkUri != null -> StationArtwork(artworkUri, size = 280.dp)
-                                else -> Artwork(song?.uri, size = androidx.compose.ui.unit.Dp.Unspecified, bitmap = state.artwork)
+                                song == null && artworkUri != null -> StationArtwork(artworkUri, size = minOf(side, STATION_MAX))
+                                else -> Artwork(song?.uri, size = side, bitmap = state.artwork)
                             }
                         }
                     }
@@ -760,3 +780,12 @@ private val MINI_RADIUS = 18.dp
 /** How strongly the mini player's subtitle and progress track show against the accent. */
 private const val MINI_MUTED = 0.8f
 private const val MINI_TRACK = 0.25f
+
+/** The largest the Now Playing cover grows, on tablets and unfolded phones. */
+private val COVER_MAX = 420.dp
+
+/** The largest a station's logo is drawn, since logos are small images. */
+private val STATION_MAX = 280.dp
+
+/** The smallest the Now Playing title shrinks to before it is cut short. */
+private const val TITLE_MIN_SP = 11
