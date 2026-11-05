@@ -1,5 +1,6 @@
 package dev.scorpiontaj.encore.library
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.database.Cursor
@@ -150,6 +151,9 @@ data class Library(
             return here == inside || here.startsWith("$inside/")
         }
 
+        // The newer columns are only asked for on the versions that have them, and a missing
+        // column reads as null, so lint's inlined-constant warning does not apply here.
+        @SuppressLint("InlinedApi")
         private fun songs(resolver: ContentResolver): List<Song> {
             val columns = buildList {
                 add(MediaStore.Audio.Media._ID)

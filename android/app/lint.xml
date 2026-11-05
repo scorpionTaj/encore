@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lint checks that do not apply to Encore, each with the reason. -->
+<lint>
+    <!-- Attributes such as the widgets' previewLayout and the manifest's localeConfig only take
+         effect on newer Android; older versions ignore them, which is what we want. -->
+    <issue id="UnusedAttribute" severity="ignore" />
+    <!-- Encore for Android ships for 64-bit ARM only, ChromeOS included. -->
+    <issue id="ChromeOsAbiSupport" severity="ignore" />
+</lint>
